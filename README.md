@@ -1,6 +1,6 @@
 ## AWS Kinesis Tap
 
-Code for an extensible windows agent that ingest log and metrics to AWS services such as Kinesis Stream, Kinesis Firehose, CloudWatch logs and CloudWatch.
+Code for an extensible windows agent that ingests logs and metrics to AWS services such as Kinesis Stream, Kinesis Firehose, CloudWatch logs and CloudWatch.
 
 ## License
 
