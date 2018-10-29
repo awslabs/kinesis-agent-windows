@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard1.3</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.CloudWatch" Version="3.3.8" />
+    <PackageReference Include="AWSSDK.CloudWatchLogs" Version="3.3.6.1" />
+    <PackageReference Include="AWSSDK.CognitoIdentity" Version="3.3.2.34" />
+    <PackageReference Include="AWSSDK.EC2" Version="3.3.63" />
+    <PackageReference Include="AWSSDK.Kinesis" Version="3.3.6.6" />
+    <PackageReference Include="AWSSDK.KinesisFirehose" Version="3.3.6.2" />
+    <PackageReference Include="AWSSDK.SecurityToken" Version="3.3.4.15" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Amazon.KinesisTap.Core\Amazon.KinesisTap.Core.csproj" />
+  </ItemGroup>
+
+</Project>

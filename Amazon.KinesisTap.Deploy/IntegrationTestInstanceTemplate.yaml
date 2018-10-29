@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  imageId:
+    Type: String
+    Default: ami-f6d8008e
+  instanceName:
+    Type: String
+  InputS3Bucket:
+    Type: String
+  InputS3Key:
+    Type: String
+  OutputS3Bucket:
+    Type: String
+  OutputS3Key:
+    Type: String
+  Stage:
+    Type: String
+    Default: Alpha
+  Debug:
+    Type: String
+    Default: false
+Metadata:
+  'AWS::CloudFormation::Designer':
+    22aea581-8641-46b5-8ad2-c0464cc967be:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 558
+        'y': 293
+      z: 0
+Resources:
+  EC2I41RSK:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: '100'
+            VolumeType: gp2
+      EbsOptimized: true
+      IamInstanceProfile: IntegrationTestInstanceRole
+      ImageId: !Ref imageId
+      InstanceInitiatedShutdownBehavior: stop
+      InstanceType: c4.xlarge
+      KeyName: IntegrationTest
+      SecurityGroupIds:
+        - sg-616c5205
+      SubnetId: subnet-445b0833
+      Tags:
+        - Key: Name
+          Value: !Ref instanceName
+      Tenancy: default
+      UserData: 
+        "Fn::Base64": !Sub |
+           <powershell>
+           Import-Module -Name AWSPowerShell -Force
+      
+           $Document = (Invoke-WebRequest -Uri 'http://169.254.169.254/latest/dynamic/instance-identity/document' -UseBasicParsing).Content | ConvertFrom-Json
+      
+           # Create the admin folder. This call works even if the folder already exists.
+           $AdminFolder = '{0}\admin' -f $env:SystemDrive
+           [System.IO.Directory]::CreateDirectory($AdminFolder)
+           
+           $ScriptBaseName = 'Userdata_DomainJoin_Test'
+           $LocalScript = Join-Path -Path $AdminFolder -ChildPath ('{0}.ps1' -f $ScriptBaseName)
+           $CatalogBaseName = 'PostJoinScriptCatalog'
+           $LocalCatalog = Join-Path -Path $AdminFolder -ChildPath ('{0}.ps1' -f $CatalogBaseName)
+           
+           if ([System.IO.File]::Exists($LocalScript)) {[System.IO.File]::Delete($LocalScript)}
+           
+           $S3Client = New-Object -TypeName Amazon.S3.AmazonS3Client -ArgumentList ([Amazon.RegionEndpoint]::GetBySystemName('us-west-2'))
+     
+           $S3Response = $S3Client.GetObject('binaries-prod',('UserdataRequirements/UserDataScripts/{0}.ps1' -f $ScriptBaseName))
+           $S3Response.WriteResponseStreamToFile($LocalScript)
+     
+           $S3Response = $S3Client.GetObject('binaries-prod',('UserdataRequirements/UserDataScripts/{0}.ps1' -f $CatalogBaseName))
+           $S3Response.WriteResponseStreamToFile($LocalCatalog)
+           
+           & $LocalScript -GroupToJoin "CorpInfraIntegrationTestServers" -PostDomainJoinScriptNames KTIntegrationTest -InputS3Bucket ${InputS3Bucket} -InputS3Key ${InputS3Key} -OutputS3Bucket ${OutputS3Bucket} -OutputS3Key ${OutputS3Key} -Stage ${Stage} -Debug ${Debug}
+           </powershell>
+           <persist>true</persist>
+
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 22aea581-8641-46b5-8ad2-c0464cc967be

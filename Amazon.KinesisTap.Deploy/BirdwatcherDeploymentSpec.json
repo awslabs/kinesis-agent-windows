@@ -1,0 +1,33 @@
+{
+  "AssumeRole": "arn:aws:iam::266928793956:role/IntegrationTestInstanceRole",
+  "TimeoutMinutes": 30,
+  "Initializations": [
+    {
+      "Name": "DownloadAndUnzipInputArtifact",
+      "Destination": "Download"
+    },
+    {
+      "Name": "DownloadAndInstallMsi",
+      "SourceUri": "https://s3.amazonaws.com/aws-cli/AWSCLI64.msi",
+      "DestinationDirectory":  "Download"
+    },
+    {
+      "Name": "DownloadAndUnzip",
+      "Path": "https://s3-us-west-2.amazonaws.com/corpinfra-codepipeline-integrationtests/KinesisTap/BirdwatcherAwsModel.zip",
+      "Destination": "Windows\\System32\\config\\systemprofile\\.aws\\models\\bwds\\2017-05-17"
+    }
+  ],
+  "Activities": [
+    {
+      "Name": "ExecuteScript",
+      "Path": "https://s3-us-west-2.amazonaws.com/corpinfra-codepipeline-integrationtests/KinesisTap/IngestToBirdwatcher.ps1",
+      "Arguments": {
+        "Path": "Download",
+        "Stage": "{{PipelineStage}}"
+      }
+    }
+  ],
+  "Cleanups": [
+  ]
+}
+    

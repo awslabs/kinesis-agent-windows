@@ -1,0 +1,52 @@
+﻿{
+  "Sources": [
+    {
+      "Id": "PerformanceCounter",
+      "SourceType": "WindowsPerformanceCounterSource",
+      "Categories": [
+        {
+          "Category": "Process",
+          "Instances": "chrome*;notepad*",
+          "Counters": [ "% Processor Time", "Working Set" ]
+        },
+        {
+          "Category": "Server",
+          "Counters": [ "Files Open", "Logon Total", "Logon/sec", "Pool Nonpaged Bytes" ]
+        },
+        {
+          "Category": "System",
+          "Counters": [ "Processes", "Processor Queue Length", "System Up Time" ]
+        },
+        {
+          "Category": "LogicalDisk",
+          "Instances": "C:",
+          "Counters": [
+            "% Free Space",
+            "Avg. Disk Queue Length",
+            {
+              "Counter": "Disk Reads/sec",
+              "Unit": "Count/Second"
+            }, //OK to mix two different types of representation
+            "Disk Writes/sec"
+          ]
+        },
+        {
+          "Category": "Network Adapter",
+          "Instances": "AWS PV*",
+          "Counters": [ "Bytes Received/sec", "Bytes Sent/sec" ]
+        }
+      ]
+    },
+    {
+      "Id": "ApplicationLog",
+      "SourceType": "WindowsEventLogSource",
+      "LogName": "Application"
+    },
+    {
+      "Id": "ApplicationLogWithEventData",
+      "SourceType": "WindowsEventLogSource",
+      "LogName": "Application",
+      "IncludeEventData": true
+    }
+  ]
+}

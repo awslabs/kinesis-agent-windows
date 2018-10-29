@@ -1,0 +1,12 @@
+{
+  "Sources": [
+    {
+      "Id": "directorySourceTest",
+      "SourceType": "DirectorySource",
+      "Directory": "C:\\Users\\testLogs1",
+      "RecordParser": "Timestamp",
+      "TimeZoneKind": "UTC",
+      "TimestampFormat": "yyyy-MM-dd HH:mm:ss.ffff"
+    }
+  ]
+}

@@ -1,0 +1,166 @@
+﻿{
+  "Sources": [
+    {
+      "Id": "InitialPositionUnspecified"
+    },
+    {
+      "Id": "InitialPositionEOS",
+      "InitialPosition": "EOS"
+    },
+    {
+      "Id": "InitialPosition0",
+      "InitialPosition": "0"
+    },
+    {
+      "Id": "InitialPosition0NoQuote",
+      "InitialPosition": 0
+    },
+    {
+      "Id": "InitialPositionBookmark",
+      "InitialPosition": "Bookmark"
+    },
+    {
+      "Id": "InitialPositionTimestamp",
+      "InitialPosition": "Timestamp",
+      "InitialPositionTimestamp": "2017-08-20 12:03:00"
+    },
+    {
+      "Id": "InitialPositionTimestampMissingTimestamp",
+      "InitialPosition": "Timestamp"
+    },
+    {
+      "Id": "InitialPositionTimestampBadTimestamp",
+      "InitialPosition": "Timestamp",
+      "InitialPositionTimestamp": "2017-0820"
+    },
+    {
+      "Id": "BadInitialPosition",
+      "InitialPosition": "Unknown"
+    },
+    {
+      "Id": "DHCPLog",
+      "SourceType": "DirectorySource",
+      "Directory": "C:\\temp",
+      "FileNameFilter": "*.log",
+      "RecordParser": "SingleLine",
+      "SkipLines": 34
+    },
+    {
+      "Id": "DHCPParsed",
+      "SourceType": "DirectorySource",
+      "Directory": "C:\\temp\\DHCP",
+      "FileNameFilter": "*.log",
+      "RecordParser": "Delimited",
+      "Delimiter": ",",
+      "HeaderPattern": "^ID.*",
+      "RecordPattern": "^\\d{2},\\d{2}/\\d{2}/\\d{2},\\d{2}:\\d{2}:\\d{2}.*",
+      "TimestampField": "{Date} {Time}",
+      "TimestampFormat": "MM/dd/yy HH:mm:ss"
+    },
+    {
+      "Id": "NPS",
+      "SourceType": "DirectorySource",
+      "Directory": "C:\\temp\\NPS",
+      "FileNameFilter": "*.log",
+      "RecordParser": "Delimited",
+      "Delimiter": ",",
+      "Headers": "ComputerName,ServiceName,Record-Date,Record-Time,Packet-Type,User-Name,Fully-Qualified-Distinguished-Name,Called-Station-ID,Calling-Station-ID,Callback-Number,Framed-IP-Address,NAS-Identifier,NAS-IP-Address,NAS-Port,Client-Vendor,Client-IP-Address,Client-Friendly-Name,Event-Timestamp,Port-Limit,NAS-Port-Type,Connect-Info,Framed-Protocol,Service-Type,Authentication-Type,Policy-Name,Reason-Code,Class,Session-Timeout,Idle-Timeout,Termination-Action,EAP-Friendly-Name,Acct-Status-Type,Acct-Delay-Time,Acct-Input-Octets,Acct-Output-Octets,Acct-Session-Id,Acct-Authentic,Acct-Session-Time,Acct-Input-Packets,Acct-Output-Packets,Acct-Terminate-Cause,Acct-Multi-Ssn-ID,Acct-Link-Count,Acct-Interim-Interval,Tunnel-Type,Tunnel-Medium-Type,Tunnel-Client-Endpt,Tunnel-Server-Endpt,Acct-Tunnel-Conn,Tunnel-Pvt-Group-ID,Tunnel-Assignment-ID,Tunnel-Preference,MS-Acct-Auth-Type,MS-Acct-EAP-Type,MS-RAS-Version,MS-RAS-Vendor,MS-CHAP-Error,MS-CHAP-Domain,MS-MPPE-Encryption-Types,MS-MPPE-Encryption-Policy,Proxy-Policy-Name,Provider-Type,Provider-Name,Remote-Server-Address,MS-RAS-Client-Name,MS-RAS-Client-Version",
+      "TimestampField": "{Record-Date} {Record-Time}",
+      "TimestampFormat": "MM/dd/yyyy HH:mm:ss"
+    },
+    {
+      "Id": "JsonLog1",
+      "SourceType": "DirectorySource",
+      "Directory": "C:\\temp\\JsonLog",
+      "FileNameFilter": "*.log",
+      "RecordParser": "SingleLineJson",
+      "TimestampField": "ul-timestamp-epoch",
+      "TimestampFormat": "epoch"
+    },
+    {
+      "Id": "JsonLog2",
+      "SourceType": "DirectorySource",
+      "Directory": "C:\\temp\\JsonLog",
+      "FileNameFilter": "*.log",
+      "RecordParser": "SingleLineJson",
+      "TimestampField": "Timestamp"
+    }
+  ],
+  "Sinks": [
+    {
+      "Id": "UnsupportedFormat",
+      "Format": "xyz"
+    },
+    {
+      "Id": "TextDecoration",
+      "TextDecoration": "{ComputerName}:::{timestamp:yyyy-MM-dd HH:mm:ss}:::{_record}"
+    },
+    {
+      "Id": "ObjectDecoration",
+      "ObjectDecoration": "ComputerName={ComputerName};DT={timestamp:yyyy-MM-dd HH:mm:ss}",
+      "Format": "json"
+    },
+    {
+      "Id": "TextDecorationWithFileName",
+      "TextDecoration": "{ComputerName}:::{_filename}:::{_position}:::{_record}"
+    },
+    {
+      "Id": "ObjectDecorationWithFileName",
+      "ObjectDecoration": "ComputerName={ComputerName};FileName={_filename};Position={_position}",
+      "Format": "json"
+    },
+    {
+      "Id": "TextDecorationLinux",
+      "TextDecoration": "{HOSTNAME}:::{timestamp:yyyy-MM-dd HH:mm:ss}:::{_record}"
+    },
+    {
+      "Id": "ObjectDecorationLinux",
+      "ObjectDecoration": "ComputerName={HOSTNAME};DT={timestamp:yyyy-MM-dd HH:mm:ss}",
+      "Format": "json"
+    },
+    {
+      "Id": "TextDecorationWithFileNameLinux",
+      "TextDecoration": "{HOSTNAME}:::{_filename}:::{_position}:::{_record}"
+    },
+    {
+      "Id": "ObjectDecorationWithFileNameLinux",
+      "ObjectDecoration": "ComputerName={HOSTNAME};FileName={_filename};Position={_position}",
+      "Format": "json"
+    },
+    {
+      "Id": "MetricsFilterSingleInstance",
+      "MetricsFilter": "*"
+    },
+    {
+      "Id": "MetricsFilterMultipleInstance",
+      "MetricsFilter": "*.*"
+    },
+    {
+      "Id": "MetricsFilterAll",
+      "MetricsFilter": "*;*.*"
+    },
+    {
+      "Id": "MetricsFilterAllErrors",
+      "MetricsFilter": "*Failed*;*Error*.*;*Failed*.*"
+    },
+    {
+      "Id": "MetricsFilterMultipleErrorsAggregated",
+      "MetricsFilter": "*Error*._Total"
+    },
+    {
+      "Id": "MetricsFilterLatestValueAggregated",
+      "MetricsFilter": "*._Total"
+    },
+    {
+      "Id": "TextDecorationLocalVariable",
+      "TextDecoration": "{$myvar2}"
+    }
+  ],
+  "Pipes": [
+    {
+      "Id": "TestPipe",
+      "Type": "RegexFilterPipe",
+      "FilterPattern": "^24,*"
+    }
+  ]
+}

@@ -1,0 +1,154 @@
+﻿using Amazon.Kinesis;
+using Amazon.Kinesis.Model;
+using Amazon.KinesisTap.Core;
+using Amazon.KinesisTap.Core.Metrics;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Linq;
+using System.Collections.Generic;
+using System.Text;
+using System.Threading.Tasks;
+using System.Diagnostics;
+
+namespace Amazon.KinesisTap.AWS
+{
+    public class KinesisStreamSink : KinesisSink<PutRecordsRequestEntry>
+    {
+        private IAmazonKinesis _kinesisClient; 
+        private string _streamName;
+
+        public KinesisStreamSink(
+            IPlugInContext context,
+            IAmazonKinesis kineisClient
+            ) : base(context, 1, 500, 5 * 1024 * 1024)
+        {
+            if (_count > 500)
+            {
+                throw new ArgumentException("The maximum buffer size for kinesis tream is 500");
+            }
+
+            //Set Defaults for 1 shard
+            if (!int.TryParse(_config[ConfigConstants.RECORDS_PER_SECOND], out _maxRecordsPerSecond))
+            {
+                _maxRecordsPerSecond = 1000;
+            }
+
+            if (!long.TryParse(_config[ConfigConstants.BYTES_PER_SECOND], out _maxBytesPerSecond))
+            {
+                _maxBytesPerSecond = 1024 * 1024;
+            }
+
+            _kinesisClient = kineisClient;
+            _streamName = ResolveVariables(_config["StreamName"]);
+
+            _throttle = new AdaptiveThrottle(
+                            new TokenBucket[]
+                            {
+                                new TokenBucket(_count, _maxRecordsPerSecond), 
+                                new TokenBucket(_maxBatchSize, _maxBytesPerSecond) 
+                            },
+                            _backoffFactor,
+                            _recoveryFactor,
+                            _minRateAdjustmentFactor);
+        }
+
+        public override void Start()
+        {
+            base.Start();
+            _metrics?.InitializeCounters(this.Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.Increment,
+                new Dictionary<string, MetricValue>()
+                {
+                    { MetricsConstants.KINESIS_STREAM_PREFIX + MetricsConstants.BYTES_ATTEMPTED, MetricValue.ZeroBytes },
+                    { MetricsConstants.KINESIS_STREAM_PREFIX + MetricsConstants.RECORDS_ATTEMPTED, MetricValue.ZeroCount },
+                    { MetricsConstants.KINESIS_STREAM_PREFIX + MetricsConstants.RECORDS_FAILED_NONRECOVERABLE, MetricValue.ZeroCount },
+                    { MetricsConstants.KINESIS_STREAM_PREFIX + MetricsConstants.RECORDS_FAILED_RECOVERABLE, MetricValue.ZeroCount },
+                    { MetricsConstants.KINESIS_STREAM_PREFIX + MetricsConstants.RECORDS_SUCCESS, MetricValue.ZeroCount },
+                    { MetricsConstants.KINESIS_STREAM_PREFIX + MetricsConstants.RECOVERABLE_SERVICE_ERRORS, MetricValue.ZeroCount },
+                    { MetricsConstants.KINESIS_STREAM_PREFIX + MetricsConstants.NONRECOVERABLE_SERVICE_ERRORS, MetricValue.ZeroCount }
+                });
+            _logger?.LogInformation($"KinesisSink id {this.Id} for StreamName {_streamName} started.");
+        }
+
+        public override void Stop()
+        {
+            base.Stop();
+            _logger?.LogInformation($"KinesisSink id {this.Id} for StreamName {_streamName} stopped.");
+        }
+
+        protected override PutRecordsRequestEntry CreateRecord(string record, IEnvelope envelope)
+        {
+            return new PutRecordsRequestEntry()
+            {
+                PartitionKey = "" + (Utility.Random.NextDouble() * 1000000),
+                Data = Utility.StringToStream(record, ConfigConstants.NEWLINE)
+            };
+        }
+
+        protected override long GetRecordSize(Envelope<PutRecordsRequestEntry> record)
+        {
+            long recordSize = record.Data.Data.Length + UTF8Encoding.UTF8.GetByteCount(record.Data.PartitionKey);
+            const long ONE_MEGABYTES = 1024 * 1024;
+            if (recordSize > ONE_MEGABYTES)
+            {
+                _recordsFailedNonrecoverable++;
+                throw new ArgumentException("The maximum record size is 1 MB. Record discarded.");
+            }
+            return recordSize;
+        }
+
+        protected override async Task OnNextAsync(List<Envelope<PutRecordsRequestEntry>> records, long batchBytes)
+        {
+            _logger?.LogDebug($"KinesisStreamSink {this.Id} sending {records.Count} records {batchBytes} bytes.");
+
+            DateTime utcNow = DateTime.UtcNow;
+            _clientLatency = (long)records.Average(r => (utcNow - r.Timestamp).TotalMilliseconds);
+
+            long elapsedMilliseconds = Utility.GetElapsedMilliseconds();
+            try
+            {
+                _recordsAttempted += records.Count;
+                _bytesAttempted += batchBytes;
+                var response = await _kinesisClient.PutRecordsAsync(new PutRecordsRequest()
+                {
+                    StreamName = _streamName,
+                    Records = records.Select(r => r.Data).ToList()
+                });
+                _throttle.SetSuccess();
+                _latency = Utility.GetElapsedMilliseconds() - elapsedMilliseconds;
+                _recordsSuccess += records.Count;
+                _logger?.LogDebug($"KinesisFirehoseSink {this.Id} succesfully sent {records.Count} records {batchBytes} bytes.");
+            }
+            catch (ProvisionedThroughputExceededException pex)
+            {
+                _latency = Utility.GetElapsedMilliseconds() - elapsedMilliseconds;
+                _throttle.SetError();
+                if (_buffer.Requeue(records, _throttle.ConsecutiveErrorCount < _maxAttempts))
+                {
+                    _recoverableServiceErrors++;
+                    _recordsFailedRecoverable += records.Count;
+                }
+                else
+                {
+                    _nonrecoverableServiceErrors++;
+                    _recordsFailedNonrecoverable += records.Count;
+                    _logger?.LogError($"KinesisSink client exception after {_throttle.ConsecutiveErrorCount} attempts: {pex}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _latency = Utility.GetElapsedMilliseconds() - elapsedMilliseconds;
+                _throttle.SetError();
+                _nonrecoverableServiceErrors++;
+                _recordsFailedNonrecoverable += records.Count;
+                _logger?.LogError($"KinesisSink client exception: {ex}");
+            }
+            PublishMetrics(MetricsConstants.KINESIS_STREAM_PREFIX);
+        }
+
+        protected override ISerializer<List<Envelope<PutRecordsRequestEntry>>> GetSerializer()
+        {
+            return AWSSerializationUtility.PutRecordsRequestEntryListBinarySerializer;
+        }
+    }
+}

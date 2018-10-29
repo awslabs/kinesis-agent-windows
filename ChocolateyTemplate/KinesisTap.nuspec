@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package>
+  <metadata>
+    <id>AWSKinesisTap</id>
+    <version>1.0.0</version>
+    <title>KinesisTap (Install)</title>
+    <authors>Amazon.com</authors>
+    <!-- projectUrl is required for the community feed -->
+    <!--<projectUrl>https://_Software_Location_REMOVE_OR_FILL_OUT_</projectUrl>-->
+    <!--<iconUrl>http://cdn.rawgit.com/__REPLACE_YOUR_REPO__/master/icons/ds2agent.png</iconUrl>-->
+    <licenseUrl>https://aws.amazon.com/apache-2-0/</licenseUrl>
+    <copyright>2017-2018 Amazon.com</copyright>
+    <tags>KinesisTap windows log agent</tags>
+    <summary>Windows log agent</summary>
+    <description>Windows log agent</description>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

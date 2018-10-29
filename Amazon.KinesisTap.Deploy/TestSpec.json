@@ -1,0 +1,47 @@
+{
+  "AssumeRole": "arn:aws:iam::266928793956:role/IntegrationTestInstanceRole",
+  "TimeoutMinutes": 90,
+  "Initializations": [
+    {
+      "Name": "DownloadAndUnzipInputArtifact",
+      "Destination": "Download"
+    },
+    {
+      "Name": "ExecuteScript",
+      "Path": "https://s3-us-west-2.amazonaws.com/corpinfra-codepipeline-integrationtests/KinesisTap/DeployKinesisTap.ps1",
+      "Arguments": {
+        "Path": "Download",
+        "Stage": "{{PipelineStage}}"
+      }
+    },
+    {
+      "Name": "DownloadAndUnzip",
+      "Path": "https://s3-us-west-2.amazonaws.com/corpinfra-codepipeline-integrationtests/KinesisTap/KinesisTapIntegrationTests.zip",
+      "Destination": "IntegrationTests"
+    }
+  ],
+  "Activities": [
+    {
+      "Name": "XUnit",
+      "Path": "IntegrationTests",
+      "Filter": "*Tests.dll",
+      "EnvironmentVariables": {
+        "PipelineName": "{{PipelineName}}"
+      }
+    }
+  ],
+  "Cleanups": [
+    {
+      "Name": "UploadLog",
+      "Path": "admin\\DeployKTLog.txt",
+      "StreamNamePrefix": "DeployKinesisTap"
+    },
+    {
+      "Name": "UploadLog",
+      "Path": "ProgramData\\Amazon\\KinesisTap\\logs",
+      "StreamNamePrefix": "KinesisTapLogs",
+      "OldestTimeSpan": "2.00:00:00"
+    }
+  ]
+}
+    
