@@ -31,7 +31,9 @@ For other installation options, visit the [Kinesis Agent for Windows download pa
 
 ## Configuring and starting Amazon Kinesis Agent for Windows
 
-Note, when we built this agent the internal name was "AWSKinesisTap" and to maintain backward compatibility this terminology stuck around within the agent's configuration.
+**Note**: During the development of Kinesis Agent for Windows, the internal name was
+"AWSKinesisTap". To maintain backward compatibility, we have maintained this terminology
+within the agent's configuration.
 
 After the Kinesis Agent for Windows is installed, the configuration file can be found in C:\Program Files\Amazon\AWSKinesisTap\appsettings.json. You need to modify this configuration file to set the data destinations and AWS credentials, and to point the agent to the data sources to push. After you complete the configuration, you can start the agent using the following command from an elevated PowerShell command prompt window:
 
