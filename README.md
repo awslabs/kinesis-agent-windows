@@ -83,9 +83,9 @@ Release 1.0.0.115 (November 6, 2018)
 [kinesis-agent-linux]: https://github.com/awslabs/amazon-kinesis-agent/
 [kinesis-agent-windows-downloads]: https://s3-us-west-2.amazonaws.com/kinesis-agent-windows/downloads/index.html
 [kinesis-agent-windows-issues]: https://github.com/awslabs/kinesis-agent-windows/issues
-[kinesis-agent-windows-user-guide]: https://docs-aws.amazon.com/kinesis-agent-windows/latest/userguide/what-is-kinesis-agent-windows.html
+[kinesis-agent-windows-user-guide]: https://docs.aws.amazon.com/kinesis-agent-windows/latest/userguide/what-is-kinesis-agent-windows.html
 [kinesis-stream]: https://aws.amazon.com/kinesis/streams/
 [kinesis-firehose]: https://aws.amazon.com/kinesis/firehose/
 [nuget]: https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
-[opt-out]: https://docs-aws.amazon.com/kinesis-agent-windows/latest/userguide/telemetrics-configuration-option.html
+[opt-out]: https://docs.aws.amazon.com/kinesis-agent-windows/latest/userguide/telemetrics-configuration-option.html
 
