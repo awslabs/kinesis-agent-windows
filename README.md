@@ -65,7 +65,7 @@ So that we can provide better support, by default, Amazon Kinesis Agent for Micr
 
 ## Building from the source code
 
-You need Visual Studio 2017 Community, Professional or Enterprise on Windows to build the project. To run and debug the project in Visual Studio, open AWSKinesisTap.sln in the project root directory. To build the package, open an elevated PowerShell command prompt, navigate to the project root directory, and run “.\build.ps1”;
+You need Visual Studio 2017 Community, Professional or Enterprise on Windows to build the project. To run and debug the project in Visual Studio, open AWSKinesisTap.sln in the project root directory. To build the nuget package, make sure you have [nuget.exe][nuget] in the path, open an elevated PowerShell command prompt, navigate to the project root directory, and run “.\build.ps1”.
 
 ## Release Notes
 
@@ -86,5 +86,6 @@ Release 1.0.0.115 (November 6, 2018)
 [kinesis-agent-windows-user-guide]: https://docs-aws.amazon.com/kinesis-agent-windows/latest/userguide/what-is-kinesis-agent-windows.html
 [kinesis-stream]: https://aws.amazon.com/kinesis/streams/
 [kinesis-firehose]: https://aws.amazon.com/kinesis/firehose/
+[nuget]: https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
 [opt-out]: https://docs-aws.amazon.com/kinesis-agent-windows/latest/userguide/telemetrics-configuration-option.html
 
