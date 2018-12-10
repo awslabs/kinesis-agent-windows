@@ -13,12 +13,11 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
-    <DotNetCliToolReference Include="dotnet-xunit" Version="2.3.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Amazon.KinesisTap.Core\Amazon.KinesisTap.Core.csproj" />
-    <ProjectReference Include="..\Amazon.KinesisTap.Uls\Amazon.KinesisTap.Uls.csproj" />
+    <ProjectReference Include="..\Amazon.KinesisTap.Expression\Amazon.KinesisTap.Expression.csproj" />
   </ItemGroup>
 
 </Project>

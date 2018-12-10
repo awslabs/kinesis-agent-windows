@@ -35,6 +35,7 @@ namespace Amazon.KinesisTap.Core
         public const string FORMAT = "Format";
         public const string TEXT_DECORATION = "TextDecoration";
         public const string OBJECT_DECORATION = "ObjectDecoration";
+        public const string OBJECT_DECORATION_EX = "ObjectDecorationEx";
         public const string RECORDS_PER_SECOND = "RecordsPerSecond";
         public const string BYTES_PER_SECOND = "BytesPerSecond";
         public const string INTERVAL = "Interval";

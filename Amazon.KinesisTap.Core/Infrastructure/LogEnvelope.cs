@@ -46,5 +46,24 @@ namespace Amazon.KinesisTap.Core
         {
             return _rawRecord;
         }
+
+        public override object ResolveMetaVariable(string variable)
+        {
+            string lowerVariable = variable.ToLower();
+
+            switch (lowerVariable)
+            {
+                case "_filepath":
+                    return this.FilePath;
+                case "_filename":
+                    return this.FileName;
+                case "_position":
+                    return this.Position;
+                case "_linenumber":
+                    return this.LineNumber;
+                default:
+                    return base.ResolveMetaVariable(variable);
+            }
+        }
     }
 }

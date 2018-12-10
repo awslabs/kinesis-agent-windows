@@ -156,10 +156,12 @@ namespace Amazon.KinesisTap.Core.Test
             Assert.Equal("myval2", sink.Records[0]);
         }
 
-        [Fact]
-        public void TestObjectDecoration()
+        [Theory]
+        [InlineData("ObjectDecoration")]
+        [InlineData("ObjectDecorationEx")]
+        public void TestObjectDecoration(string sinkId)
         {
-            string id = "ObjectDecoration" + (Utility.IsWindow ? string.Empty : TestUtility.LINUX);
+            string id = sinkId + (Utility.IsWindow ? string.Empty : TestUtility.LINUX);
             MemoryLogger logger = new MemoryLogger(null);
             MockEventSource<IDictionary<string, string>> mockEventSource = CreateEventsource<IDictionary<string, string>>("InitialPositionUnspecified");
             MockEventSink sink = CreateEventSink(id, logger);
@@ -173,10 +175,12 @@ namespace Amazon.KinesisTap.Core.Test
                 result);
         }
 
-        [Fact]
-        public void TestObjectDecorationWithFileName()
+        [Theory]
+        [InlineData("ObjectDecorationWithFileName")]
+        [InlineData("ObjectDecorationExWithFileName")]
+        public void TestObjectDecorationWithFileName(string sinkId)
         {
-            string id = "ObjectDecorationWithFileName" + (Utility.IsWindow ? string.Empty : TestUtility.LINUX);
+            string id = sinkId + (Utility.IsWindow ? string.Empty : TestUtility.LINUX);
             MemoryLogger logger = new MemoryLogger(null);
             MockEventSource<IDictionary<string, string>> mockEventSource = CreateEventsource<IDictionary<string, string>>("InitialPositionUnspecified");
             MockEventSink sink = CreateEventSink(id, logger);
@@ -193,6 +197,31 @@ namespace Amazon.KinesisTap.Core.Test
                 result);
         }
 
+        [Theory]
+        [InlineData("{ \"Message\": \"Info: MID 368937710 ICID 448324092 From: <bunny@acme.com>\" }", "From", "<bunny@acme.com>")]
+        [InlineData("{ \"Message\": \"Info: MID 118880431 ICID 198591155 RID 0 To: <tweety@acme.com>\" }", "To", "<tweety@acme.com>")]
+        [InlineData("{ \"Message\": \"Info: MID 115503592 Subject 'Cat alert!'\" }", "Subject", "'Cat alert!'")]
+        public void TestObjectDecorationWithExpression(string input, string attribute, string value)
+        {
+            MemoryLogger logger = new MemoryLogger(null);
+            MockEventSource<JObject> mockEventSource = CreateEventsource<JObject>("InitialPositionUnspecified");
+            MockEventSink sink = CreateEventSink("ObjectDecorationExWithExpression", logger);
+            mockEventSource.Subscribe(sink);
+            DateTime timestamp = DateTime.UtcNow;
+            JObject data = JObject.Parse(input);
+            mockEventSource.MockEvent(data, timestamp);
+            data.Add(attribute, value);
+            Assert.Equal(data.ToString(Formatting.None), sink.Records[0]);
+        }
+
+        [Theory]
+        [InlineData("ObjectDecorationExWithBadExpression")]
+        [InlineData("ObjectDecorationExWithBadSyntax")]
+        public void TestObjectDecorationWithBadExpression(string sinkId)
+        {
+            MemoryLogger logger = new MemoryLogger(null);
+            Assert.ThrowsAny<Exception>(() => CreateEventSink(sinkId, logger));
+        }
 
         private static MockEventSink CreateEventSink(string id, ILogger logger)
         {

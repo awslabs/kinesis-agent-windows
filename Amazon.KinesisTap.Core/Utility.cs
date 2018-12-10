@@ -75,6 +75,11 @@ namespace Amazon.KinesisTap.Core
             return VARIABLE_REGEX.Replace(value, m => evaluator(m.Groups[0].Value));
         }
 
+        public static string ResolveVariables(string value, IEnvelope envelope, Func<string, IEnvelope, object> evaluator)
+        {
+            return VARIABLE_REGEX.Replace(value, m => $"{evaluator(m.Groups[0].Value, envelope)}");
+        }
+
         /// <summary>
         /// Resolve a variable. If the variable does not have a prefix, it tries to resolve to environment variable or return the variable itself if it cannot resolve.
         /// If the variable has a prefix, it will resolve the variable if the prefix is for environment variable or return the variable for the next step.
@@ -83,19 +88,28 @@ namespace Amazon.KinesisTap.Core
         /// <returns></returns>
         public static string ResolveVariable(string variable)
         {
-            if (string.IsNullOrWhiteSpace(variable)
-                || variable.Length < 3
-                || variable[0] != '{'
-                || variable[variable.Length - 1] != '}')
+            if (variable != null && variable.StartsWith("{"))
             {
-                throw new ArgumentException("variable must be in the format of \"{variable}\" or \"{prefix:variable}\".");
+                if (variable.EndsWith("}"))
+                {
+                    variable = variable.Substring(1, variable.Length - 2);
+                }
+                else
+                {
+                    throw new ArgumentException("variable must be in the format of \"{variable}\" or \"{prefix:variable}\".");
+                }
             }
 
-            (string prefix, string variableNoPrefix) = SplitPrefix(variable.Substring(1, variable.Length - 2), ':');
+            if (string.IsNullOrWhiteSpace(variable))
+            {
+                throw new ArgumentException("Missing variable name.");
+            }
+
+            (string prefix, string variableNoPrefix) = SplitPrefix(variable, ':');
             if (!string.IsNullOrWhiteSpace(prefix) && !"env".Equals(prefix, StringComparison.CurrentCultureIgnoreCase))
             {
                 //I don't know the prefix. Return the original form to let others resolve
-                return variable;
+                return $"{{{variable}}}";
             }
 
             string value = ResolveEnvironmentVariable(variableNoPrefix);
@@ -107,7 +121,7 @@ namespace Amazon.KinesisTap.Core
             else
             {
                 //return the variable itself for the next step in the pipeline to resolve
-                return string.IsNullOrWhiteSpace(value) ? variable : value;
+                return string.IsNullOrWhiteSpace(value) ? $"{{{variable}}}" : value;
             }
         }
 

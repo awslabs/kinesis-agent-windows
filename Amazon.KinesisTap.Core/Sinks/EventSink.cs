@@ -24,13 +24,13 @@ namespace Amazon.KinesisTap.Core
 {
     public abstract class EventSink : IEventSink
     {
-        protected IPlugInContext _context;
-        protected ILogger _logger;
-        protected IConfiguration _config;
-        protected IMetrics _metrics;
-        protected string _format;
-        protected string _textDecoration;
-        protected string _objectDecoration;
+        protected readonly IPlugInContext _context;
+        protected readonly ILogger _logger;
+        protected readonly IConfiguration _config;
+        protected readonly IMetrics _metrics;
+        protected readonly string _format;
+        protected readonly string _textDecoration;
+        protected readonly IEnvelopeEvaluator<IDictionary<string, string>> _objectDecorationEvaluator;
 
         public EventSink(IPlugInContext context)
         {
@@ -41,7 +41,17 @@ namespace Amazon.KinesisTap.Core
             this.Id = _config[ConfigConstants.ID];
             _format = _config[ConfigConstants.FORMAT];
             _textDecoration = _config[ConfigConstants.TEXT_DECORATION];
-            _objectDecoration = _config[ConfigConstants.OBJECT_DECORATION];
+            string objectDecoration = _config[ConfigConstants.OBJECT_DECORATION];
+            if (!string.IsNullOrWhiteSpace(objectDecoration))
+            {
+                _objectDecorationEvaluator = new ObjectDecorationEvaluator(objectDecoration, ResolveRecordVariables);
+            }
+
+            string objectDecorationEx = _config[ConfigConstants.OBJECT_DECORATION_EX];
+            if (!string.IsNullOrWhiteSpace(objectDecorationEx))
+            {
+                _objectDecorationEvaluator = new ObjectDecorationExEvaluator(objectDecorationEx, EvaluateVariable, ResolveRecordVariable, context);
+            }
             ValidateConfig();
         }
 
@@ -79,19 +89,9 @@ namespace Amazon.KinesisTap.Core
             switch((_format ?? string.Empty).ToLower())
             {
                 case "json":
-                    if (!string.IsNullOrWhiteSpace(_objectDecoration))
+                    if (_objectDecorationEvaluator != null)
                     {
-                        IDictionary<string, string> attributes = new Dictionary<string, string>();
-                        string[] attributePairs = _objectDecoration.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
-                        foreach (var attributePair in attributePairs)
-                        {
-                            string[] keyValue = attributePair.Split('=');
-                            string value = ResolveRecordVariables(keyValue[1], string.Empty, envelope);
-                            if (!string.IsNullOrEmpty(value))
-                            {
-                                attributes.Add(keyValue[0], value);
-                            }
-                        }
+                        IDictionary<string, string> attributes = _objectDecorationEvaluator.Evaluate(envelope);
                         record = JsonUtility.DecorateJson(record, attributes);
                     }
                     break;
@@ -101,45 +101,38 @@ namespace Amazon.KinesisTap.Core
                 default:
                     if (!string.IsNullOrWhiteSpace(_textDecoration))
                     {
-                        record = ResolveRecordVariables(_textDecoration, record, envelope);
+                        record = ResolveRecordVariables(_textDecoration, envelope);
                     }
                     break;
             }
             return record;
         }
 
-        private string ResolveRecordVariables(string format, string record, IEnvelope envelope)
+        private string ResolveRecordVariables(string format, IEnvelope envelope)
         {
-            record = Utility.ResolveVariables(format, (v) =>
-            {
-                string variable = v.ToLower();
-                if (variable.Equals("{_record}"))
-                {
-                    return record;
-                }
-                if (envelope is ILogEnvelope log)
-                {
-                    switch(variable)
-                    {
-                        case "{_filepath}":
-                            return log.FilePath;
-                        case "{_filename}":
-                            return log.FileName;
-                        case "{_position}":
-                            return log.Position.ToString();
-                        case "{_linenumber}":
-                            return log.LineNumber.ToString();
-                    }
-                }
-                //Locall variable started with $
-                if (v.StartsWith("{$"))
-                {
-                    return $"{envelope.ResolveLocalVariable(v.Substring(1, v.Length - 2))}"; //Strip off {}
-                }
-                return Utility.ResolveTimestampVariable(v, envelope.Timestamp);
-            });
+            string record = Utility.ResolveVariables(format, envelope, ResolveRecordVariable);
             record = ResolveVariables(record);
             return record;
+        }
+
+        private object ResolveRecordVariable(string variable, IEnvelope envelope)
+        {
+            if (variable.StartsWith("{"))
+            {
+                variable = variable.Substring(1, variable.Length - 2);
+            }
+            
+            if (variable.StartsWith("$"))  //Local variable started with $
+            {
+                return envelope.ResolveLocalVariable(variable); 
+            }
+            else if (variable.StartsWith("_"))  //Meta variable started with _
+            {
+                return envelope.ResolveMetaVariable(variable);
+            }
+
+            //Legacy timestamp, e.g., {timestamp:yyyyMmddHHmmss}. Add the curly braces back
+            return Utility.ResolveTimestampVariable($"{{{variable}}}", envelope.Timestamp);
         }
 
         private void ValidateConfig()

@@ -60,7 +60,6 @@ namespace Amazon.KinesisTap.Core.Metrics
             if (_interval == 0)
                 _interval = defaultInterval;
 
-            _context = context;
             _flushTimer = new Timer(Flush, null, Timeout.Infinite, Timeout.Infinite);
         }
 
