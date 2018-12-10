@@ -12,7 +12,7 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
- using Amazon.KinesisTap.Core.Pipes;
+using Amazon.KinesisTap.Core.Pipes;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
