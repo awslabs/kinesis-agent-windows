@@ -20,11 +20,7 @@
   "Activities": [
     {
       "Name": "ExecuteScript",
-      "Path": "https://s3-us-west-2.amazonaws.com/corpinfra-codepipeline-integrationtests/KinesisTap/IngestToBirdwatcher.ps1",
-      "Arguments": {
-        "Path": "Download",
-        "Stage": "{{PipelineStage}}"
-      }
+      "Path": "https://s3-us-west-2.amazonaws.com/corpinfra-codepipeline-integrationtests/KinesisTap/IngestToBirdwatcher.ps1"
     }
   ],
   "Cleanups": [

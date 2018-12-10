@@ -32,7 +32,7 @@ using System.Threading.Tasks;
 
 namespace Amazon.KinesisTap.Windows
 {
-    public class EventLogSource : EventSource<EventInfo>, IBookmarkable, IDisposable
+    public class EventLogSource : DependentEventSource<EventInfo>, IBookmarkable
     {
         private readonly string _logName;
         private readonly string _query;
@@ -42,9 +42,10 @@ namespace Amazon.KinesisTap.Windows
         private EventBookmark _eventBookmark;
         private TimeSpan _latency;
         private long? _prevRecordId;
-        private readonly bool _includeEventData; 
+        private readonly bool _includeEventData;
+        private bool _isStartFromReset = false;
 
-        public EventLogSource(string logName, string query, IPlugInContext context) : base(context)
+        public EventLogSource(string logName, string query, IPlugInContext context) : base("EventLog", context)
         {
             Guard.ArgumentNotNullOrEmpty(logName, nameof(logName));
             _logName = logName;
@@ -72,14 +73,13 @@ namespace Amazon.KinesisTap.Windows
             _watcher.EventRecordWritten += OnEventRecordWritten;
         }
 
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
         public override void Start()
         {
+            if (!IsDependencyRunning())
+            {
+                Reset();
+                return;
+            }
             switch(InitialPosition)
             {
                 case InitialPositionEnum.BOS:
@@ -99,7 +99,14 @@ namespace Amazon.KinesisTap.Windows
                     }
                     break;
                 case InitialPositionEnum.EOS:
-                    CreateWatcher(false);
+                    if (_isStartFromReset && _eventBookmark != null)
+                    {
+                        CreateWatcher(true);
+                    }
+                    else
+                    {
+                        CreateWatcher(false);
+                    }
                     break;
                 default:
                     throw new NotImplementedException($"InitialPosition {InitialPosition} is not implemented.");
@@ -129,8 +136,28 @@ namespace Amazon.KinesisTap.Windows
             }
         }
 
+        /// <summary>
+        /// This method is invoked when the dependent service (EventLog) is running again.  The source
+        /// is started with a special flag indicating that we should use the saved in-memory bookmark if that 
+        /// is set.  This avoids losing data due to the EventLog service being stopped.
+        /// </summary>
+        protected override void AfterDependencyRunning()
+        {
+            try
+            {
+                _isStartFromReset = true;
+                Start();
+            }
+            finally
+            {
+                _isStartFromReset = false;
+            }
+        }
+
+
         public override void Stop()
         {
+            MaybeCancelPolling();
             if (_watcher != null)
             {
                 try
@@ -150,6 +177,58 @@ namespace Amazon.KinesisTap.Windows
                     });
                 }
             }
+        }
+
+        /// <summary>
+        /// Shutdown the watcher for this source, and invoke the base method which will wait until the service this source depends on (EventLog) is back to running state.
+        /// The base method will call AfterDependencyRunning once the dependent service is running again.
+        /// </summary>
+        public override void Reset()
+        {
+            if (_watcher != null)
+            {
+                try
+                {
+                    Task.Run(() => _watcher.Enabled = false).Wait(1000);
+                }
+                catch (Exception e)
+                {
+                    _logger.LogWarning($"Unable to disable EventLogSource watcher id {Id} logging {_logName} EventLog with query {_query}.  Errors: {GetExceptionContent(e)}");
+                }
+                try
+                {
+                    _watcher.Dispose();
+                    _watcher = null;
+                    _logger.LogInformation($"EventLogSource {Id} logging {_logName} EventLog with query {_query} stopped during reset.");
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError($"Disposal of watcher failed during reset of EventLogSource {Id} logging {_logName} with query {_query}.  Error: {e}");
+                }
+            }
+            base.Reset();
+        }
+
+        private static string GetExceptionContent(Exception e)
+        {
+            if (e is AggregateException)
+            {
+                var innerExceptions = ((AggregateException)e).InnerExceptions;
+                if (innerExceptions != null)
+                {
+                    return string.Join(", ", innerExceptions.Select((x) => GetExceptionContent(x)).ToArray());
+                }
+                else if (e.InnerException != null)
+                {
+                    return (GetExceptionContent(e.InnerException));
+                }
+                else
+                {
+                    return "Empty aggregate exception";
+                }
+            }
+
+            return e.ToString();    
         }
 
         public void LoadSavedBookmark()
@@ -198,12 +277,13 @@ namespace Amazon.KinesisTap.Windows
             return this._recordSubject.Subscribe(observer);
         }
 
-        protected virtual void Dispose(bool disposing)
+        protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
                 if (_watcher != null) _watcher.Dispose();
             }
+            base.Dispose(disposing);
         }
 
         private void OnEventRecordWritten(object sender, EventRecordWrittenEventArgs args)
@@ -212,7 +292,15 @@ namespace Amazon.KinesisTap.Windows
             {
                 if (args.EventException != null)
                 {
-                    _recordSubject.OnError(args.EventException);
+                    if (args.EventException is OperationCanceledException 
+                        || args.EventException is EventLogException)
+                    {
+                        Reset();
+                    }
+                    else
+                    {
+                        _recordSubject.OnError(args.EventException);
+                    }
                 }
                 else
                 {
@@ -224,12 +312,28 @@ namespace Amazon.KinesisTap.Windows
                     }
                 }
             }
+            catch (EventLogException ele)
+            {
+                if (ele.Message.Contains("The handle is invalid"))
+                {
+                    Reset();
+                }
+                else
+                {
+                    ProcessRecordError(ele);
+                }
+            }
             catch (Exception recordEx)
             {
-                _logger?.LogError($"EventLogSource id {this.Id} logging {_logName} EventLog with query {_query} has record error {recordEx}.");
-                _metrics?.PublishCounter(this.Id, MetricsConstants.CATEGORY_SOURCE, CounterTypeEnum.Increment,
-                    MetricsConstants.EVENTLOG_SOURCE_EVENTS_ERROR, 1, MetricUnit.Count);
+                ProcessRecordError(recordEx);
             }
+        }
+
+        private void ProcessRecordError(Exception recordEx)
+        {
+            _logger?.LogError($"EventLogSource id {this.Id} logging {_logName} EventLog with query {_query} has record error {recordEx}.");
+            _metrics?.PublishCounter(this.Id, MetricsConstants.CATEGORY_SOURCE, CounterTypeEnum.Increment,
+                MetricsConstants.EVENTLOG_SOURCE_EVENTS_ERROR, 1, MetricUnit.Count);
         }
 
         private void ProcessRecord(EventRecord eventRecord)
@@ -261,5 +365,6 @@ namespace Amazon.KinesisTap.Windows
             _metrics?.PublishCounter(this.Id, MetricsConstants.CATEGORY_SOURCE, CounterTypeEnum.Increment, 
                 MetricsConstants.EVENTLOG_SOURCE_EVENTS_READ, 1, MetricUnit.Count);
         }
+
     }
 }

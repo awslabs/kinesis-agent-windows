@@ -74,8 +74,10 @@ namespace Amazon.KinesisTap.Windows
         {
             _cancelToken = _cancelTokenSource.Token;
             _sessionName = $"KinesisTap-{Guid.NewGuid().ToString()}";
-            _session = new TraceEventSession(_sessionName, null);  //Null means create a real-time session as opposed to a file dumping session.
-            _session.StopOnDispose = true;
+            _session = new TraceEventSession(_sessionName, null)
+            {
+                StopOnDispose = true
+            };  //Null means create a real-time session as opposed to a file dumping session.
             _source = new ETWTraceEventSource(_sessionName, TraceEventSourceType.Session);
             var parser = new DynamicTraceEventParser(_source);
             parser.All += ProcessTraceEvent;

@@ -41,6 +41,7 @@ namespace Amazon.KinesisTap.Core
         private Timer _timer;
         private ISubject<IEnvelope<TData>> _recordSubject = new Subject<IEnvelope<TData>>();
         private bool _hasBookmark;
+        private readonly object _bookmarkFileLock = new object();
 
         protected bool _started;
         protected IRecordParser<TData, TContext> _recordParser;
@@ -130,16 +131,19 @@ namespace Amazon.KinesisTap.Core
 
         public void LoadSavedBookmark()
         {
-            using (var fs = new FileStream(GetBookmarkFilePath(), FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-            using (var sr = new StreamReader(fs))
+            lock (_bookmarkFileLock)
             {
-                while(!sr.EndOfStream)
+                using (var fs = new FileStream(GetBookmarkFilePath(), FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var sr = new StreamReader(fs))
                 {
-                    string line = sr.ReadLine();
-                    if (!string.IsNullOrWhiteSpace(line))
+                    while (!sr.EndOfStream)
                     {
-                        string[] parts = line.Split(',');
-                        _logFiles[Path.GetFileName(parts[0])] = _logSourceInfoFactory(parts[0], long.Parse(parts[1]));
+                        string line = sr.ReadLine();
+                        if (!string.IsNullOrWhiteSpace(line))
+                        {
+                            string[] parts = line.Split(',');
+                            _logFiles[Path.GetFileName(parts[0])] = _logSourceInfoFactory(parts[0], long.Parse(parts[1]));
+                        }
                     }
                 }
             }
@@ -147,19 +151,26 @@ namespace Amazon.KinesisTap.Core
 
         public void SaveBookmark()
         {
-            string bookmarkDir = Path.GetDirectoryName(GetBookmarkFilePath());
-            if (!Directory.Exists(bookmarkDir))
+            // We don't gather the contents of the bookmark file outside of the lock because
+            // we want to avoid a situation where two threads capture position info at slightly different times, and then they write the file out of sequence 
+            // (older collected data after newer collected data) since that would lead to out of date bookmarks recorded in the bookmark file.  In other words
+            // the gathering of position data and writing the file needs to be atomic.
+            lock (_bookmarkFileLock)
             {
-                Directory.CreateDirectory(bookmarkDir);
-            }
-            if (InitialPosition != InitialPositionEnum.EOS)
-            {
-                using (var fs = File.OpenWrite(GetBookmarkFilePath()))
-                using (var sw = new StreamWriter(fs))
+                string bookmarkDir = Path.GetDirectoryName(GetBookmarkFilePath());
+                if (!Directory.Exists(bookmarkDir))
                 {
-                    foreach (var logFile in _logFiles.Values)
+                    Directory.CreateDirectory(bookmarkDir);
+                }
+                if (InitialPosition != InitialPositionEnum.EOS)
+                {
+                    using (var fs = File.OpenWrite(GetBookmarkFilePath()))
+                    using (var sw = new StreamWriter(fs))
                     {
-                        sw.WriteLine($"{logFile.FilePath},{logFile.Position}");
+                        foreach (var logFile in _logFiles.Values)
+                        {
+                            sw.WriteLine($"{logFile.FilePath},{logFile.Position}");
+                        }
                     }
                 }
             }
@@ -191,8 +202,11 @@ namespace Amazon.KinesisTap.Core
                         _logFiles.Remove(filename);
                         break;
                     case WatcherChangeTypes.Created:
-                        _logFiles[filename] = _logSourceInfoFactory(e.FullPath, 0);
-                        AddToBuffer(filename);
+                        if (!_logFiles.ContainsKey(filename))
+                        {
+                            _logFiles[filename] = _logSourceInfoFactory(e.FullPath, 0);
+                            AddToBuffer(filename);
+                        }
                         break;
                     case WatcherChangeTypes.Changed:
                         AddToBuffer(filename);
@@ -220,7 +234,9 @@ namespace Amazon.KinesisTap.Core
                 RemoveFromBuffer(e.OldName);
                 if (_logFiles.ContainsKey(e.OldName))
                 {
-                    _logFiles[e.Name] = _logSourceInfoFactory(e.FullPath, _logFiles[e.OldName].Position);
+                    var newSourceInfo = _logSourceInfoFactory(e.FullPath, _logFiles[e.OldName].Position);
+                    newSourceInfo.LineNumber = _logFiles[e.OldName].LineNumber;
+                    _logFiles[e.Name] = newSourceInfo;
                     _logFiles.Remove(e.OldName);
                 }
                 else
@@ -314,6 +330,7 @@ namespace Amazon.KinesisTap.Core
             if (!_logFiles.TryGetValue(fileName, out TContext sourceInfo))
             {
                 sourceInfo = _logSourceInfoFactory(fullPath, 0);
+                _logFiles.Add(fileName, sourceInfo);
             }
             try
             {
