@@ -32,6 +32,13 @@ namespace Amazon.KinesisTap.Core
         /// <param name="variable">Name of the variable to resolve. Assume {} are already stripped off and starts with $.</param>
         /// <returns>Return value from evaludating the variable.</returns>
         object ResolveLocalVariable(string variable);
+
+        /// <summary>
+        /// Resolve meta variable, such _timestamp, _record
+        /// </summary>
+        /// <param name="variable"></param>
+        /// <returns></returns>
+        object ResolveMetaVariable(string variable);
     }
 
     public interface IEnvelope<out TData> : IEnvelope

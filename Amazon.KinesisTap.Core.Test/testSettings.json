@@ -96,13 +96,21 @@
       "TextDecoration": "{ComputerName}:::{timestamp:yyyy-MM-dd HH:mm:ss}:::{_record}"
     },
     {
+      "Id": "TextDecorationWithFileName",
+      "TextDecoration": "{ComputerName}:::{_filename}:::{_position}:::{_record}"
+    },
+    {
+      "Id": "TextDecorationLinux",
+      "TextDecoration": "{HOSTNAME}:::{timestamp:yyyy-MM-dd HH:mm:ss}:::{_record}"
+    },
+    {
+      "Id": "TextDecorationWithFileNameLinux",
+      "TextDecoration": "{HOSTNAME}:::{_filename}:::{_position}:::{_record}"
+    },
+    {
       "Id": "ObjectDecoration",
       "ObjectDecoration": "ComputerName={ComputerName};DT={timestamp:yyyy-MM-dd HH:mm:ss}",
       "Format": "json"
-    },
-    {
-      "Id": "TextDecorationWithFileName",
-      "TextDecoration": "{ComputerName}:::{_filename}:::{_position}:::{_record}"
     },
     {
       "Id": "ObjectDecorationWithFileName",
@@ -110,21 +118,48 @@
       "Format": "json"
     },
     {
-      "Id": "TextDecorationLinux",
-      "TextDecoration": "{HOSTNAME}:::{timestamp:yyyy-MM-dd HH:mm:ss}:::{_record}"
-    },
-    {
       "Id": "ObjectDecorationLinux",
       "ObjectDecoration": "ComputerName={HOSTNAME};DT={timestamp:yyyy-MM-dd HH:mm:ss}",
       "Format": "json"
     },
     {
-      "Id": "TextDecorationWithFileNameLinux",
-      "TextDecoration": "{HOSTNAME}:::{_filename}:::{_position}:::{_record}"
-    },
-    {
       "Id": "ObjectDecorationWithFileNameLinux",
       "ObjectDecoration": "ComputerName={HOSTNAME};FileName={_filename};Position={_position}",
+      "Format": "json"
+    },
+    {
+      "Id": "ObjectDecorationEx",
+      "ObjectDecorationEx": "ComputerName={ComputerName};DT={format(_timestamp, 'yyyy-MM-dd HH:mm:ss')}",
+      "Format": "json"
+    },
+    {
+      "Id": "ObjectDecorationExWithFileName",
+      "ObjectDecorationEx": "ComputerName={ComputerName};FileName={_filename};Position={_position}",
+      "Format": "json"
+    },
+    {
+      "Id": "ObjectDecorationExLinux",
+      "ObjectDecorationEx": "ComputerName={HOSTNAME};DT={format(_timestamp, 'yyyy-MM-dd HH:mm:ss')}",
+      "Format": "json"
+    },
+    {
+      "Id": "ObjectDecorationExWithFileNameLinux",
+      "ObjectDecorationEx": "ComputerName={HOSTNAME};FileName={_filename};Position={_position}",
+      "Format": "json"
+    },
+    {
+      "Id": "ObjectDecorationExWithExpression",
+      "ObjectDecorationEx": "From={regexp_extract($Message, 'From: (\\\\S+)', 1)};To={regexp_extract($Message, 'To: (\\\\S+)', 1)};Subject={regexp_extract($Message, 'Subject (.+)', 1)}",
+      "Format": "json"
+    },
+    {
+      "Id": "ObjectDecorationExWithBadExpression",
+      "ObjectDecorationEx": "From={regexp_etract($Message, 'From: (\\\\S+)', 1)};To={regexp_extract($Message, 'To: (\\\\S+)', 1)};Subject={regexp_extract($Message, 'Subject (.+)', 1)}",
+      "Format": "json"
+    },
+    {
+      "Id": "ObjectDecorationExWithBadSyntax",
+      "ObjectDecorationEx": "From={regexp_extract($Message, 'From: (\\\\S+)', 1)};To={regexp_extract($Message, 'To: (\\\\S+)', 1)};Subject={regexp_extract($Message, 'Subject (.+)', 1}",
       "Format": "json"
     },
     {

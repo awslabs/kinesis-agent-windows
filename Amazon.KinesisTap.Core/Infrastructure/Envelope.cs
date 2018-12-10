@@ -81,9 +81,13 @@ namespace Amazon.KinesisTap.Core
             }
             else if (_data is IDictionary<string, JToken> jObject)
             {
-                if (jObject.TryGetValue(variable, out JToken value))
+                if (jObject.TryGetValue(variable, out JToken jToken))
                 {
-                    return value;
+                    if (jToken is JValue jValue)
+                    {
+                        return jValue.Value;
+                    }
+                    return jToken;
                 }
             }
             else
@@ -93,6 +97,19 @@ namespace Amazon.KinesisTap.Core
                 {
                     return prop.GetValue(_data);
                 }
+            }
+            return null;
+        }
+
+        public virtual object ResolveMetaVariable(string variable)
+        {
+            string lowerVariable = variable.ToLower();
+            switch (lowerVariable)
+            {
+                case "_record":
+                    return this.GetMessage(string.Empty);
+                case "_timestamp":
+                    return this.Timestamp;
             }
             return null;
         }
@@ -123,5 +140,6 @@ namespace Amazon.KinesisTap.Core
             //todo: cache the XmlSerializer instead of create one every time
             return new XmlSerializer(t);
         }
+
     }
 }
