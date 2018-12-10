@@ -12,7 +12,7 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
- using Amazon.Kinesis;
+using Amazon.Kinesis;
 using Amazon.Kinesis.Model;
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Core.Metrics;

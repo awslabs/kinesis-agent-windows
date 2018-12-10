@@ -12,7 +12,7 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
- //This class requires .net standard 1.5. We are trying to move the requirement down to .net standard 1.3
+//This class requires .net standard 1.5. We are trying to move the requirement down to .net standard 1.3
 /*
 using System;
 using System.Collections.Generic;
