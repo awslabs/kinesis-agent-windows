@@ -166,13 +166,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CategoryInfo.cs" />
-    <Compile Include="DependentEventSource.cs" />
     <Compile Include="EtwEvent.cs" />
     <Compile Include="EtwEventEnvelope.cs" />
     <Compile Include="EtwEventSource.cs" />
     <Compile Include="EventInfo.cs" />
     <Compile Include="EventLogSource.cs" />
     <Compile Include="PerformanceCounterSourceConfigLoader.cs" />
+    <Compile Include="ServiceDependency.cs" />
     <Compile Include="WindowsSourceFactory.cs" />
     <Compile Include="EventRecordEnvelope.cs" />
     <Compile Include="PerformanceCounterSink.cs" />

@@ -45,7 +45,7 @@ namespace Amazon.KinesisTap.Windows
         private readonly bool _includeEventData;
         private bool _isStartFromReset = false;
 
-        public EventLogSource(string logName, string query, IPlugInContext context) : base("EventLog", context)
+        public EventLogSource(string logName, string query, IPlugInContext context) : base(new ServiceDependency("EventLog"), context)
         {
             Guard.ArgumentNotNullOrEmpty(logName, nameof(logName));
             _logName = logName;
@@ -75,7 +75,7 @@ namespace Amazon.KinesisTap.Windows
 
         public override void Start()
         {
-            if (!IsDependencyRunning())
+            if (!_dependency.IsDependencyAvailable())
             {
                 Reset();
                 return;
@@ -141,7 +141,7 @@ namespace Amazon.KinesisTap.Windows
         /// is started with a special flag indicating that we should use the saved in-memory bookmark if that 
         /// is set.  This avoids losing data due to the EventLog service being stopped.
         /// </summary>
-        protected override void AfterDependencyRunning()
+        protected override void AfterDependencyAvailable()
         {
             try
             {
@@ -187,23 +187,24 @@ namespace Amazon.KinesisTap.Windows
         {
             if (_watcher != null)
             {
+                _logger?.LogWarning($"Resetting EventLogSource id {this.Id}.");
                 try
                 {
                     Task.Run(() => _watcher.Enabled = false).Wait(1000);
                 }
                 catch (Exception e)
                 {
-                    _logger.LogWarning($"Unable to disable EventLogSource watcher id {Id} logging {_logName} EventLog with query {_query}.  Errors: {GetExceptionContent(e)}");
+                    _logger?.LogWarning($"Unable to disable EventLogSource watcher id {this.Id} logging {_logName} EventLog with query {_query}.  Errors: {GetExceptionContent(e)}");
                 }
                 try
                 {
                     _watcher.Dispose();
                     _watcher = null;
-                    _logger.LogInformation($"EventLogSource {Id} logging {_logName} EventLog with query {_query} stopped during reset.");
+                    _logger?.LogInformation($"EventLogSource {this.Id} logging {_logName} EventLog with query {_query} stopped during reset.");
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError($"Disposal of watcher failed during reset of EventLogSource {Id} logging {_logName} with query {_query}.  Error: {e}");
+                    _logger?.LogError($"Disposal of watcher failed during reset of EventLogSource {this.Id} logging {_logName} with query {_query}.  Error: {e}");
                 }
             }
             base.Reset();
@@ -242,7 +243,7 @@ namespace Amazon.KinesisTap.Windows
                 }
                 catch(Exception ex)
                 {
-                    _logger.LogError($"Eventlog Source {Id} unable to load bookmark: {ex.ToString()}");
+                    _logger?.LogError($"Eventlog Source {Id} unable to load bookmark: {ex.ToString()}");
                 }
             }
         }
@@ -265,7 +266,7 @@ namespace Amazon.KinesisTap.Windows
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError($"Eventlog Source {Id} unable to save bookmark: {ex.ToString()}");
+                    _logger?.LogError($"Eventlog Source {Id} unable to save bookmark: {ex.ToString()}");
                 }
             }
         }
