@@ -12,18 +12,14 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-using Amazon.KinesisTap.Expression.Ast;
-
-namespace Amazon.KinesisTap.Expression.ObjectDecoration
+namespace Amazon.KinesisTap.DiagnosticTool.Core 
 {
-    public interface IObjectDecorationAstVisitor<in TData, out Result> : IAstVisitor<TData, Result>
+    /// <summary>
+    /// The interface for Diagnostic tool command
+    /// </summary>
+    public interface ICommand
     {
-        Result VisitObjectDecoration(NodeList<KeyValuePairNode> nodeList, TData data);
+        int ParseAndRunArgument(string[] args);
 
-        Result VisitKeyValuePairNode(KeyValuePairNode keyValuePairNode, TData data);
     }
 }

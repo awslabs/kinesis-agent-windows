@@ -108,6 +108,34 @@
       "TextDecoration": "{HOSTNAME}:::{_filename}:::{_position}:::{_record}"
     },
     {
+      "Id": "TextDecorationLocalVariable",
+      "TextDecoration": "{$myvar2}"
+    },
+    {
+      "Id": "TextDecorationEx",
+      "TextDecorationEx": "{ComputerName}:::{format(_timestamp, 'yyyy-MM-dd HH:mm:ss')}:::{_record}"
+    },
+    {
+      "Id": "TextDecorationExWithFileName",
+      "TextDecorationEx": "{ComputerName}:::{_filename}:::{_position}:::{_record}"
+    },
+    {
+      "Id": "TextDecorationExLinux",
+      "TextDecorationEx": "{HOSTNAME}:::{format(_timestamp, 'yyyy-MM-dd HH:mm:ss')}:::{_record}"
+    },
+    {
+      "Id": "TextDecorationExWithFileNameLinux",
+      "TextDecorationEx": "{HOSTNAME}:::{_filename}:::{_position}:::{_record}"
+    },
+    {
+      "Id": "TextDecorationExLocalVariable",
+      "TextDecorationEx": "{$myvar2}"
+    },
+    {
+      "Id": "TextDecorationExJson",
+      "TextDecorationEx": "@{ \"var\": \"{upper($myvar1)}\" }"
+    },
+    {
       "Id": "ObjectDecoration",
       "ObjectDecoration": "ComputerName={ComputerName};DT={timestamp:yyyy-MM-dd HH:mm:ss}",
       "Format": "json"
@@ -185,10 +213,6 @@
     {
       "Id": "MetricsFilterLatestValueAggregated",
       "MetricsFilter": "*._Total"
-    },
-    {
-      "Id": "TextDecorationLocalVariable",
-      "TextDecoration": "{$myvar2}"
     }
   ],
   "Pipes": [

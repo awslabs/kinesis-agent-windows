@@ -12,12 +12,15 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Amazon.KinesisTap.Expression.Binder;
-using Amazon.KinesisTap.Expression.ObjectDecoration;
 using System;
 using System.Collections.Generic;
 using System.Text;
+
 using Xunit;
+
+using Amazon.KinesisTap.Expression.Ast;
+using Amazon.KinesisTap.Expression.Binder;
+using Amazon.KinesisTap.Expression.ObjectDecoration;
 
 namespace Amazon.KinesisTap.Expression.Test
 {
@@ -28,8 +31,8 @@ namespace Amazon.KinesisTap.Expression.Test
         public ObjectDecorationValueEvaluatorTest()
         {
             FunctionBinder binder = new FunctionBinder(new Type[] { typeof(BuiltInFunctions) });
-            ObjectDecorationEvaluationContext<object> context = new ObjectDecorationEvaluationContext<object>(
-                GetGlobalVariable, GetLocalVariable, binder, null);
+            ExpressionEvaluationContext<object> context = new ExpressionEvaluationContext<object>(
+                VariableMock.GetGlobalVariable, VariableMock.GetLocalVariable, binder, null);
             _evaluator = new ObjectDecorationInterpreter<object>(context);
         }
 
@@ -65,6 +68,7 @@ namespace Amazon.KinesisTap.Expression.Test
         [InlineData("{substr($b, '2')}", "")]
         [InlineData("{substr($b, parse_int('2'))}", "ello")]
         [InlineData("{coalesce(null, 'a')}", "a")]
+        [InlineData("a{'b'}c", "abc")]
         public void TestObjectDecorationValueEvaluator(string value, string expected)
         {
             var tree = ObjectDecorationParserFacade.ParseObjectDecorationValue(value);
@@ -72,32 +76,5 @@ namespace Amazon.KinesisTap.Expression.Test
             Assert.Equal(expected, actual);
         }
 
-        private static string GetGlobalVariable(string variableName)
-        {
-            switch(variableName)
-            {
-                case "a":
-                    return "gav";
-                case "b":
-                    return "gbv";
-                default:
-                    return null;
-            }
-        }
-
-        private static object GetLocalVariable(string variableName, object data)
-        {
-            switch (variableName)
-            {
-                case "$a":
-                    return 9;
-                case "$b":
-                    return "hello";
-                case "$c":
-                    return 1.24d;
-                default:
-                    return null;
-            }
-        }
     }
 }

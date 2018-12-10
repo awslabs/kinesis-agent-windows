@@ -21,12 +21,12 @@ namespace Amazon.KinesisTap.Core
     public class ObjectDecorationEvaluator : IEnvelopeEvaluator<IDictionary<string, string>>
     {
         private string _objectDecoration;
-        private Func<string, IEnvelope, string> _evaluateVariable;
+        private Func<string, IEnvelope, string> _evaluateVariables;
 
-        public ObjectDecorationEvaluator(string objectDecoration, Func<string, IEnvelope, string> evaluateVariable)
+        public ObjectDecorationEvaluator(string objectDecoration, Func<string, IEnvelope, string> evaluateVariables)
         {
             _objectDecoration = objectDecoration;
-            _evaluateVariable = evaluateVariable;
+            _evaluateVariables = evaluateVariables;
         }
 
         public IDictionary<string, string> Evaluate(IEnvelope envelope)
@@ -36,7 +36,7 @@ namespace Amazon.KinesisTap.Core
             foreach (var attributePair in attributePairs)
             {
                 string[] keyValue = attributePair.Split('=');
-                string value = _evaluateVariable(keyValue[1], envelope);
+                string value = _evaluateVariables(keyValue[1], envelope);
                 if (!string.IsNullOrEmpty(value))
                 {
                     attributes.Add(keyValue[0], value);

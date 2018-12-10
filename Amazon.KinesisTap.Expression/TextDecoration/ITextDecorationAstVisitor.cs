@@ -18,12 +18,10 @@ using System.Text;
 
 using Amazon.KinesisTap.Expression.Ast;
 
-namespace Amazon.KinesisTap.Expression.ObjectDecoration
+namespace Amazon.KinesisTap.Expression.TextDecoration
 {
-    public interface IObjectDecorationAstVisitor<in TData, out Result> : IAstVisitor<TData, Result>
+    public interface ITextDecorationAstVisitor<in TData, out Result> : IAstVisitor<TData, Result>
     {
-        Result VisitObjectDecoration(NodeList<KeyValuePairNode> nodeList, TData data);
-
-        Result VisitKeyValuePairNode(KeyValuePairNode keyValuePairNode, TData data);
+        Result VisitTextDecoration(NodeList<Node> nodeList, TData data);
     }
 }

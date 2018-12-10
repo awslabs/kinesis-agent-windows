@@ -20,31 +20,45 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Schema;
 using Newtonsoft.Json.Linq;
 using System.Globalization;
-using Amazon.KinesisTap.Core.Metrics;
-using Amazon.KinesisTap.Windows;
-using Amazon.KinesisTap.Core;
-using Microsoft.Extensions.Logging.Abstractions;
 using System.Linq;
-using System.Diagnostics;
 
-namespace Amazon.KinesisTap.DiagnosticTool
+namespace Amazon.KinesisTap.DiagnosticTool.Core
 {
+    /// <summary>
+    /// The configuration file validator
+    /// </summary>
     public class ConfigValidator
     {
 
         private readonly JSchema _schema;
+        private IDictionary<String, ISourceValidator> _sourceValidators;
+        private Func<String, String, IConfigurationRoot> _loadConfigFile;
+        private readonly HashSet<String> _initialPositions = new HashSet<String>() { "timestamp", "eos", "0", "bookmark" };
 
-        public ConfigValidator(string schemaBaseDirectory)
+        /// <summary>
+        /// Configuration validator constructor
+        /// </summary>
+        /// <param name="schemaBaseDirectory"></param>
+        /// <param name="sourceValidators"></param>
+        /// <param name="loadConfigFile"></param>
+        public ConfigValidator(string schemaBaseDirectory, IDictionary<String, ISourceValidator> sourceValidators, Func<string, string, IConfigurationRoot> loadConfigFile)
         {
+            this._sourceValidators = sourceValidators;
+            this._loadConfigFile = loadConfigFile;
 
             using (StreamReader schemaReader = File.OpenText(Path.Combine(schemaBaseDirectory, Constant.CONFIG_SCHEMA_FILE)))
             using (JsonTextReader jsonReader = new JsonTextReader(schemaReader))
             {
                 _schema = JSchema.Load(jsonReader);
             }
- 
         }
 
+        /// <summary>
+        /// Validate the configuration file against the schema
+        /// </summary>
+        /// <param name="configPath"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
         public bool ValidateSchema(string configPath, out IList<string> messages)
         {
             // Split the path by the Directory Separator
@@ -54,12 +68,27 @@ namespace Amazon.KinesisTap.DiagnosticTool
             return ValidateSchema(configBaseDirectory, configFile, out messages);
         }
 
+        /// <summary>
+        /// Validate the configuration file against the schema
+        /// </summary>
+        /// <param name="configBaseDirectory"></param>
+        /// <param name="configFile"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
         public bool ValidateSchema(string configBaseDirectory, string configFile, out IList<string> messages)
         {
-            IConfigurationRoot config = LoadConfigFile(configBaseDirectory, configFile);
+            IConfigurationRoot config = this._loadConfigFile(configBaseDirectory, configFile);
             return ValidateSchema(configBaseDirectory, configFile, config, out messages);
         }
 
+        /// <summary>
+        /// Validate the configuration file against the schema
+        /// </summary>
+        /// <param name="configBaseDirectory"></param>
+        /// <param name="configFile"></param>
+        /// <param name="config"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
         public bool ValidateSchema(string configBaseDirectory, string configFile, IConfigurationRoot config, out IList<string> messages)
         {
             IDictionary<String, String> sources = new Dictionary<String, String>();
@@ -78,11 +107,17 @@ namespace Amazon.KinesisTap.DiagnosticTool
             }
         }
 
+        /// <summary>
+        /// Load the source
+        /// </summary>
+        /// <param name="sources"></param>
+        /// <param name="config"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
         private bool LoadSources(IDictionary<String, String> sources, IConfigurationRoot config, IList<string> messages)
         {
             var sourcesSection = config.GetSection("Sources");
             var sourceSections = sourcesSection.GetChildren();
-            var performanceCounterCategories = PerformanceCounterCategory.GetCategories();
 
             foreach (var sourceSection in sourceSections)
             {
@@ -90,95 +125,64 @@ namespace Amazon.KinesisTap.DiagnosticTool
                 string sourceType = sourceSection["SourceType"];
                 string initialPosition = sourceSection["InitialPosition"];
 
+                ISourceValidator sourceValidator;
                 if (sourceType.Equals("DirectorySource"))
                 {
-                    string recordParser = sourceSection["RecordParser"];
-
-                    if (recordParser.Equals("TimeStamp"))
+                    if (_sourceValidators.TryGetValue("DirectorySource", out sourceValidator))
                     {
-                        string timestampFormat = sourceSection["TimestampFormat"];
-                        if (string.IsNullOrEmpty(timestampFormat))
+                        if (!sourceValidator.ValidateSource(sourceSection, id, messages))
                         {
-                            messages.Add($"Attribute 'TimestampFormat' is required in source ID: {id}.");
-                            return false;
-                        }
-                    }
-                    else if (recordParser.Equals("Regex"))
-                    {
-                        string pattern = sourceSection["Pattern"];
-                        if (string.IsNullOrEmpty(pattern))
-                        {
-                            messages.Add($"Attribute 'Pattern' is required in source ID: {id}.");
-                            return false;
-                        }
-
-                        string timestampFormat = sourceSection["TimestampFormat"];
-                        if (string.IsNullOrEmpty(timestampFormat))
-                        {
-                            messages.Add($"Attribute 'TimestampFormat' is required in source ID: {id}.");
-                            return false;
-                        }
-                    }
-                    else if (recordParser.Equals("Delimited"))
-                    {
-                        string delimiter = sourceSection["Delimiter"];
-                        string timestampField = sourceSection["TimestampField"];
-                        string timestampFormat = sourceSection["TimestampFormat"];
-
-                        if (string.IsNullOrEmpty(delimiter))
-                        {
-                            messages.Add($"Attribute 'Delimiter' is required in source ID: {id}.");
-                            return false;
-                        }
-
-                        if (string.IsNullOrEmpty(timestampField))
-                        {
-                            messages.Add($"Attribute 'TimestampField' is required in source ID: {id}.");
-                            return false;
-                        }
-
-                        if (string.IsNullOrEmpty(timestampFormat))
-                        {
-                            messages.Add($"Attribute 'TimestampFormat' is required in source ID: {id}.");
                             return false;
                         }
                     }
                 }
                 else if (sourceType.Equals("WindowsEventLogSource"))
                 {
-                    string logName = sourceSection["LogName"];
-                    EventLogValidator eventLogValidator = new EventLogValidator();
-                    if (!eventLogValidator.ValidateLogName(logName, messages))
+                    if (_sourceValidators.TryGetValue("WindowsEventLogSource", out sourceValidator))
                     {
-                        return false;
+                        if (!sourceValidator.ValidateSource(sourceSection, id, messages))
+                        {
+                            return false;
+                        }
                     }
                 }
                 else if (sourceType.Equals("WindowsPerformanceCounterSource"))
                 {
-                    var categoriesSection = sourceSection.GetSection("Categories");
-                    var validator = new PerformanceCounterValidator(categoriesSection, performanceCounterCategories);
-                    if (!validator.ValidateSource(messages))
+                    if (_sourceValidators.TryGetValue("WindowsPerformanceCounterSource", out sourceValidator))
                     {
-                        return false;
+                        if (!sourceValidator.ValidateSource(sourceSection, id, messages))
+                        {
+                            return false;
+                        }
                     }
                 }
 
-                if (!string.IsNullOrEmpty(initialPosition) && initialPosition.Equals("Timestamp"))
+                if (!string.IsNullOrEmpty(initialPosition))
                 {
-                    string initialPositionTimestamp = sourceSection["InitialPositionTimestamp"];
-                    if (string.IsNullOrEmpty(initialPositionTimestamp))
+                    initialPosition = initialPosition.ToLower();
+                    if (!this._initialPositions.Contains(initialPosition))
                     {
-                        messages.Add($"InitialPositionTimestamp required in source ID: {id}.");
+                        messages.Add($"{initialPosition} is not a valid InitialPosition in source ID: {id}.");
                         return false;
                     }
-                    else
+
+                    if (initialPosition.Equals("timestamp"))
                     {
-                        string timestampFormat = "yyyy-MM-dd HH:mm:ss.ffff";
-                        if(!DateTime.TryParseExact(initialPositionTimestamp, timestampFormat, new CultureInfo("en-US"),
-                            DateTimeStyles.None, out DateTime expectedDate))
+                        string initialPositionTimestamp = sourceSection["InitialPositionTimestamp"];
+                        if (string.IsNullOrEmpty(initialPositionTimestamp))
                         {
-                            messages.Add($"Timestamp doesn't match the DateTime format: {timestampFormat} in source {id}.");
+                            messages.Add($"InitialPosition 'Timestamp' is required in source ID: {id}.");
                             return false;
+                        }
+                        else
+                        {
+                            string timestampFormat = "yyyy-MM-dd HH:mm:ss.ffff";
+                            if (!DateTime.TryParseExact(initialPositionTimestamp, timestampFormat, new CultureInfo("en-US"),
+                                DateTimeStyles.None, out DateTime expectedDate))
+                            {
+                                messages.Add($"Timestamp doesn't match the DateTime format: {timestampFormat} in source {id}.");
+                                return false;
+                            }
                         }
                     }
                 }
@@ -189,6 +193,13 @@ namespace Amazon.KinesisTap.DiagnosticTool
             return true;
         }
 
+        /// <summary>
+        /// Load the sinks
+        /// </summary>
+        /// <param name="sinks"></param>
+        /// <param name="config"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
         private bool LoadSinks(IDictionary<String, String> sinks, IConfigurationRoot config, IList<string> messages)
         {
             HashSet<String> credentialIDs = new HashSet<String>();
@@ -216,7 +227,12 @@ namespace Amazon.KinesisTap.DiagnosticTool
 
             return true;
         }
-        
+
+        /// <summary>
+        /// Load the credentials
+        /// </summary>
+        /// <param name="credentialIDs"></param>
+        /// <param name="config"></param>
         private void LoadCredentials(HashSet<String> credentialIDs, IConfigurationRoot config)
         {
             var credendialsSection = config.GetSection("Credentials");
@@ -229,6 +245,14 @@ namespace Amazon.KinesisTap.DiagnosticTool
             }
         }
 
+        /// <summary>
+        /// Check the pipes
+        /// </summary>
+        /// <param name="sources"></param>
+        /// <param name="sinks"></param>
+        /// <param name="config"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
         private bool CheckPipes(IDictionary<String, String> sources, IDictionary<String, String> sinks, IConfigurationRoot config, IList<string> messages)
         {
             var pipesSection = config.GetSection("Pipes");
@@ -270,25 +294,10 @@ namespace Amazon.KinesisTap.DiagnosticTool
                         return false;
                     }
                 }
-                
+
             }
 
             return true;
-        }
-
-        public static IConfigurationRoot LoadConfigFile(string configBaseDirectory, string configFile)
-        {
-
-            ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
-
-            IConfigurationRoot config;
-
-            config = configurationBuilder
-                .SetBasePath(configBaseDirectory)
-                .AddJsonFile(configFile, optional: false, reloadOnChange: true)
-                .Build();
-
-            return config;
         }
     }
 }

@@ -13,14 +13,14 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
-namespace Amazon.KinesisTap.DiagnosticTool
+namespace Amazon.KinesisTap.DiagnosticTool.Core
 {
+    /// <summary>
+    /// Class for LogSimulator
+    /// </summary>
     public abstract class LogSimulator : IDisposable
     {
         protected Timer _timer;
@@ -31,7 +31,13 @@ namespace Amazon.KinesisTap.DiagnosticTool
         private const int MIN_SIZE = 86;
         private const int MIN_BATCH_SIZE = 1;
 
-        internal LogSimulator(int interval, int size, int batchSize)
+        /// <summary>
+        /// LogSimulator constructor
+        /// </summary>
+        /// <param name="interval"></param>
+        /// <param name="size"></param>
+        /// <param name="batchSize"></param>
+        public LogSimulator(int interval, int size, int batchSize)
         {
             _interval = interval;
             _size = size;
@@ -39,16 +45,27 @@ namespace Amazon.KinesisTap.DiagnosticTool
             _timer = new Timer(OnTimer, null, Timeout.Infinite, Timeout.Infinite);
         }
 
+        /// <summary>
+        /// LogSimulator change event
+        /// </summary>
         public void Start()
         {
             _timer.Change(0, _interval);
         }
 
+        /// <summary>
+        /// LogSimulator stop event
+        /// </summary>
         public void Stop()
         {
             _timer.Change(Timeout.Infinite, Timeout.Infinite);
         }
 
+        /// <summary>
+        /// Generate random string
+        /// </summary>
+        /// <param name="length"></param>
+        /// <returns></returns>
         public static string RandomString(int length)
         {
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789,. ";
@@ -78,6 +95,10 @@ namespace Amazon.KinesisTap.DiagnosticTool
 
         protected abstract void WriteLog(string v);
 
+        /// <summary>
+        /// Parse option values
+        /// </summary>
+        /// <param name="args"></param>
         protected void ParseOptionValues(string[] args)
         {
             var options = args.Where(s => s.StartsWith("-"));

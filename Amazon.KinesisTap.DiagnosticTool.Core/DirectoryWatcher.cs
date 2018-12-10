@@ -13,15 +13,14 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
-namespace Amazon.KinesisTap.DiagnosticTool
+namespace Amazon.KinesisTap.DiagnosticTool.Core
 {
+    /// <summary>
+    /// The class for Directory watcher
+    /// </summary>
     public class DirectoryWatcher : IDisposable
     {
         private readonly string _directory;
@@ -31,6 +30,12 @@ namespace Amazon.KinesisTap.DiagnosticTool
         TextWriter _writer;
         Timer _timer;
 
+        /// <summary>
+        /// Directory Watcher constructor
+        /// </summary>
+        /// <param name="directory"></param>
+        /// <param name="filter"></param>
+        /// <param name="writer"></param>
         public DirectoryWatcher(string directory, string filter, TextWriter writer)
         {
             _directory = directory;
@@ -52,11 +57,21 @@ namespace Amazon.KinesisTap.DiagnosticTool
             _watcher.EnableRaisingEvents = true;
         }
 
+        /// <summary>
+        /// Print out message if there is remaning in the current directory
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void OnRenamed(object sender, RenamedEventArgs e)
         {
             _writer.WriteLine("File: {0} renamed to {1}", e.OldFullPath, e.FullPath);
         }
 
+        /// <summary>
+        /// Print out message if there is any file changed in the current directory
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void OnChanged(object sender, FileSystemEventArgs e)
         {
             _writer.WriteLine($"File: {e.FullPath} ChangeType: {e.ChangeType}");

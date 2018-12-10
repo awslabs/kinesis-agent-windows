@@ -97,6 +97,13 @@ Copy-Item "$diagReleaseDir\log4net.dll" "$releaseDir"
 Write-Verbose 'Copying Newtonsoft.Json.Schema.dll to bin\release'
 Copy-Item "$diagReleaseDir\Newtonsoft.Json.Schema.dll" "$releaseDir"
 
+Write-Verbose 'Copying System.Console.dll to bin\release'
+Copy-Item "$diagReleaseDir\System.Console.dll" "$releaseDir"
+
+$diagCoreDir = Join-Path -Path $PSScriptRoot -ChildPath "Amazon.KinesisTap.DiagnosticTool.Core\bin\Release\netstandard1.3\"
+Write-Verbose 'Copying Amazon.KinesisTap.DiagnosticTool.Core.??? and .pdb to bin\release'
+Copy-Item "$diagCoreDir\Amazon.KinesisTap.DiagnosticTool.Core.???" "$releaseDir" 
+
 Copy-Item "$projDir\Nlog.xml" "$releaseDir"
 Copy-Item "$projDir\appsettingsTemplate.json" "$releaseDir\appsettings.json"
 

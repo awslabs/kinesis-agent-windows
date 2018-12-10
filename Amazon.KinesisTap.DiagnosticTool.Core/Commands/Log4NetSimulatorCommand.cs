@@ -13,16 +13,19 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Amazon.KinesisTap.DiagnosticTool
+namespace Amazon.KinesisTap.DiagnosticTool.Core
 {
-    class Log4NetSimulatorCommand : ICommand
+    /// <summary>
+    /// The class for simulating Log4net command
+    /// </summary>
+    public class Log4NetSimulatorCommand : ICommand
     {
- 
+        /// <summary>
+        /// Parse and run the command
+        /// </summary>
+        /// <param name="args"></param>
+        /// <returns></returns>
         public int ParseAndRunArgument(string[] args)
         {
             if (args.Length < 2)
@@ -38,7 +41,10 @@ namespace Amazon.KinesisTap.DiagnosticTool
             return Constant.NORMAL;
         }
 
-        public void WriteUsage()
+        /// <summary>
+        /// Print Log4Net simulator usage
+        /// </summary>
+        public static void WriteUsage()
         {
             Console.WriteLine("Simulate log4net writing:");
             Console.WriteLine();

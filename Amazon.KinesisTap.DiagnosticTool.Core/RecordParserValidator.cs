@@ -17,25 +17,47 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Amazon.KinesisTap.Core;
 
-namespace Amazon.KinesisTap.DiagnosticTool
+namespace Amazon.KinesisTap.DiagnosticTool.Core
 {
+    /// <summary>
+    /// The class for record parser validator
+    /// </summary>
     public class RecordParserValidator
     {
         private readonly string _schemaBaseDirectory;
+        private IDictionary<String, ISourceValidator> _sourceValidators;
+        private Func<String, String, IConfigurationRoot> _loadConfigFile;
 
-        public RecordParserValidator(string schemaBaseDirectory)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="schemaBaseDirectory"></param>
+        /// <param name="sourceValidators"></param>
+        /// <param name="loadConfigFile"></param>
+        public RecordParserValidator(string schemaBaseDirectory, IDictionary<String, ISourceValidator> sourceValidators, Func<string, string, IConfigurationRoot> loadConfigFile)
         {
             this._schemaBaseDirectory = schemaBaseDirectory;
+            this._sourceValidators = sourceValidators;
+            this._loadConfigFile = loadConfigFile;
         }
+
+        /// <summary>
+        /// Validate record parser
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="logName"></param>
+        /// <param name="configBaseDirectory"></param>
+        /// <param name="configFile"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
         public bool ValidateRecordParser(string id, string logName, string configBaseDirectory, string configFile, out IList<String> messages)
         {
-            IConfigurationRoot config = ConfigValidator.LoadConfigFile(configBaseDirectory, configFile);
+            IConfigurationRoot config = this._loadConfigFile(configBaseDirectory, configFile);
 
-            var configFileValidator = new ConfigValidator(_schemaBaseDirectory);
+            var configFileValidator = new ConfigValidator(_schemaBaseDirectory, this._sourceValidators, this._loadConfigFile);
 
             bool isValid = configFileValidator.ValidateSchema(configBaseDirectory, configFile, config, out messages);
 
@@ -100,6 +122,16 @@ namespace Amazon.KinesisTap.DiagnosticTool
             return false;
         }
 
+        /// <summary>
+        /// Validate timestamp
+        /// </summary>
+        /// <param name="directory"></param>
+        /// <param name="logName"></param>
+        /// <param name="config"></param>
+        /// <param name="sourceSection"></param>
+        /// <param name="curId"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
         private bool ValidateTimeStamp(string directory, string logName, IConfigurationRoot config, IConfigurationSection sourceSection, string curId, IList<String> messages)
         {
             string log = GetLog(directory, logName).ToString();
@@ -123,9 +155,19 @@ namespace Amazon.KinesisTap.DiagnosticTool
             }
         }
 
+        /// <summary>
+        /// Valdiate regex
+        /// </summary>
+        /// <param name="directory"></param>
+        /// <param name="logName"></param>
+        /// <param name="config"></param>
+        /// <param name="sourceSection"></param>
+        /// <param name="curId"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
         private bool ValidateRegex(string directory, string logName, IConfigurationRoot config, IConfigurationSection sourceSection, string curId, IList<String> messages)
         {
-            string log = GetLog(directory, logName).ToString();
+            string log = GetLog(directory, logName);
 
             using (Stream stream = Utility.StringToStream(log))
             using (StreamReader sr = new StreamReader(stream))
@@ -149,18 +191,22 @@ namespace Amazon.KinesisTap.DiagnosticTool
             }
         }
 
+        /// <summary>
+        /// Retrieve the content from a log
+        /// </summary>
+        /// <param name="directory"></param>
+        /// <param name="logName"></param>
+        /// <returns></returns>
         private string GetLog(string directory, string logName)
         {
             string line;
             StringBuilder sb = new StringBuilder();
-            using (StreamReader LogReader = new StreamReader(Path.Combine(directory, logName)))
+            using (StreamReader LogReader = File.OpenText(Path.Combine(directory, logName)))
             {
                 while ((line = LogReader.ReadLine()) != null)
                 {
                     sb.AppendLine(line);
                 }
-
-                LogReader.Close();
             }
 
             return sb.ToString();

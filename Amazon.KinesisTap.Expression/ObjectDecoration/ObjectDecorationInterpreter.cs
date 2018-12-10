@@ -27,86 +27,21 @@ namespace Amazon.KinesisTap.Expression.ObjectDecoration
     /// <summary>
     /// Evaluator for object decoration. Only need to NodeList and dependent nodes
     /// </summary>
-    public class ObjectDecorationInterpreter<TData> : IObjectDecorationAstVisitor<TData, object>
+    public class ObjectDecorationInterpreter<TData> : ExpressionInterpreter<TData>, IObjectDecorationAstVisitor<TData, object>
     {
-        protected readonly IObjectDecorationEvaluationContext<TData> _evaludationContext;
-
-        public ObjectDecorationInterpreter(IObjectDecorationEvaluationContext<TData> evaludationContext)
+        public ObjectDecorationInterpreter(IExpressionEvaluationContext<TData> evaludationContext) : base(evaludationContext)
         {
-            _evaludationContext = evaludationContext;
         }
 
-        public virtual object Visit(Node node, TData data)
+        public override object Visit(Node node, TData data)
         {
-            IdentifierNode identifierNode = node as IdentifierNode;
-            if (identifierNode != null) return VisitIdentifier(identifierNode, data);
-
-            InvocationNode invocationNode = node as InvocationNode;
-            if (invocationNode != null) return VisitInvocationNode(invocationNode, data);
-
-            NodeList<Node> nodeList = node as NodeList<Node>;
-            if (nodeList != null) return VisitNodeList(nodeList, data);
+            KeyValuePairNode keyValuePairNode = node as KeyValuePairNode;
+            if (keyValuePairNode != null) return VisitKeyValuePairNode(keyValuePairNode, data);
 
             NodeList<KeyValuePairNode> keyValuePairNodes = node as NodeList<KeyValuePairNode>;
             if (keyValuePairNodes != null) return VisitObjectDecoration(keyValuePairNodes, data);
 
-            LiteralNode literalNode = node as LiteralNode;
-            if (literalNode != null) return VisitLiteral(literalNode, data);
-
-            KeyValuePairNode keyValuePairNode = node as KeyValuePairNode;
-            if (keyValuePairNode != null) return VisitKeyValuePairNode(keyValuePairNode, data);
-
-
-            throw new NotImplementedException();
-        }
-
-        public virtual object VisitIdentifier(IdentifierNode identifierNode, TData data)
-        {
-            var variableName = identifierNode.Identifier;
-            if (IsLocal(variableName))
-            {
-                return _evaludationContext.GetLocalVariable(variableName, data);
-            }
-            else
-            {
-                return _evaludationContext.GetVariable(variableName);
-            }
-        }
-
-        public virtual object VisitInvocationNode(InvocationNode invocationNode, TData data)
-        {
-            string functionName = invocationNode.FunctionName.Identifier;
-            int argumentCount = invocationNode.Arguments.Count;
-            object[] arguments = new object[argumentCount];
-            Type[] argumentTypes = new Type[argumentCount];
-            bool hasNullArguments = false;
-            for(int i = 0; i < argumentCount; i++)
-            {
-                arguments[i] = Visit(invocationNode.Arguments[i], data);
-                if (arguments[i] == null)
-                {
-                    hasNullArguments = true;
-                    argumentTypes[i] = typeof(object);
-                }
-                else
-                {
-                    argumentTypes[i] = arguments[i].GetType();
-                }
-            }
-            MethodInfo methodInfo = _evaludationContext.FunctionBinder.Resolve(functionName, argumentTypes);
-            if (methodInfo == null)
-            {
-                //If we have null arguments, we will propagate null without warning.
-                if (!hasNullArguments)
-                {
-                    _evaludationContext.Logger?.LogWarning($"Cannot resolve function {functionName} with argument types {string.Join(",", argumentTypes.Select(t => t.Name))}");
-                }
-                return null;
-            }
-            else
-            {
-                return methodInfo.Invoke(null, arguments);
-            }
+            return base.Visit(node, data);
         }
 
         public virtual object VisitKeyValuePairNode(KeyValuePairNode keyValuePairNode, TData data)
@@ -114,21 +49,6 @@ namespace Amazon.KinesisTap.Expression.ObjectDecoration
             string key = keyValuePairNode.Key;
             string value = $"{VisitNodeList((NodeList<Node>)(keyValuePairNode.Value), data)}";
             return new KeyValuePair<string, string>(key, value);
-        }
-
-        public virtual object VisitLiteral(LiteralNode literalNode, TData data)
-        {
-            return literalNode.Value;
-        }
-
-        public virtual object VisitNodeList(NodeList<Node> nodeList, TData data)
-        {
-            StringBuilder stringBuilder = new StringBuilder();
-            foreach(var node in nodeList.List)
-            {
-                stringBuilder.Append(Visit(node, data));
-            }
-            return stringBuilder.ToString();
         }
 
         public virtual object VisitObjectDecoration(NodeList<KeyValuePairNode> keyValuePairNodes, TData data)
@@ -143,13 +63,6 @@ namespace Amazon.KinesisTap.Expression.ObjectDecoration
                 }
             }
             return attributes;
-        }
-
-        protected virtual bool IsLocal(string variableName)
-        {
-            return variableName.StartsWith("$")
-                || variableName.StartsWith("_")
-                || variableName.ToLower().Equals("timestamp");
         }
     }
 }

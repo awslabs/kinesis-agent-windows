@@ -137,23 +137,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ConfigValidator.cs" />
-    <Compile Include="ConfigValidatorCommand.cs" />
-    <Compile Include="Constant.cs" />
-    <Compile Include="DirectoryWatcher.cs" />
-    <Compile Include="DirectoryWatcherCommand.cs" />
+    <Compile Include="ConfigFileLoader.cs" />
     <Compile Include="EventLogValidator.cs" />
-    <Compile Include="ICommand.cs" />
-    <Compile Include="Log4NetSimulator.cs" />
-    <Compile Include="Log4NetSimulatorCommand.cs" />
-    <Compile Include="LogSimulator.cs" />
-    <Compile Include="PackageVersionValidator.cs" />
-    <Compile Include="PackageVersionValidatorCommand.cs" />
     <Compile Include="PerformanceCounterValidator.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RecordParserValidator.cs" />
-    <Compile Include="RecordParserValidatorCommand.cs" />
     <Compile Include="WindowsEventLogSimulator.cs" />
     <Compile Include="WindowsEventLogSimulatorCommand.cs" />
   </ItemGroup>
@@ -162,9 +150,6 @@
       <SubType>Designer</SubType>
     </None>
     <None Include="packages.config" />
-    <None Include="PackageVersionSchema.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <WCFMetadata Include="Connected Services\" />
@@ -177,6 +162,10 @@
     <ProjectReference Include="..\Amazon.KinesisTap.Core\Amazon.KinesisTap.Core.csproj">
       <Project>{64117EDF-E228-43CB-9425-9C3A7F2EBD99}</Project>
       <Name>Amazon.KinesisTap.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Amazon.KinesisTap.DiagnosticTool.Core\Amazon.KinesisTap.DiagnosticTool.Core.csproj">
+      <Project>{8936e9e3-4d00-443b-b5a3-bf59a3a88349}</Project>
+      <Name>Amazon.KinesisTap.DiagnosticTool.Core</Name>
     </ProjectReference>
     <ProjectReference Include="..\Amazon.KinesisTap.Windows\Amazon.KinesisTap.Windows.csproj">
       <Project>{6B0C158A-4100-440B-8155-8ED309A75B81}</Project>

@@ -29,7 +29,7 @@ namespace Amazon.KinesisTap.Core
         protected readonly IConfiguration _config;
         protected readonly IMetrics _metrics;
         protected readonly string _format;
-        protected readonly string _textDecoration;
+        protected readonly IEnvelopeEvaluator<string> _textDecorationEvaluator;
         protected readonly IEnvelopeEvaluator<IDictionary<string, string>> _objectDecorationEvaluator;
 
         public EventSink(IPlugInContext context)
@@ -40,7 +40,19 @@ namespace Amazon.KinesisTap.Core
             _metrics = context.Metrics;
             this.Id = _config[ConfigConstants.ID];
             _format = _config[ConfigConstants.FORMAT];
-            _textDecoration = _config[ConfigConstants.TEXT_DECORATION];
+
+            string textDecoration = _config[ConfigConstants.TEXT_DECORATION];
+            if (!string.IsNullOrWhiteSpace(textDecoration))
+            {
+                _textDecorationEvaluator = new TextDecorationEvaluator(textDecoration, ResolveRecordVariables);
+            }
+
+            string textDecorationEx = _config[ConfigConstants.TEXT_DECORATION_EX];
+            if (!string.IsNullOrWhiteSpace(textDecorationEx))
+            {
+                _textDecorationEvaluator = new TextDecorationExEvaluator(textDecorationEx, EvaluateVariable, ResolveRecordVariable, context);
+            }
+
             string objectDecoration = _config[ConfigConstants.OBJECT_DECORATION];
             if (!string.IsNullOrWhiteSpace(objectDecoration))
             {
@@ -99,9 +111,9 @@ namespace Amazon.KinesisTap.Core
                     //Do nothing until someone request this to be implemented
                     break;
                 default:
-                    if (!string.IsNullOrWhiteSpace(_textDecoration))
+                    if (_textDecorationEvaluator != null)
                     {
-                        record = ResolveRecordVariables(_textDecoration, envelope);
+                        record = _textDecorationEvaluator.Evaluate(envelope);
                     }
                     break;
             }

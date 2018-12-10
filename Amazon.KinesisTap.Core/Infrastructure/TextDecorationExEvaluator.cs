@@ -19,22 +19,22 @@ using System.Text;
 using Amazon.KinesisTap.Expression;
 using Amazon.KinesisTap.Expression.Ast;
 using Amazon.KinesisTap.Expression.Binder;
-using Amazon.KinesisTap.Expression.ObjectDecoration;
+using Amazon.KinesisTap.Expression.TextDecoration;
 
 namespace Amazon.KinesisTap.Core
 {
-    public class ObjectDecorationExEvaluator : IEnvelopeEvaluator<IDictionary<string, string>>
+    public class TextDecorationExEvaluator : IEnvelopeEvaluator<string>
     {
-        private readonly NodeList<KeyValuePairNode> _tree;
-        private readonly ObjectDecorationInterpreter<IEnvelope> _interpreter;
+        private readonly NodeList<Node> _tree;
+        private readonly TextDecorationInterpreter<IEnvelope> _interpreter;
 
-        public ObjectDecorationExEvaluator(string objectDecoration,
+        public TextDecorationExEvaluator(string objectDecoration,
             Func<string, string> evaluateVariable,
             Func<string, IEnvelope, object> evaluateRecordVariable,
             IPlugInContext context
         )
         {
-            _tree = ObjectDecorationParserFacade.ParseObjectDecoration(objectDecoration);
+            _tree = TextDecorationParserFacade.ParseTextDecoration(objectDecoration);
             FunctionBinder binder = new FunctionBinder(new Type[] { typeof(BuiltInFunctions) });
             ExpressionEvaluationContext<IEnvelope> evalContext = new ExpressionEvaluationContext<IEnvelope>(
                 evaluateVariable,
@@ -42,14 +42,14 @@ namespace Amazon.KinesisTap.Core
                 binder,
                 context?.Logger
             );
-            var validator = new ObjectDecorationValidator<IEnvelope>(evalContext);
+            var validator = new TextDecorationValidator<IEnvelope>(evalContext);
             validator.Visit(_tree, null); //Should throw if cannot resolve function
-            _interpreter = new ObjectDecorationInterpreter<IEnvelope>(evalContext);
+            _interpreter = new TextDecorationInterpreter<IEnvelope>(evalContext);
         }
 
-        public IDictionary<string, string> Evaluate(IEnvelope envelope)
+        public string Evaluate(IEnvelope envelope)
         {
-            return (IDictionary<string, string>)_interpreter.VisitObjectDecoration(_tree, envelope);
+            return (string)_interpreter.VisitTextDecoration(_tree, envelope);
         }
     }
 }

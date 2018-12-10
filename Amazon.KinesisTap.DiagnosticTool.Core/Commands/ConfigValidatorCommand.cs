@@ -15,15 +15,36 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Amazon.KinesisTap.Core;
 
-namespace Amazon.KinesisTap.DiagnosticTool
+namespace Amazon.KinesisTap.DiagnosticTool.Core
 {
-    class ConfigValidatorCommand : ICommand
+    /// <summary>
+    /// The class for validating configuration file command
+    /// </summary>
+    public class ConfigValidatorCommand : ICommand
     {
+        private IDictionary<String, ISourceValidator> _sourceValidators;
+        private Func<String, String, IConfigurationRoot> _loadConfigFile;
 
+        public ConfigValidatorCommand(IDictionary<String, ISourceValidator> sourceValidators, Func<string, string, IConfigurationRoot> loadConfigFile)
+        {
+            this._sourceValidators = sourceValidators;
+            this._loadConfigFile = loadConfigFile;
+        }
+
+        public ConfigValidatorCommand(Func<string, string, IConfigurationRoot> loadConfigFile)
+        {
+            this._sourceValidators = new Dictionary<String, ISourceValidator>();
+            this._loadConfigFile = loadConfigFile;
+        }
+
+        /// <summary>
+        /// Parse and run the command
+        /// </summary>
+        /// <param name="args"></param>
+        /// <returns></returns>
         public int ParseAndRunArgument(string[] args)
         {
             if (args.Length == 1 || args.Length == 2)
@@ -33,7 +54,7 @@ namespace Amazon.KinesisTap.DiagnosticTool
                     string configPath = null;
                     IList<string> messages;
 
-                    ConfigValidator ConfigFileValidator = new ConfigValidator(AppContext.BaseDirectory);
+                    ConfigValidator ConfigFileValidator = new ConfigValidator(AppContext.BaseDirectory, this._sourceValidators, this._loadConfigFile);
                     bool isValid = false;
 
                     if (args.Length == 2)
@@ -43,7 +64,7 @@ namespace Amazon.KinesisTap.DiagnosticTool
                     }
                     else
                     {
-                        isValid = ConfigFileValidator.ValidateSchema(AppContext.BaseDirectory, Constant.CONFIG_FILE, out messages);
+                        isValid = ConfigFileValidator.ValidateSchema(Utility.GetKinesisTapConfigPath(), Constant.CONFIG_FILE, out messages);
                     }
 
                     Console.WriteLine("Diagnostic Test #1: Pass! Configuration file is a valid JSON object.");
@@ -90,7 +111,10 @@ namespace Amazon.KinesisTap.DiagnosticTool
             }
         }
 
-        public void WriteUsage()
+        /// <summary>
+        /// Print configuration file validator usage
+        /// </summary>
+        public static void WriteUsage()
         {
             Console.WriteLine("Validate configuration file:");
             Console.WriteLine();

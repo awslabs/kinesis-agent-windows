@@ -17,11 +17,11 @@ using System.Collections.Generic;
 using System.Text;
 using Amazon.KinesisTap.Expression.Ast;
 
-namespace Amazon.KinesisTap.Expression.ObjectDecoration
+namespace Amazon.KinesisTap.Expression.TextDecoration
 {
-    public class ObjectDecorationValidator<TData> : ObjectDecorationInterpreter<TData>
+    public class TextDecorationValidator<TData> : TextDecorationInterpreter<TData>
     {
-        public ObjectDecorationValidator(IExpressionEvaluationContext<TData> evaludationContext) : base(evaludationContext)
+        public TextDecorationValidator(IExpressionEvaluationContext<TData> evaludationContext) : base(evaludationContext)
         {
         }
 

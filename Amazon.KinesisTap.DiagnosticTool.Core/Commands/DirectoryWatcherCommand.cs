@@ -13,16 +13,14 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Amazon.KinesisTap.DiagnosticTool
+namespace Amazon.KinesisTap.DiagnosticTool.Core
 {
-    class DirectoryWatcherCommand : ICommand
+    public class DirectoryWatcherCommand : ICommand
     {
-
+        /// <summary>
+        /// The class for watching Directory watcher command
+        /// </summary>
         public int ParseAndRunArgument(string[] args)
         {
             if (args.Length % 2 == 0)
@@ -58,7 +56,10 @@ namespace Amazon.KinesisTap.DiagnosticTool
             }
         }
 
-        public void WriteUsage()
+        /// <summary>
+        /// Print Directory watcher command
+        /// </summary>
+        public static void WriteUsage()
         {
             Console.WriteLine("Watch a directory:");
             Console.WriteLine();

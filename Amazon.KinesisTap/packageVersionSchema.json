@@ -1,4 +1,4 @@
-﻿{
+{
   /* JSON schema draft v3*/
   "title": "Package Version Json Schema",
   "type": "object",

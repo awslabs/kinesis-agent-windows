@@ -17,18 +17,21 @@ using log4net.Appender;
 using log4net.Core;
 using log4net.Layout;
 using log4net.Repository.Hierarchy;
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Amazon.KinesisTap.DiagnosticTool
+namespace Amazon.KinesisTap.DiagnosticTool.Core
 {
+    /// <summary>
+    /// The class for log4Net simulator
+    /// </summary>
     public class Log4NetSimulator : LogSimulator
     {
         private ILog _log;
 
+        /// <summary>
+        /// Log4NetSimulator constructor
+        /// </summary>
+        /// <param name="args"></param>
         public Log4NetSimulator(string[] args) : base(1000, 1000, 1)
         {
             ParseOptionValues(args);
@@ -36,9 +39,13 @@ namespace Amazon.KinesisTap.DiagnosticTool
             _log = LogManager.GetLogger(this.GetType());
         }
 
+        /// <summary>
+        /// Parse the Log4Net option values
+        /// </summary>
+        /// <param name="args"></param>
         protected void ParseLog4NetOptionValues(string[] args)
         {
-            Hierarchy hierarchy = (Hierarchy)LogManager.GetRepository();
+            Hierarchy hierarchy = new Hierarchy();
             RollingFileAppender appender = new RollingFileAppender();
             appender.File = args[1];
             var options = args.Where(s => s.StartsWith("-"));

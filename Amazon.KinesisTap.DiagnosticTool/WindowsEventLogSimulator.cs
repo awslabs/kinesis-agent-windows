@@ -12,15 +12,15 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using Amazon.KinesisTap.DiagnosticTool.Core;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Amazon.KinesisTap.DiagnosticTool
 {
+    /// <summary>
+    /// Simulator for Windows Event log
+    /// </summary>
     public class WindowsEventLogSimulator : LogSimulator, IDisposable
     {
         const string EVENT_SOURCE = "KTDiag.exe";
@@ -40,6 +40,10 @@ namespace Amazon.KinesisTap.DiagnosticTool
             _log = new EventLog(logName, ".", source);
         }
 
+        /// <summary>
+        /// Generate the logs
+        /// </summary>
+        /// <param name="v"></param>
         protected override void WriteLog(string v)
         {
             int eventId = (int)(DateTime.Now.Ticks % ushort.MaxValue);
