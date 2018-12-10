@@ -31,9 +31,9 @@ namespace Amazon.KinesisTap.Core
     /// <summary>
     /// Watch a direction for log files
     /// </summary>
-    public class DirectorySource<TData, TContext> : EventSource<TData>, IDisposable, IBookmarkable where TContext : LogContext
+    public class DirectorySource<TData, TContext> : DependentEventSource<TData>, IBookmarkable where TContext : LogContext
     {
-        private readonly FileSystemWatcher _watcher;
+        private FileSystemWatcher _watcher;
         private readonly string _directory;
         private readonly string _filter;
         private readonly int _interval;
@@ -62,7 +62,7 @@ namespace Amazon.KinesisTap.Core
             IPlugInContext context, 
             IRecordParser<TData, TContext> recordParser,
             Func<string, long, TContext> logSourceInfoFactory
-        ) : base(context)
+        ) : base(new DirectoryDependency(directory), context)
         {
             Guard.ArgumentNotNullOrEmpty(directory, nameof(directory));
             _directory = directory;
@@ -77,10 +77,16 @@ namespace Amazon.KinesisTap.Core
 
             _timer = new Timer(OnTimer, null, Timeout.Infinite, Timeout.Infinite);
 
-            _watcher = new FileSystemWatcher();
-            _watcher.Path = directory;
-            _watcher.Filter = filter;
-            _watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size;
+        }
+
+        private void InitializeWatcher()
+        {
+            _watcher = new FileSystemWatcher
+            {
+                Path = _directory,
+                Filter = (string.IsNullOrEmpty(_filter)) ? null : _filter,
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size
+            };
 
             _watcher.Changed += new FileSystemEventHandler(this.OnChanged);
             _watcher.Created += new FileSystemEventHandler(this.OnChanged);
@@ -88,10 +94,22 @@ namespace Amazon.KinesisTap.Core
             _watcher.Renamed += new RenamedEventHandler(this.OnRenamed);
         }
 
-
         #region public methods
         public override void Start()
         {
+            if (_dependency.IsDependencyAvailable())
+            {
+                if (_watcher == null)
+                {
+                    InitializeWatcher();
+                }
+            }
+            else
+            {
+                Reset();
+                return;
+            }
+
             if (this.InitialPosition != InitialPositionEnum.EOS && File.Exists(GetBookmarkFilePath()))
             {
                 _hasBookmark = true;
@@ -112,9 +130,21 @@ namespace Amazon.KinesisTap.Core
             _logger?.LogInformation($"DirectorySource id {this.Id} watching directory {_directory} with filter {_filter} started.");
         }
 
+        /// <summary>
+        /// Once the directory we want to watch exists, it is safe to start the source.
+        /// </summary>
+        protected override void AfterDependencyAvailable()
+        {
+            Start();
+        }
+
+
         public override void Stop()
         {
-            _watcher.EnableRaisingEvents = false;
+            if (_watcher != null)
+            {
+                _watcher.EnableRaisingEvents = false;
+            }
             _timer.Change(Timeout.Infinite, Timeout.Infinite);
             _started = false;
             SaveBookmark();
@@ -122,9 +152,20 @@ namespace Amazon.KinesisTap.Core
             _logger?.LogInformation($"DirectorySource id {this.Id} watching directory {_directory} with filter {_filter} stopped.");
         }
 
-        public void Dispose()
+        /// <summary>
+        /// When it is detected that the directory to observe doesn't exist, shut down the existing watcher and then start
+        /// polling for the directory to exist.
+        /// </summary>
+        public override void Reset()
         {
-            Dispose(true);
+            _logger?.LogInformation($"Resetting DirectorySource id {this.Id}.");
+            Stop();
+            if (_watcher != null)
+            {
+                _watcher.Dispose();
+                _watcher = null;
+            }
+            base.Reset();
         }
 
         public int NumberOfConsecutiveIOExceptionsToLogError { get; set; }
@@ -257,9 +298,15 @@ namespace Amazon.KinesisTap.Core
             _timer.Change(Timeout.Infinite, Timeout.Infinite);
             try
             {
+                if (!Directory.Exists(_directory))
+                {
+                    Reset();
+                    return;
+                }
                 //First to check whether filewatch events were missed
                 long bytesToRead = 0;
                 long filesToProcess = 0;
+
                 foreach (string fileName in _logFiles.Keys)
                 {
                     if (!_started) break;
@@ -377,12 +424,21 @@ namespace Amazon.KinesisTap.Core
             return (recordsRead, bytesRead);
         }
 
-        protected virtual void Dispose(bool disposing)
+        protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
-                _watcher?.Dispose();
-                _timer?.Dispose();
+                if (_watcher != null)
+                {
+                    _watcher?.Dispose();
+                    _watcher = null;
+                }
+                if (_timer != null)
+                {
+                    _timer?.Dispose();
+                    _timer = null;
+                }
+                base.Dispose(disposing);
             }
         }
         #endregion
@@ -505,6 +561,7 @@ namespace Amazon.KinesisTap.Core
                 _buffer.Remove(filename);
             }
         }
+
         #endregion
     }
 }

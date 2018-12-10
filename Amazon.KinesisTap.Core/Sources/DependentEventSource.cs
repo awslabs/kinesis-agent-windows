@@ -12,42 +12,41 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Amazon.KinesisTap.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.ServiceProcess;
 using Microsoft.Extensions.Logging;
 
-namespace Amazon.KinesisTap.Windows
+namespace Amazon.KinesisTap.Core
 {
-    // Provides support for KinesisTap sources which depend on other Windows servers being in a running state in order
+    // Provides support for KinesisTap sources which depend on a local resource being available in order
     // to work correctly.
     public abstract class DependentEventSource<T> : EventSource<T>, IDisposable
     {
-        public string DependentServiceName { get; private set; }
+
+        protected readonly Dependency _dependency;
 
         private DateTime? _dependencyFailStart = null;
         private DateTime? _dependencyFailLastReported = null;
         private CancellationTokenSource _cancellationTokenSource = null;
-        private ServiceController _controller = null;
         private int _resetInProgress = 0;
 
-        private static readonly TimeSpan DelayBetweenDependencyPoll = TimeSpan.FromMinutes(5);
+        public static TimeSpan DelayBetweenDependencyPoll { get; set; } = TimeSpan.FromMinutes(5);
         private static readonly TimeSpan MinimumDelayBetweenDependencyFailureLogging = TimeSpan.FromHours(1);
 
 
-        public DependentEventSource(string dependentServiceName, IPlugInContext context) : base(context)
+        public DependentEventSource(Dependency dependency, IPlugInContext context) : base(context)
         {
-            DependentServiceName = dependentServiceName;
+            Guard.ArgumentNotNull(dependency, "dependency");
+            this._dependency = dependency;
         }
 
         /// <summary>
-        /// Waits until the dependent service is running or the polling is cancelled (during source stop),
-        /// then calls the AfterDependencyRunning method.  Periodically logs during the dependent service outage. 
+        /// Waits until the dependency is available or the polling is cancelled (during source stop),
+        /// then calls the AfterDependencyRunning method.  Periodically logs during the dependency unavailable outage. 
         /// </summary>
         public virtual void Reset()
         {
@@ -61,16 +60,17 @@ namespace Amazon.KinesisTap.Windows
             if (_cancellationTokenSource != null)
             {
                 _cancellationTokenSource.Cancel();
+                _cancellationTokenSource = null;
             }
-            if (IsDependencyRunning())
+            if (_dependency.IsDependencyAvailable())
             {
                 try
                 {
-                    AfterDependencyRunning();
+                    AfterDependencyAvailable();
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError($"Error invoking AfterDependencyRunning when dependent service {DependentServiceName} for source {Id} transitioned to running: {e}");
+                    _logger?.LogError($"Error invoking AfterDependencyRunning when dependent {_dependency.Name} for source {Id} transitioned to available: {e}");
                 }
                 finally
                 {
@@ -82,59 +82,29 @@ namespace Amazon.KinesisTap.Windows
             CancellationToken token = _cancellationTokenSource.Token;
             Task.Run(() =>
             {
-                PollForService(token);
+                PollForDependency(token);
             }, 
             token);
         }
 
         /// <summary>
-        /// Called once the dependency service is running.  Must be overridden by any child classes.
+        /// Called once the dependency is available.  Must be overridden by any child classes.
         /// </summary>
-        protected abstract void AfterDependencyRunning();
-
-        protected void MaybeCancelPolling()
-        {
-            if (_cancellationTokenSource != null)
-            {
-                _cancellationTokenSource.Cancel();
-            }
-        }
+        protected abstract void AfterDependencyAvailable();
 
         /// <summary>
-        /// Returns true if the dependent service is running.
+        /// If polling is occuring, cancel the polling.
         /// </summary>
-        /// <returns>True if the dependent service is running</returns>
-        protected bool IsDependencyRunning()
+        protected void MaybeCancelPolling()
         {
-            for (int i = 0; i < 2; i++)
-            {
-                try
-                {
-                    if (_controller == null)
-                    {
-                        _controller = new ServiceController(DependentServiceName);
-                    }
-                    else
-                    {
-                        _controller.Refresh();
-                    }
-                    _controller.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromMilliseconds(200));
-                    _controller.Refresh();
-                    return _controller.Status.Equals(ServiceControllerStatus.Running);
-                }
-                catch (Exception)
-                {
-                    _controller = null;
-                }
-            }
-            return false;
+            _cancellationTokenSource?.Cancel();
         }
 
-        private void PollForService(CancellationToken token)
+        private void PollForDependency(CancellationToken token)
         {
             try
             {
-                while (!IsDependencyRunning() && !token.IsCancellationRequested)
+                while (!_dependency.IsDependencyAvailable() && !token.IsCancellationRequested)
                 {
                     try
                     {
@@ -144,20 +114,20 @@ namespace Amazon.KinesisTap.Windows
                         }
                         if (!_dependencyFailLastReported.HasValue)
                         {
-                            _logger.LogError($"Dependent service {DependentServiceName} is not running so no events can be collected for source {Id}.");
+                            _logger?.LogError($"Dependent {_dependency.Name} is not available so no events can be collected for source {Id}. Will check again in {DelayBetweenDependencyPoll.TotalMinutes} minutes.");
                             _dependencyFailLastReported = DateTime.UtcNow;
                         }
                         else if (DateTime.UtcNow - _dependencyFailLastReported.Value > MinimumDelayBetweenDependencyFailureLogging)
                         {
-                            _logger.LogError($"Dependent service {DependentServiceName} has not been running for {(DateTime.UtcNow - _dependencyFailStart)}.  "
-                                + "No events have been collected for that period of time.");
+                            _logger?.LogError($"Dependent {_dependency.Name} has not been available for {(DateTime.UtcNow - _dependencyFailStart)}.  "
+                                + "No events have been collected for that period of time. Will check again in {DelayBetweenDependencyPoll.TotalMinutes} minutes.");
                             _dependencyFailLastReported = DateTime.UtcNow;
                         }
                         token.WaitHandle.WaitOne(DelayBetweenDependencyPoll);
                     }
                     catch (Exception e)
                     {
-                        _logger.LogError($"Error during polling of dependent service {DependentServiceName} for source {Id}: {e}");
+                        _logger?.LogError($"Error during polling of dependent {_dependency.Name} for source {Id}: {e}");
                     }
                 }
                 if (token.IsCancellationRequested)
@@ -167,11 +137,12 @@ namespace Amazon.KinesisTap.Windows
 
                 try
                 {
-                    AfterDependencyRunning();
+                    AfterDependencyAvailable();
+                    _logger?.LogInformation($"Dependent {_dependency.Name} is now available and events are being collected.");
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError($"Error invoking AfterDependencyRunning when dependent service {DependentServiceName} for source {Id} transitioned to running: {e}");
+                    _logger?.LogError($"Error invoking AfterDependencyRunning when dependent {_dependency.Name} for source {Id} transitioned to running: {e}");
                 }
             }
             finally
@@ -187,7 +158,7 @@ namespace Amazon.KinesisTap.Windows
         private bool disposedValue = false; // To detect redundant calls
 
         /// <summary>
-        /// Disposes the service controller if not null.
+        /// Disposes the dependency if desired.
         /// </summary>
         /// <param name="disposing">Should be true if disposing referenced objects is desired, otherwise false</param>
         protected virtual void Dispose(bool disposing)
@@ -196,13 +167,8 @@ namespace Amazon.KinesisTap.Windows
             {
                 if (disposing)
                 {
-                    if (_controller != null)
-                    {
-                        _controller.Dispose();
-                        _controller = null;
-                    }
+                    _dependency.Dispose();
                 }
-
                 disposedValue = true;
             }
         }
