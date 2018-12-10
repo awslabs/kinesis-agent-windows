@@ -14,17 +14,19 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace Amazon.KinesisTap.DiagnosticTool
+namespace Amazon.KinesisTap.Expression.Ast
 {
-    interface ICommand
+    public interface IAstVisitor<in TData, out Result>
     {
-        int ParseAndRunArgument(string[] args);
+        Result VisitLiteral(LiteralNode literalNode, TData data);
 
-        void WriteUsage();
+        Result VisitIdentifier(IdentifierNode identifierNode, TData data);
+
+        Result VisitInvocationNode(InvocationNode invocationNode, TData data);
+
+        Result VisitNodeList(NodeList<Node> nodeList, TData data);
 
     }
 }

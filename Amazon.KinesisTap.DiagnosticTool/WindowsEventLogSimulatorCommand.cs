@@ -12,17 +12,21 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using Amazon.KinesisTap.DiagnosticTool.Core;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Amazon.KinesisTap.DiagnosticTool
 {
-    class WindowsEventLogSimulatorCommand : ICommand
+    /// <summary>
+    /// Command for simulating Windows event logs
+    /// </summary>
+    public class WindowsEventLogSimulatorCommand : ICommand
     { 
-
+        /// <summary>
+        /// Prase and run the command
+        /// </summary>
+        /// <param name="args"></param>
+        /// <returns></returns>
         public int ParseAndRunArgument(string[] args)
         {
             if (args.Length < 2)
@@ -40,7 +44,10 @@ namespace Amazon.KinesisTap.DiagnosticTool
             }
         }
 
-        public void WriteUsage()
+        /// <summary>
+        /// Print the options
+        /// </summary>
+        public static void WriteUsage()
         {
             Console.WriteLine("Simulate Windows Event Log:");
             Console.WriteLine();

@@ -12,21 +12,36 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Amazon.KinesisTap.DiagnosticTool
+namespace Amazon.KinesisTap.DiagnosticTool.Core
 {
-    class RecordParserValidatorCommand : ICommand
+    /// <summary>
+    /// The class for record parser validator command
+    /// </summary>
+    public class RecordParserValidatorCommand : ICommand
     {
+        private IDictionary<String, ISourceValidator> _sourceValidators;
+        private Func<String, String, IConfigurationRoot> _loadConfigFile;
+
+        public RecordParserValidatorCommand(IDictionary<String, ISourceValidator> sourceValidators, Func<string, string, IConfigurationRoot> loadConfigFile)
+        {
+            this._sourceValidators = sourceValidators;
+            this._loadConfigFile = loadConfigFile;
+        }
+
+        /// <summary>
+        /// Parse and run the command
+        /// </summary>
+        /// <param name="args"></param>
+        /// <returns></returns>
         public int ParseAndRunArgument(string[] args)
         {
             if (args.Length == 2 || args.Length == 3)
             {
-                RecordParserValidator validator = new RecordParserValidator(AppContext.BaseDirectory);
+                RecordParserValidator validator = new RecordParserValidator(AppContext.BaseDirectory, this._sourceValidators, this._loadConfigFile);
 
                 try
                 {
@@ -68,7 +83,10 @@ namespace Amazon.KinesisTap.DiagnosticTool
             }
         }
 
-        public void WriteUsage()
+        /// <summary>
+        /// Print Record parser validator usage
+        /// </summary>
+        public static void WriteUsage()
         {
             Console.WriteLine("Validate RecordParser in configuration file:");
             Console.WriteLine();

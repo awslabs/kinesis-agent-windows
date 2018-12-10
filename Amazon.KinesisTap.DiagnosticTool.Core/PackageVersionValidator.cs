@@ -18,13 +18,19 @@ using Newtonsoft.Json.Schema;
 using System.Collections.Generic;
 using System.IO;
 
-namespace Amazon.KinesisTap.DiagnosticTool
+namespace Amazon.KinesisTap.DiagnosticTool.Core
 {
+    /// <summary>
+    /// The class for package version validator
+    /// </summary>
     public class PackageVersionValidator
     {
-
         private readonly JSchema _schema;
 
+        /// <summary>
+        /// Package version validator constructor
+        /// </summary>
+        /// <param name="schemaBaseDirectory"></param>
         public PackageVersionValidator(string schemaBaseDirectory)
         {
 
@@ -35,6 +41,12 @@ namespace Amazon.KinesisTap.DiagnosticTool
             }
         }
 
+        /// <summary>
+        /// Validate the package version
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
         public bool ValidatePackageVersion (string filePath, out IList<string> messages)
         {
             using (StreamReader packageaVersionReader = File.OpenText(filePath))

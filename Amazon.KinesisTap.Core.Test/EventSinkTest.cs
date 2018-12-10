@@ -34,10 +34,12 @@ namespace Amazon.KinesisTap.Core.Test
             Assert.Contains(logger.Entries, s => s.IndexOf("unexpected", StringComparison.CurrentCultureIgnoreCase) > -1);
         }
 
-        [Fact]
-        public void TestTextDecoration()
+        [Theory]
+        [InlineData("TextDecoration")]
+        [InlineData("TextDecorationEx")]
+        public void TestTextDecoration(string sinkId)
         {
-            string id = "TextDecoration" + (Utility.IsWindow ? string.Empty : TestUtility.LINUX);
+            string id = sinkId + (Utility.IsWindow ? string.Empty : TestUtility.LINUX);
             MemoryLogger logger = new MemoryLogger(null);
             MockEventSource<string> mockEventSource = CreateEventsource<string>("InitialPositionUnspecified");
             MockEventSink sink = CreateEventSink(id, logger);
@@ -49,10 +51,12 @@ namespace Amazon.KinesisTap.Core.Test
                 sink.Records[0]);
         }
 
-        [Fact]
-        public void TextDecorationWithFileName()
+        [Theory]
+        [InlineData("TextDecorationWithFileName")]
+        [InlineData("TextDecorationExWithFileName")]
+        public void TextDecorationWithFileName(string sinkId)
         {
-            string id = "TextDecorationWithFileName" + (Utility.IsWindow ? string.Empty : TestUtility.LINUX);
+            string id = sinkId + (Utility.IsWindow ? string.Empty : TestUtility.LINUX);
             MemoryLogger logger = new MemoryLogger(null);
             MockEventSource<string> mockEventSource = CreateEventsource<string>("InitialPositionUnspecified");
             MockEventSink sink = CreateEventSink(id, logger);
@@ -67,12 +71,14 @@ namespace Amazon.KinesisTap.Core.Test
                 sink.Records[0]);
         }
 
-        [Fact]
-        public void TestLocalVariableDictionary()
+        [Theory]
+        [InlineData("TextDecorationLocalVariable")]
+        [InlineData("TextDecorationExLocalVariable")]
+        public void TestLocalVariableDictionary(string sinkId)
         {
             MemoryLogger logger = new MemoryLogger(null);
             MockEventSource<IDictionary<string, string>> mockEventSource = CreateEventsource<IDictionary<string, string>>("InitialPositionUnspecified");
-            MockEventSink sink = CreateEventSink("TextDecorationLocalVariable", logger); //"TextDecoration": "{$myvar2}"
+            MockEventSink sink = CreateEventSink(sinkId, logger); //"TextDecoration": "{$myvar2}"
             mockEventSource.Subscribe(sink);
             var data1 = new Dictionary<string, string>()
             {
@@ -96,12 +102,14 @@ namespace Amazon.KinesisTap.Core.Test
             public string myvar2 { get; set; }
         }
 
-        [Fact]
-        public void TestLocalVariableObject()
+        [Theory]
+        [InlineData("TextDecorationLocalVariable")]
+        [InlineData("TextDecorationExLocalVariable")]
+        public void TestLocalVariableObject(string sinkId)
         {
             MemoryLogger logger = new MemoryLogger(null);
             MockEventSource<testClass> mockEventSource = CreateEventsource<testClass>("InitialPositionUnspecified");
-            MockEventSink sink = CreateEventSink("TextDecorationLocalVariable", logger); //"TextDecoration": "{$myvar2}"
+            MockEventSink sink = CreateEventSink(sinkId, logger); //"TextDecoration": "{$myvar2}"
             mockEventSource.Subscribe(sink);
             var data1 = new testClass
             {
@@ -118,12 +126,14 @@ namespace Amazon.KinesisTap.Core.Test
             Assert.Equal("myval2", sink.Records[0]);
         }
 
-        [Fact]
-        public void TestLocalVariableAnonymousObject()
+        [Theory]
+        [InlineData("TextDecorationLocalVariable")]
+        [InlineData("TextDecorationExLocalVariable")]
+        public void TestLocalVariableAnonymousObject(string sinkId)
         {
             MemoryLogger logger = new MemoryLogger(null);
             MockEventSource<object> mockEventSource = CreateEventsource<object>("InitialPositionUnspecified");
-            MockEventSink sink = CreateEventSink("TextDecorationLocalVariable", logger); //"TextDecoration": "{$myvar2}"
+            MockEventSink sink = CreateEventSink(sinkId, logger); //"TextDecoration": "{$myvar2}"
             mockEventSource.Subscribe(sink);
             var data1 = new 
             {
@@ -140,12 +150,14 @@ namespace Amazon.KinesisTap.Core.Test
             Assert.Equal("myval2", sink.Records[0]);
         }
 
-        [Fact]
-        public void TestLocalVariableJObject()
+        [Theory]
+        [InlineData("TextDecorationLocalVariable")]
+        [InlineData("TextDecorationExLocalVariable")]
+        public void TestLocalVariableJObject(string sinkId)
         {
             MemoryLogger logger = new MemoryLogger(null);
             MockEventSource<JObject> mockEventSource = CreateEventsource<JObject>("InitialPositionUnspecified");
-            MockEventSink sink = CreateEventSink("TextDecorationLocalVariable", logger); //"TextDecoration": "{$myvar2}"
+            MockEventSink sink = CreateEventSink(sinkId, logger); //"TextDecoration": "{$myvar2}"
             mockEventSource.Subscribe(sink);
             var data1 = JObject.Parse("{\"myvar1\": \"myval1\"}");
             var data2 = JObject.Parse("{\"myvar2\": \"myval2\"}");
@@ -154,6 +166,19 @@ namespace Amazon.KinesisTap.Core.Test
             Assert.Empty(sink.Records);
             mockEventSource.MockEvent(data2, timestamp);
             Assert.Equal("myval2", sink.Records[0]);
+        }
+
+        [Fact]
+        public void TestTextDecorationExJson()
+        {
+            MemoryLogger logger = new MemoryLogger(null);
+            MockEventSource<JObject> mockEventSource = CreateEventsource<JObject>("InitialPositionUnspecified");
+            MockEventSink sink = CreateEventSink("TextDecorationExJson", logger);
+            mockEventSource.Subscribe(sink);
+            var data1 = JObject.Parse("{\"myvar1\": \"myval1\"}");
+            DateTime timestamp = DateTime.UtcNow;
+            mockEventSource.MockEvent(data1, timestamp);
+            Assert.Equal("{ \"var\": \"MYVAL1\" }", sink.Records[0]);
         }
 
         [Theory]

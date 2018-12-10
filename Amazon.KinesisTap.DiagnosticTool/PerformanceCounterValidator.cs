@@ -14,27 +14,32 @@
  */
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Core.Metrics;
+using Amazon.KinesisTap.DiagnosticTool.Core;
 using Microsoft.Extensions.Configuration;
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace Amazon.KinesisTap.DiagnosticTool
 {
-    public class PerformanceCounterValidator
+    /// <summary>
+    /// The validator for the Windows performance counter source
+    /// </summary>
+    public class PerformanceCounterValidator: ISourceValidator
     {
-        private IConfigurationSection _categoriesSection;
-        private readonly PerformanceCounterCategory[] _performanceCounterCategories;
+        // The category of the windows performance counter 
+        private readonly PerformanceCounterCategory[] _performanceCounterCategories = PerformanceCounterCategory.GetCategories();
 
-        public PerformanceCounterValidator(IConfigurationSection categoriesSection, PerformanceCounterCategory[] performanceCounterCategories)
+        /// <summary>
+        /// Validate the performance counter source section
+        /// </summary>
+        /// <param name="sourceSection"></param>
+        /// <param name="id"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
+        public bool ValidateSource(IConfigurationSection sourceSection, string id, IList<string> messages)
         {
-            _categoriesSection = categoriesSection;
-            _performanceCounterCategories = performanceCounterCategories;
-        }
 
-        public Boolean ValidateSource(IList<string> messages)
-        {
-            var categories = _categoriesSection.GetChildren();
+            var categories = sourceSection.GetSection("Categories").GetChildren();
             foreach (var categorySection in categories)
             {
                 string categoryName = categorySection["Category"];
@@ -43,6 +48,7 @@ namespace Amazon.KinesisTap.DiagnosticTool
                 // If it is multiple instance categories, then instances are required
                 if (IsMultipleInstanceCategory(categoryName, messages) && instances == null)
                 {
+                    messages.Add($"Instances are required for the multiple instance categories: {categoryName} in source ID: {id}");
                     return false;
                 }
 
@@ -52,6 +58,9 @@ namespace Amazon.KinesisTap.DiagnosticTool
                     // make sure the performance counter is correctly configured. E.g. the counter unit is parseable
                     if (!ValidateCounter(categoryName, counterSection, messages))
                     {
+                        var counterFilter = counterSection["Counter"];
+                        var unit = counterSection["Unit"];
+                        messages.Add($"Unable to parse unit in source ID: {id}. The unparseable Unit is '{unit}' in Category '{categoryName}'");
                         return false;
                     }
                 }
@@ -60,7 +69,13 @@ namespace Amazon.KinesisTap.DiagnosticTool
             return true;
         }
 
-        private Boolean IsMultipleInstanceCategory(string categoryName, IList<string> messages)
+        /// <summary>
+        /// Detect if the performance counter source is a multiple instance category
+        /// </summary>
+        /// <param name="categoryName"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
+        private bool IsMultipleInstanceCategory(string categoryName, IList<string> messages)
         {
             foreach (var c in _performanceCounterCategories)
             {
@@ -69,12 +84,17 @@ namespace Amazon.KinesisTap.DiagnosticTool
                     return true;
                 }
             }
-            messages.Add($"Instances are required for the multiple instance categories: {categoryName}");
             return false;
         }
 
-
-        private Boolean ValidateCounter(string category, IConfigurationSection counterSection, IList<string> messages)
+        /// <summary>
+        /// Validate the counter in the performance counter source
+        /// </summary>
+        /// <param name="category"></param>
+        /// <param name="counterSection"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
+        private bool ValidateCounter(string category, IConfigurationSection counterSection, IList<string> messages)
         {
             string counterFilter = counterSection.Value;
             string unit = null;
@@ -97,7 +117,6 @@ namespace Amazon.KinesisTap.DiagnosticTool
                         }
                         catch
                         {
-                            messages.Add($"Unable to parse unit. Category: {category} Counter {counterFilter} Unit {unit}");
                             return false;
                         }
                     }

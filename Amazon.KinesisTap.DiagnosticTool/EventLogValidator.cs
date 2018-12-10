@@ -15,18 +15,28 @@
 using System;
 using System.Diagnostics.Eventing.Reader;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Amazon.KinesisTap.DiagnosticTool.Core;
 
 namespace Amazon.KinesisTap.DiagnosticTool
 {
-    class EventLogValidator
+    /// <summary>
+    /// The validator for the Windows Event log source from the configuration file
+    /// </summary>
+    public class EventLogValidator : ISourceValidator
     {
 
-        public bool ValidateLogName(string logName, IList<String> messages)
+        /// <summary>
+        /// Validate the Windows event log section
+        /// </summary>
+        /// <param name="sourceSection"></param>
+        /// <param name="id"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
+        public bool ValidateSource(IConfigurationSection sourceSection, string id, IList<String> messages)
         {
+            string logName = sourceSection["LogName"];
+
             EventLogQuery eventLogQuery = new EventLogQuery(logName, PathType.LogName);
             EventLogWatcher watcher = new EventLogWatcher(eventLogQuery, null, true);
 
@@ -38,16 +48,17 @@ namespace Amazon.KinesisTap.DiagnosticTool
             catch (EventLogNotFoundException ex)
             {
                 messages.Add(ex.Message);
-                messages.Add($"Event Log Name: {logName} is not a valid log name!");
+                messages.Add($"Event Log Name: {logName} is not a valid log name in source ID: {id}!");
                 return false;
             }
             catch (Exception ex)
             {
                 messages.Add(ex.ToString());
-                messages.Add($"Unexpected exceptions. Event Log Name: {logName}.");
+                messages.Add($"Unexpected exceptions. Event Log Name: {logName} in source ID: {id}.");
                 return false;
             }
-            finally {
+            finally
+            {
                 watcher.Enabled = false;
                 watcher.Dispose();
             }

@@ -16,14 +16,20 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-using Amazon.KinesisTap.Expression.Ast;
+using Microsoft.Extensions.Logging;
 
-namespace Amazon.KinesisTap.Expression.ObjectDecoration
+using Amazon.KinesisTap.Expression.Binder;
+
+namespace Amazon.KinesisTap.Expression.Ast
 {
-    public interface IObjectDecorationAstVisitor<in TData, out Result> : IAstVisitor<TData, Result>
+    public interface IExpressionEvaluationContext<T>
     {
-        Result VisitObjectDecoration(NodeList<KeyValuePairNode> nodeList, TData data);
+        string GetVariable(string variableName);
 
-        Result VisitKeyValuePairNode(KeyValuePairNode keyValuePairNode, TData data);
+        object GetLocalVariable(string variableName, T data);
+
+        FunctionBinder FunctionBinder { get; }
+
+        ILogger Logger { get; }
     }
 }

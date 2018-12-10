@@ -12,23 +12,25 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Amazon.KinesisTap.DiagnosticTool
+namespace Amazon.KinesisTap.DiagnosticTool.Core
 {
-    class Constant
+    /// <summary>
+    /// The constant variables in the Diagnostic tool
+    /// </summary>
+    public static class Constant
     {
         public const string CONFIG_SCHEMA_FILE = "appsettingsSchema.json";
         public const string CONFIG_FILE = "appsettings.json";
-        public const string PACKAGE_VERSION_SCHEMA_FILE = "PackageVersionSchema.json";
+        public const string PACKAGE_VERSION_SCHEMA_FILE = "packageVersionSchema.json";
+
+        public const string KINESISTAP_DIAGNOSTIC_TOOL_EXE_NAME = "KTDiag.exe";
 
         public const int NORMAL = 0;
         public const int INVALID_ARGUMENT = 1;
         public const int INVALID_FORMAT = 2;
         public const int RUNTIME_ERROR = 3;
+
+        //None-Windows
+        public const string LINUX_DEFAULT_PROGRAM_DATA_PATH = "/opt/amazon-kinesistap/etc";
     }
 }

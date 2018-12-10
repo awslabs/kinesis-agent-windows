@@ -16,14 +16,22 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-using Amazon.KinesisTap.Expression.Ast;
-
-namespace Amazon.KinesisTap.Expression.ObjectDecoration
+namespace Amazon.KinesisTap.Core
 {
-    public interface IObjectDecorationAstVisitor<in TData, out Result> : IAstVisitor<TData, Result>
+    public class TextDecorationEvaluator : IEnvelopeEvaluator<string>
     {
-        Result VisitObjectDecoration(NodeList<KeyValuePairNode> nodeList, TData data);
+        private string _textDecoration;
+        private Func<string, IEnvelope, string> _evaluateVariables;
 
-        Result VisitKeyValuePairNode(KeyValuePairNode keyValuePairNode, TData data);
+        public TextDecorationEvaluator(string textDecoration, Func<string, IEnvelope, string> evaluateVariables)
+        {
+            _textDecoration = textDecoration;
+            _evaluateVariables = evaluateVariables;
+        }
+
+        public string Evaluate(IEnvelope envelope)
+        {
+            return _evaluateVariables(_textDecoration, envelope);
+        }
     }
 }

@@ -14,17 +14,22 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Amazon.KinesisTap.DiagnosticTool
+namespace Amazon.KinesisTap.DiagnosticTool.Core
 {
-    class PackageVersionValidatorCommand : ICommand
+    /// <summary>
+    /// The class for Package version validator command
+    /// </summary>
+    public class PackageVersionValidatorCommand : ICommand
     {
+        /// <summary>
+        /// Parse and run the command
+        /// </summary>
+        /// <param name="args"></param>
+        /// <returns></returns>
         public int ParseAndRunArgument(string[] args)
         {
-            if (args.Length > 3)
+            if (args.Length != 2)
             {
                 WriteUsage();
                 return Constant.INVALID_ARGUMENT;
@@ -35,28 +40,27 @@ namespace Amazon.KinesisTap.DiagnosticTool
                 var packageVersionValidator = new PackageVersionValidator(AppContext.BaseDirectory);
 
                 bool isValid = packageVersionValidator.ValidatePackageVersion(args[1], out IList<string> messages);
-                Console.WriteLine("Diagnostic Test #1: Pass! Configuration file is a valid Json object.");
 
                 if (isValid)
                 {
-                    Console.WriteLine("Diagnostic Test #2: Pass! Configuration file has the valid Json schema!");
+                    Console.WriteLine("Diagnostic Test: Pass! Your packageVersion.json is valid.");
                 }
                 else
                 {
-                    Console.WriteLine("Diagnostic Test #2: Fail! Configuration file doesn't have the valid Json schema: ");
+                    Console.WriteLine("Diagnostic Test: Fail! Your packageVersion.json is invalid: ");
                     foreach (string message in messages)
                     {
                         Console.WriteLine(message);
                     }
 
-                    Console.WriteLine("Please fix the Configuration file to match the Json schema.");
+                    Console.WriteLine("Please fix the packageVersion.json to match the Json schema. You can follow the schema file named 'packageVersionSchema.json' to draft your packageVersion.json.");
                 }
 
                 return Constant.NORMAL;
             }
             catch (FormatException fex)
             {
-                Console.WriteLine("Diagnostic Test #1: Fail! Configuration file is not a valid Json object.");
+                Console.WriteLine("Diagnostic Test: Fail! Your packageVersion.json is not a valid Json file.");
                 Console.WriteLine(fex.Message);
                 return Constant.INVALID_FORMAT;
             }
@@ -67,9 +71,12 @@ namespace Amazon.KinesisTap.DiagnosticTool
             }
         }
 
-        public void WriteUsage()
+        /// <summary>
+        /// Print Rackage version validator usage
+        /// </summary>
+        public static void WriteUsage()
         {
-            Console.WriteLine("Validate PackageVersion.json before it is uploaded to s3:");
+            Console.WriteLine("Validate packageVersion.json before it is uploaded to s3:");
             Console.WriteLine();
             Console.WriteLine("ktdiag /p filepath");
             Console.WriteLine();
