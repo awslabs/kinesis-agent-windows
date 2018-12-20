@@ -64,7 +64,7 @@ namespace Amazon.KinesisTap.AutoUpdate
             }
             catch(Exception ex)
             {
-                _logger?.LogError($"Error download {this.Source}. Exception: {ex.ToAsyncString()}");
+                _logger?.LogError($"Error download {this.Source}. Exception: {ex.ToMinimized()}");
             }
         }
 

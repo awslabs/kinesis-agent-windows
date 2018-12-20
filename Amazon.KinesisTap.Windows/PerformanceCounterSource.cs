@@ -111,7 +111,7 @@ namespace Amazon.KinesisTap.Windows
             }
             catch(Exception ex)
             {
-                _context.Logger?.LogError($"Error querying performance counter source {this.Id}: {ex}");
+                _context.Logger?.LogError($"Error querying performance counter source {this.Id}: {ex.ToMinimized()}");
             }
             return null;
         }
@@ -205,7 +205,7 @@ namespace Amazon.KinesisTap.Windows
                 }
                 catch (Exception ex)
                 {
-                    _context.Logger?.LogError($"Error loading category {categoryInfo.CategoryName}: {ex}");
+                    _context.Logger?.LogError($"Error loading category {categoryInfo.CategoryName}: {ex.ToMinimized()}");
                 }
             }
         }
@@ -406,7 +406,7 @@ namespace Amazon.KinesisTap.Windows
                     }
                     catch (Exception ex)
                     {
-                        _context.Logger?.LogError($"Error reading performance counter {category}.{counterName}: {ex}");
+                        _context.Logger?.LogError($"Error reading performance counter {category}.{counterName}: {ex.ToMinimized()}");
                     }
                 }
             }
@@ -438,7 +438,7 @@ namespace Amazon.KinesisTap.Windows
                     }
                     catch (Exception ex)
                     {
-                        _context.Logger?.LogError($"Error reading performance counter {category} instance {instanceName}: {ex}");
+                        _context.Logger?.LogError($"Error reading performance counter {category} instance {instanceName}: {ex.ToMinimized()}");
                     }
                 }
             }

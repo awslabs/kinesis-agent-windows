@@ -146,7 +146,7 @@ namespace Amazon.KinesisTap.AWS
                 {
                     _nonrecoverableServiceErrors++;
                     _recordsFailedNonrecoverable += records.Count;
-                    _logger?.LogError($"KinesisSink client exception after {_throttle.ConsecutiveErrorCount} attempts: {pex}");
+                    _logger?.LogError($"KinesisSink client exception after {_throttle.ConsecutiveErrorCount} attempts: {pex.ToMinimized()}");
                 }
             }
             catch (Exception ex)
@@ -155,7 +155,7 @@ namespace Amazon.KinesisTap.AWS
                 _throttle.SetError();
                 _nonrecoverableServiceErrors++;
                 _recordsFailedNonrecoverable += records.Count;
-                _logger?.LogError($"KinesisSink client exception: {ex}");
+                _logger?.LogError($"KinesisSink client exception: {ex.ToMinimized()}");
             }
             PublishMetrics(MetricsConstants.KINESIS_STREAM_PREFIX);
         }

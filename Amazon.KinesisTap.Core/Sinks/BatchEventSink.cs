@@ -106,7 +106,7 @@ namespace Amazon.KinesisTap.Core
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex.Message);
+                _logger?.LogError(ex.ToMinimized());
             }
         }
 

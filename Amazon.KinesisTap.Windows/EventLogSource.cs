@@ -130,7 +130,7 @@ namespace Amazon.KinesisTap.Windows
             {
                 ae.Handle((x) =>
                 {
-                    _logger?.LogError($"EventLogSource id {this.Id} logging {_logName} EventLog with query {_query} error {x}.");
+                    _logger?.LogError($"EventLogSource id {this.Id} logging {_logName} EventLog with query {_query} error {x.ToMinimized()}.");
                     return true;
                 });
             }
@@ -172,7 +172,7 @@ namespace Amazon.KinesisTap.Windows
                 {
                     ae.Handle((x) =>
                     {
-                        _logger?.LogError($"EventLogSource id {this.Id} logging {_logName} EventLog with query {_query} error {x}.");
+                        _logger?.LogError($"EventLogSource id {this.Id} logging {_logName} EventLog with query {_query} error {x.ToMinimized()}.");
                         return true;
                     });
                 }
@@ -243,7 +243,7 @@ namespace Amazon.KinesisTap.Windows
                 }
                 catch(Exception ex)
                 {
-                    _logger?.LogError($"Eventlog Source {Id} unable to load bookmark: {ex.ToString()}");
+                    _logger?.LogError($"Eventlog Source {Id} unable to load bookmark: {ex.ToMinimized()}");
                 }
             }
         }
@@ -266,7 +266,7 @@ namespace Amazon.KinesisTap.Windows
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogError($"Eventlog Source {Id} unable to save bookmark: {ex.ToString()}");
+                    _logger?.LogError($"Eventlog Source {Id} unable to save bookmark: {ex.ToMinimized()}");
                 }
             }
         }
@@ -332,7 +332,7 @@ namespace Amazon.KinesisTap.Windows
 
         private void ProcessRecordError(Exception recordEx)
         {
-            _logger?.LogError($"EventLogSource id {this.Id} logging {_logName} EventLog with query {_query} has record error {recordEx}.");
+            _logger?.LogError($"EventLogSource id {this.Id} logging {_logName} EventLog with query {_query} has record error {recordEx.ToMinimized()}.");
             _metrics?.PublishCounter(this.Id, MetricsConstants.CATEGORY_SOURCE, CounterTypeEnum.Increment,
                 MetricsConstants.EVENTLOG_SOURCE_EVENTS_ERROR, 1, MetricUnit.Count);
         }

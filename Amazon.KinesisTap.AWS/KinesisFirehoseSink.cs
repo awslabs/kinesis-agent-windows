@@ -12,22 +12,21 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Amazon.KinesisTap.Core;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Linq;
-using Amazon.KinesisFirehose;
-using Amazon.KinesisFirehose.Model;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
 using System.Reactive.Linq;
-using System.Reactive.Threading.Tasks;
-using System.Diagnostics;
-using Amazon.KinesisTap.Core.Metrics;
-using Amazon.Runtime;
 using System.Net;
+
+using Amazon.KinesisFirehose;
+using Amazon.KinesisFirehose.Model;
+using Amazon.Runtime;
+using Microsoft.Extensions.Logging;
+
+using Amazon.KinesisTap.Core;
+using Amazon.KinesisTap.Core.Metrics;
+
 
 namespace Amazon.KinesisTap.AWS
 {
@@ -146,7 +145,7 @@ namespace Amazon.KinesisTap.AWS
                             //When there is error, reqResponse.RecordId would be null. So we have to use the sequence number within the batch here.
                             if (_throttle.ConsecutiveErrorCount >= _maxAttempts)
                             {
-                                _logger?.LogError($"Record {i} error {reqResponse.ErrorCode}: {reqResponse.ErrorMessage}");
+                                _logger?.LogDebug($"Record {i} error {reqResponse.ErrorCode}: {reqResponse.ErrorMessage}");
                             }
                         }
                     }
@@ -176,13 +175,16 @@ namespace Amazon.KinesisTap.AWS
                 {
                     _recoverableServiceErrors++;
                     _recordsFailedRecoverable += records.Count;
-                    _logger?.LogWarning($"KinesisFirehoseSink client {this.Id} Service Unavailable. Request requeued. Attempts {_throttle.ConsecutiveErrorCount}");
+                    if (LogThrottler.ShouldWrite(LogThrottler.CreateLogTypeId(this.GetType().FullName, "OnNextAsync", "Requeued", this.Id), TimeSpan.FromMinutes(5)))
+                    {
+                        _logger?.LogWarning($"KinesisFirehoseSink client {this.Id} Service Unavailable. Request requeued. Attempts {_throttle.ConsecutiveErrorCount}");
+                    }
                 }
                 else
                 {
                     _nonrecoverableServiceErrors++;
                     _recordsFailedNonrecoverable += records.Count;
-                    _logger?.LogError($"KinesisFirehoseSink client {this.Id} exception: {ex}");
+                    _logger?.LogError($"KinesisFirehoseSink client {this.Id} exception: {ex.ToMinimized()}");
                 }
             }
             PublishMetrics(MetricsConstants.KINESIS_FIREHOSE_PREFIX);

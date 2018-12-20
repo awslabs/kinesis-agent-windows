@@ -257,7 +257,7 @@ namespace Amazon.KinesisTap.Core
             }
             catch(Exception ex)
             {
-                _logger?.LogError(ex.ToString());
+                _logger?.LogError(ex.ToMinimized());
             }
         }
 
@@ -289,7 +289,7 @@ namespace Amazon.KinesisTap.Core
             }
             catch(Exception ex)
             {
-                _logger?.LogError(ex.ToString());
+                _logger?.LogError(ex.ToMinimized());
             }
         }
 
@@ -358,7 +358,7 @@ namespace Amazon.KinesisTap.Core
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex.ToString());
+                _logger?.LogError(ex.ToMinimized());
             }
             finally
             {
@@ -414,12 +414,12 @@ namespace Amazon.KinesisTap.Core
                 sourceInfo.ConsecutiveIOExceptionCount++;
                 if (sourceInfo.ConsecutiveIOExceptionCount >= this.NumberOfConsecutiveIOExceptionsToLogError)
                 {
-                    _logger?.LogError(ex.ToString());
+                    _logger?.LogError(ex.ToMinimized());
                 }
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex.ToString());
+                _logger?.LogError(ex.ToMinimized());
             }
             return (recordsRead, bytesRead);
         }

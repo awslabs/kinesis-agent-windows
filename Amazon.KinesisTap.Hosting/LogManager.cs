@@ -81,6 +81,8 @@ namespace Amazon.KinesisTap.Hosting
         {
             _configLoadTime = DateTime.Now;
 
+            StackTraceMinimizerExceptionExtensions.DoCompressStackTrace = true;
+
             ILoggerFactory loggerFactory = _serviceProvider.GetService<ILoggerFactory>();
             _logger = loggerFactory.CreateLogger<LogManager>();
 
@@ -126,7 +128,7 @@ namespace Amazon.KinesisTap.Hosting
                 }
                 catch(Exception ex)
                 {
-                    _logger?.LogError($"Error stopping source {source.Id}: {ex}");
+                    _logger?.LogError($"Error stopping source {source.Id}: {ex.ToMinimized()}");
                 }
             }
             _sources.Clear();
@@ -139,7 +141,7 @@ namespace Amazon.KinesisTap.Hosting
                 }
                 catch(Exception ex)
                 {
-                    _logger?.LogError($"Error stopping subscription: {ex}");
+                    _logger?.LogError($"Error stopping subscription: {ex.ToMinimized()}");
                 }
             }
             _subscriptions.Clear();
@@ -152,7 +154,7 @@ namespace Amazon.KinesisTap.Hosting
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogError($"Error stopping sink {sink.Id}: {ex}");
+                    _logger?.LogError($"Error stopping sink {sink.Id}: {ex.ToMinimized()}");
                 }
             }
             _sinks.Clear();
@@ -165,7 +167,7 @@ namespace Amazon.KinesisTap.Hosting
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogError($"Error stopping plugin {plugin.GetType()}: {ex}");
+                    _logger?.LogError($"Error stopping plugin {plugin.GetType()}: {ex.ToMinimized()}");
                 }
             }
             _logger?.LogInformation("Log manager stopped.");
@@ -220,7 +222,7 @@ namespace Amazon.KinesisTap.Hosting
                     catch (Exception ex)
                     {
                         credentialFailed++;
-                        _logger?.LogError($"Unable to load event sink {id} exception {ex}");
+                        _logger?.LogError($"Unable to load event sink {id} exception {ex.ToMinimized()}");
                     }
                 }
                 else
@@ -298,20 +300,20 @@ namespace Amazon.KinesisTap.Hosting
                     catch (Exception ex)
                     {
                         failed++;
-                        _logger?.LogError("Failed to register factory {0}: {1}.", factory, ex);
+                        _logger?.LogError("Failed to register factory {0}: {1}.", factory, ex.ToMinimized());
                     }
                 }
             }
             catch (Exception ex)
             {
                 failed++;
-                _logger?.LogError("Error discovering IFactory<{0}>: {1}.", typeof(T), ex);
+                _logger?.LogError("Error discovering IFactory<{0}>: {1}.", typeof(T), ex.ToMinimized());
                 // If the problem discovering the factory is a missing type then provide more details to make debugging easier.
                 if (ex is System.Reflection.ReflectionTypeLoadException)
                 {
                     _logger?.LogError("Loader exceptions: {0}",
                         string.Join(", ",
-                        ((System.Reflection.ReflectionTypeLoadException)ex).LoaderExceptions.Select(exception => exception.ToString()).ToArray()));
+                        ((System.Reflection.ReflectionTypeLoadException)ex).LoaderExceptions.Select(exception => exception.ToMinimized()).ToArray()));
                 }
             }
             writeMetrics(loaded, failed);
@@ -341,7 +343,7 @@ namespace Amazon.KinesisTap.Hosting
                     catch (Exception ex)
                     {
                         sourcesFailed++;
-                        _logger?.LogError("Unable to load event source {0} exception {1}", id, ex);
+                        _logger?.LogError("Unable to load event source {0} exception {1}", id, ex.ToMinimized());
                     }
                 }
                 else
@@ -366,7 +368,7 @@ namespace Amazon.KinesisTap.Hosting
                 {
                     sourceLoaded--;
                     sourcesFailed++;
-                    _logger?.LogError("Unable to load event source {0} exception {1}", source.Id, ex);
+                    _logger?.LogError("Unable to load event source {0} exception {1}", source.Id, ex.ToMinimized());
                 }
             }
             _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
@@ -500,7 +502,7 @@ namespace Amazon.KinesisTap.Hosting
             }
             catch(Exception ex)
             {
-                _logger?.LogError($"Unable to connect source {sourceRef} to sink {sinkRef}. Error: {ex}");
+                _logger?.LogError($"Unable to connect source {sourceRef} to sink {sinkRef}. Error: {ex.ToMinimized()}");
                 return false;
             }
         }
@@ -523,7 +525,7 @@ namespace Amazon.KinesisTap.Hosting
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogError($"Unable to load event pipe {id} exception {ex}");
+                    _logger?.LogError($"Unable to load event pipe {id} exception {ex.ToMinimized()}");
                     return false;
                 }
             }
@@ -559,7 +561,7 @@ namespace Amazon.KinesisTap.Hosting
             }
             catch(Exception ex)
             {
-                _logger?.LogError($"KinesisTap update error: {ex}");
+                _logger?.LogError($"KinesisTap update error: {ex.ToMinimized()}");
             }
 
             _updateTimer.Change(_updateFrequency * 60000, _updateFrequency * 60000);
@@ -593,7 +595,7 @@ namespace Amazon.KinesisTap.Hosting
             }
             catch (Exception ex)
             {
-                _logger?.LogError($"Reload exception: {ex}");
+                _logger?.LogError($"Reload exception: {ex.ToMinimized()}");
                 configReloadFail++;
             }
             _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
@@ -632,7 +634,7 @@ namespace Amazon.KinesisTap.Hosting
             catch (Exception ex)
             {
                 _logger?.LogError($"Unable to load telemetrics. Error: {ex.Message}"); //Only send a brief error message at Error level
-                _logger?.LogDebug($"{ex}"); //Send the detailed message if the user has Debug level on.
+                _logger?.LogDebug($"{ex.ToMinimized()}"); //Send the detailed message if the user has Debug level on.
             }
         }
 
@@ -653,7 +655,7 @@ namespace Amazon.KinesisTap.Hosting
             }
             catch (Exception ex)
             {
-                _logger?.LogError($"Unable to load performance counter. Error: {ex}");
+                _logger?.LogError($"Unable to load performance counter. Error: {ex.ToMinimized()}");
             }
         }
 
@@ -708,7 +710,7 @@ namespace Amazon.KinesisTap.Hosting
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogError($"Unable to load plugin type {pluginType} exception {ex}");
+                    _logger?.LogError($"Unable to load plugin type {pluginType} exception {ex.ToMinimized()}");
                     return false;
                 }
             }

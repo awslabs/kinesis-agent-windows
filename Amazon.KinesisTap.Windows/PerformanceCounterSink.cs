@@ -82,7 +82,7 @@ namespace Amazon.KinesisTap.Windows
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogError(ex.ToString());
+                    _logger?.LogError(ex.ToMinimized());
                 }
             }
         }
