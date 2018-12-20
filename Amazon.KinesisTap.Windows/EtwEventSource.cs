@@ -121,7 +121,7 @@ namespace Amazon.KinesisTap.Windows
                 }
                 ae.Handle((exception) =>
                 {
-                    _logger?.LogError($"EtwEventSource id {this.Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} encountered exception {exception} during start");
+                    _logger?.LogError($"EtwEventSource id {this.Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} encountered exception {exception.ToMinimized()} during start");
                     return true;
                 });
             }
@@ -235,7 +235,7 @@ namespace Amazon.KinesisTap.Windows
                 }
                 ae.Handle((exception) =>
                 {
-                    _logger?.LogError($"EtwEventSource id {this.Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} encountered exception {exception} during stop.");
+                    _logger?.LogError($"EtwEventSource id {this.Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} encountered exception {exception.ToMinimized()} during stop.");
                     return true;
                 });
             }

@@ -64,7 +64,7 @@ namespace Amazon.KinesisTap.AutoUpdate
             }
             catch(Exception ex)
             {
-                _logger?.LogError($"Error download {this.PackageVersion}. Exception: {ex.ToAsyncString()}");
+                _logger?.LogError($"Error download {this.PackageVersion}. Exception: {ex.ToMinimized()}");
             }
         }
 
@@ -148,7 +148,7 @@ namespace Amazon.KinesisTap.AutoUpdate
             }
             catch(Exception ex)
             {
-                _context.Logger?.LogError($"Error starting powershell script: {ex}");
+                _context.Logger?.LogError($"Error starting powershell script: {ex.ToMinimized()}");
             }
         }
 

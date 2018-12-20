@@ -70,7 +70,7 @@ namespace Amazon.KinesisTap.Core
                 }
                 catch (Exception e)
                 {
-                    _logger?.LogError($"Error invoking AfterDependencyRunning when dependent {_dependency.Name} for source {Id} transitioned to available: {e}");
+                    _logger?.LogError($"Error invoking AfterDependencyRunning when dependent {_dependency.Name} for source {Id} transitioned to available: {e.ToMinimized()}");
                 }
                 finally
                 {
@@ -127,7 +127,7 @@ namespace Amazon.KinesisTap.Core
                     }
                     catch (Exception e)
                     {
-                        _logger?.LogError($"Error during polling of dependent {_dependency.Name} for source {Id}: {e}");
+                        _logger?.LogError($"Error during polling of dependent {_dependency.Name} for source {Id}: {e.ToMinimized()}");
                     }
                 }
                 if (token.IsCancellationRequested)
@@ -142,7 +142,7 @@ namespace Amazon.KinesisTap.Core
                 }
                 catch (Exception e)
                 {
-                    _logger?.LogError($"Error invoking AfterDependencyRunning when dependent {_dependency.Name} for source {Id} transitioned to running: {e}");
+                    _logger?.LogError($"Error invoking AfterDependencyRunning when dependent {_dependency.Name} for source {Id} transitioned to running: {e.ToMinimized()}");
                 }
             }
             finally

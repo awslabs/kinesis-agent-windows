@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <PackageReference Include="AsyncFriendlyStackTrace" Version="1.6.0" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="1.1.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="1.1.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="1.1.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="2.0.4" />

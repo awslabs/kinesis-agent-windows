@@ -79,7 +79,7 @@ namespace Amazon.KinesisTap.Core.Metrics
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex.Message);
+                _logger?.LogError(ex.ToMinimized());
             }
         }
 
@@ -167,7 +167,7 @@ namespace Amazon.KinesisTap.Core.Metrics
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogError($"Metrics sink flush error id {this.Id} exception: {ex}");
+                    _logger?.LogError($"Metrics sink flush error id {this.Id} exception: {ex.ToMinimized()}");
                 }
                 finally
                 {

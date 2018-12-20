@@ -14,6 +14,7 @@
  */
 using Amazon.EC2;
 using Amazon.EC2.Model;
+using Amazon.KinesisTap.Core;
 using Amazon.Util;
 using System;
 using System.Collections.Generic;
@@ -80,7 +81,7 @@ namespace Amazon.KinesisTap.AWS
             catch(Exception ex)
             {
                 _errCount++;
-                throw new Exception($"EC2Utility.GetTags: {ex.Message}");
+                throw new Exception($"EC2Utility.GetTags: {ex.ToMinimized()}");
             }
         }
     }

@@ -29,7 +29,10 @@ namespace Amazon.KinesisTap.Core
     {
         public static readonly bool IsWindow = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         public static Func<string, string> ResolveEnvironmentVariable = Environment.GetEnvironmentVariable; //Can override this function for different OS
-        private static readonly string _computerName = IsWindow ? Environment.GetEnvironmentVariable("COMPUTERNAME") : Environment.GetEnvironmentVariable("HOSTNAME");
+
+        private static string _computerName;
+        private static string _hostName;
+
         private static readonly Random _random = new Random(
             (Utility.ComputerName + DateTime.UtcNow.ToString())
             .GetHashCode()
@@ -41,12 +44,50 @@ namespace Amazon.KinesisTap.Core
             return _stopwatch.ElapsedMilliseconds;
         }
 
-        public static string ComputerName => _computerName;
+        public static string ComputerName
+        {
+            get
+            {
+                if (_computerName == null)
+                {
+                    try
+                    {
+                        //On Linux, system does not create environment variable for nologin users so use Dns.GetHostName();
+                        //Dns.GetHostName on Linux eventually call gethostname() system function but it first check if socket exists.
+                        //In later version of .net, can just use Environment.MachineName
+                        if (IsWindow)
+                        {
+                            _computerName = Environment.GetEnvironmentVariable("COMPUTERNAME");
+                        }
+                        else
+                        {
+                            string hostName = Dns.GetHostName();
+                            int dotPos = hostName.IndexOf('.');
+                            _computerName = dotPos == -1 ? hostName : hostName.Substring(0, dotPos);
+                        }
+                    }
+                    catch { }
+                }
+                return _computerName ?? string.Empty;
+            }
+        }
 
-        //On Linux, this is the HOSTNAME environment variable as Dns.GetHostEntry will return "LocalHost"
-        private static readonly string _hostName = IsWindow ? Dns.GetHostEntryAsync("LocalHost").Result.HostName : Environment.GetEnvironmentVariable("HOSTNAME");
-
-        public static string HostName => _hostName;
+        public static string HostName
+        {
+            get
+            {
+                if (_hostName == null)
+                {
+                    try
+                    {
+                        //On Linux, Dns.GetHostEntryAsync("LocalHost") will return "LocalHost"
+                        _hostName = IsWindow ? Dns.GetHostEntryAsync("LocalHost").Result.HostName : Dns.GetHostName();
+                    }
+                    catch { }
+                }
+                return _hostName ?? "unresolved";
+            }
+        }
 
         public static readonly Regex VARIABLE_REGEX = new Regex("{[^}]+}");
 

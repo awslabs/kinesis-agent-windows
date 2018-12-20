@@ -234,7 +234,7 @@ namespace Amazon.KinesisTap.AWS
             }
             catch (Exception ex)
             {
-                _logger?.LogError($"CloudWatchLogsSink client {this.Id} exception (attempt={_throttle.ConsecutiveErrorCount}): {ex}");
+                _logger?.LogError($"CloudWatchLogsSink client {this.Id} exception (attempt={_throttle.ConsecutiveErrorCount}): {ex.ToMinimized()}");
             }
 
             PublishMetrics(MetricsConstants.CLOUDWATCHLOG_PREFIX);
@@ -310,7 +310,7 @@ namespace Amazon.KinesisTap.AWS
             }
             catch (Exception ex)
             {
-                _logger?.LogError($"CloudWatchLogsSink create logroup {_logGroupName} exception: {ex}");
+                _logger?.LogError($"CloudWatchLogsSink create logroup {_logGroupName} exception: {ex.ToMinimized()}");
                 throw;
             }
         }
@@ -328,7 +328,7 @@ namespace Amazon.KinesisTap.AWS
             }
             catch (Exception ex)
             {
-                _logger?.LogError($"CloudWatchLogsSink create logstream {_logGroupName}/{logStreamName} exception: {ex}");
+                _logger?.LogError($"CloudWatchLogsSink create logstream {_logGroupName}/{logStreamName} exception: {ex.ToMinimized()}");
                 throw;
             }
         }

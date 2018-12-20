@@ -67,7 +67,7 @@ namespace Amazon.KinesisTap.Core
             }
             catch(Exception ex)
             {
-                _logger?.LogError($"Plugin {this.Id} exception: {ex.ToAsyncString()}");
+                _logger?.LogError($"Plugin {this.Id} exception: {ex.ToMinimized()}");
             }
             EnableTimer();
         }

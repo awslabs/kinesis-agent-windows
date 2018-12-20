@@ -107,13 +107,13 @@ namespace Amazon.KinesisTap.AWS
                         //If we get a recoverable error, we will retry up to the limit before putting it in the lower priority queue
                         if (attempts < this.AttemptLimit)
                         {
-                            _logger?.LogDebug($"{this.GetType().Name} recoverable exception: {ex}");
+                            _logger?.LogDebug($"{this.GetType().Name} recoverable exception: {ex.ToMinimized()}");
                             int delay = Utility.Random.Next(_interval * attempts) * 100; //attemps * (_interval * 1000/10)
                             await Task.Delay(delay);
                         }
                         else
                         {
-                            _logger?.LogDebug($"{this.GetType().Name} recoverable exception (added to queue): {ex}");
+                            _logger?.LogDebug($"{this.GetType().Name} recoverable exception (added to queue): {ex.ToMinimized()}");
                             AddToRetryQueue(putMetricDataRequest);
                             break;
                         }
@@ -145,7 +145,7 @@ namespace Amazon.KinesisTap.AWS
                         catch (Exception ex)
                         {
                             //Don't process the rest. Wait for next opportunity
-                            _logger?.LogDebug($"{this.GetType().Name} FlushQueueAsync exception: {ex}");
+                            _logger?.LogDebug($"{this.GetType().Name} FlushQueueAsync exception: {ex.ToMinimized()}");
                             break;
                         }
                         await Task.Delay(this.FlushQueueDelay);
@@ -153,7 +153,7 @@ namespace Amazon.KinesisTap.AWS
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogError($"{this.GetType().Name} FlushQueueAsync unknown exception: {ex}");
+                    _logger?.LogError($"{this.GetType().Name} FlushQueueAsync unknown exception: {ex.ToMinimized()}");
                 }
                 finally
                 {
