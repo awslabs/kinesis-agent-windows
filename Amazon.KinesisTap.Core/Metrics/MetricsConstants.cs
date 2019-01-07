@@ -28,8 +28,8 @@ namespace Amazon.KinesisTap.Core.Metrics
         public const string SINK_FACTORIES_LOADED = "SinkFactoriesLoaded";
         public const string SINK_FACTORIES_FAILED_TO_LOAD = "SinkFactoriesFailedToLoad";
 
-        public const string CREDENTIAL_PROVIDER_FACTORIES_LOADED = "CrendetialProviderFactoriesLoaded";
-        public const string CREDENTIAL_PROVIDER_FACTORIES_FAILED_TO_LOAD = "CrendetialProviderFactoriesFailedToLoad";
+        public const string CREDENTIAL_PROVIDER_FACTORIES_LOADED = "CredentialProviderFactoriesLoaded";
+        public const string CREDENTIAL_PROVIDER_FACTORIES_FAILED_TO_LOAD = "CredentialProviderFactoriesFailedToLoad";
 
         public const string GENERIC_PLUGIN_FACTORIES_LOADED = "GenericPluginFactoriesLoaded";
         public const string GENERIC_PLUGIN_FACTORIES_FAILED_TO_LOAD = "GenericPluginFactoriesFailedToLoad";

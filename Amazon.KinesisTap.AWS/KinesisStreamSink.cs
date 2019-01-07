@@ -39,7 +39,7 @@ namespace Amazon.KinesisTap.AWS
         {
             if (_count > 500)
             {
-                throw new ArgumentException("The maximum buffer size for kinesis tream is 500");
+                throw new ArgumentException("The maximum buffer size for kinesis stream is 500");
             }
 
             //Set Defaults for 1 shard
@@ -131,7 +131,7 @@ namespace Amazon.KinesisTap.AWS
                 _throttle.SetSuccess();
                 _latency = Utility.GetElapsedMilliseconds() - elapsedMilliseconds;
                 _recordsSuccess += records.Count;
-                _logger?.LogDebug($"KinesisFirehoseSink {this.Id} succesfully sent {records.Count} records {batchBytes} bytes.");
+                _logger?.LogDebug($"KinesisFirehoseSink {this.Id} successfully sent {records.Count} records {batchBytes} bytes.");
             }
             catch (ProvisionedThroughputExceededException pex)
             {

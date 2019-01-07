@@ -93,7 +93,7 @@ namespace Amazon.KinesisTap.Core
         protected abstract void AfterDependencyAvailable();
 
         /// <summary>
-        /// If polling is occuring, cancel the polling.
+        /// If polling is occurring, cancel the polling.
         /// </summary>
         protected void MaybeCancelPolling()
         {

@@ -24,30 +24,30 @@ namespace Amazon.KinesisTap.Expression.ObjectDecoration
 {
     public class ObjectDecorationEvaluationContext<T> : IObjectDecorationEvaluationContext<T>
     {
-        protected readonly Func<string, string> _globalEvaludator;
-        protected readonly Func<string, T, object> _localEvaludator;
+        protected readonly Func<string, string> _globalEvaluator;
+        protected readonly Func<string, T, object> _localEvaluator;
         protected readonly FunctionBinder _functionBinder;
         protected readonly ILogger _logger;
 
-        public ObjectDecorationEvaluationContext(Func<string, string> globalEvaludator, 
-            Func<string, T, object> localEvaludator,
+        public ObjectDecorationEvaluationContext(Func<string, string> globalEvaluator, 
+            Func<string, T, object> localEvaluator,
             FunctionBinder functionBinder,
             ILogger logger)
         {
-            _globalEvaludator = globalEvaludator;
-            _localEvaludator = localEvaludator;
+            _globalEvaluator = globalEvaluator;
+            _localEvaluator = localEvaluator;
             _functionBinder = functionBinder;
             _logger = logger;
         }
 
         public object GetLocalVariable(string variableName, T data)
         {
-            return _localEvaludator(variableName, data);
+            return _localEvaluator(variableName, data);
         }
 
         public string GetVariable(string variableName)
         {
-            return _globalEvaludator(variableName);
+            return _globalEvaluator(variableName);
         }
 
         public FunctionBinder FunctionBinder => _functionBinder;

@@ -18,7 +18,7 @@ using System.Text;
 
 namespace Amazon.KinesisTap.Core
 {
-    //A pipe is both source and sink so it can subscribe to a souce and be subscribed by a sink
+    //A pipe is both source and sink so it can subscribe to a source and be subscribed by a sink
     public interface IPipe : IEventSource, IEventSink
     {
     }

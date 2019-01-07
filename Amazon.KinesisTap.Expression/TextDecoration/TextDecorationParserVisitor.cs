@@ -114,7 +114,7 @@ namespace Amazon.KinesisTap.Expression.TextDecoration
             return new Location(terminal.Symbol.StartIndex, terminal.Symbol.StopIndex);
         }
 
-        //Remove the beging and ending quote and unescape special characters
+        //Remove the beginning and ending quote and unescape special characters
         public static string Unescape(string input)
         {
             int idx = 1;    //Skipping the beginning quote

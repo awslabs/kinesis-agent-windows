@@ -34,7 +34,7 @@ namespace Amazon.KinesisTap.Core
         {
             _bucketSize = bucketSize;
             _rate = rate;
-            _tokens = _bucketSize; //Intialize as full
+            _tokens = _bucketSize; //Initialize as full
             _prevMillisecondsLapsed = Utility.GetElapsedMilliseconds();
         }
 

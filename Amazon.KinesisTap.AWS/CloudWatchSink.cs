@@ -280,9 +280,9 @@ namespace Amazon.KinesisTap.AWS
 
         private void QueryDataSources(IDictionary<MetricKey, MetricValue> accumlatedValues)
         {
-            foreach (var dataSouce in _dataSources?.Values)
+            foreach (var dataSource in _dataSources?.Values)
             {
-                var resultEnvelope = dataSouce.Query(null);
+                var resultEnvelope = dataSource.Query(null);
                 if (resultEnvelope != null)
                 {
                     var metrics = resultEnvelope.Data as ICollection<KeyValuePair<MetricKey, MetricValue>>;

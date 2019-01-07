@@ -191,7 +191,7 @@ namespace Amazon.KinesisTap.Windows
         #endregion
 
 
-        #region priviate members for managing performance counters
+        #region private members for managing performance counters
         private void LoadPerformanceCounters()
         {
             _singleInstanceCategoryCounters = new Dictionary<string, List<PerformanceCounter>>();
@@ -250,7 +250,7 @@ namespace Amazon.KinesisTap.Windows
                 {
                     if (!performanceCounterCategory.InstanceExists(instanceName))
                     {
-                        _context.Logger?.LogError($"Instantce does not exist for category {categoryName} and instance {instanceName}");
+                        _context.Logger?.LogError($"Instance does not exist for category {categoryName} and instance {instanceName}");
                     }
                 }
             }

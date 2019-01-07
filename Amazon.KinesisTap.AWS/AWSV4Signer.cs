@@ -70,7 +70,7 @@ namespace Amazon.KinesisTap.AWS
         /// Computes the AWSV4 Signature and returns the Authorization value
         /// </summary>
         /// <param name="requestHeaders">Request Headers in a Dictionary</param>
-        /// <param name="canonicalizedQueryParameters">Canonizalized Query parameters as a string, created using the <see cref="AWSv4Signer.CanonicalizeQueryParameters(string)"/> method.</param>
+        /// <param name="canonicalizedQueryParameters">Canonicalized Query parameters as a string, created using the <see cref="AWSv4Signer.CanonicalizeQueryParameters(string)"/> method.</param>
         /// <param name="serviceURL">Service Url</param>
         /// <param name="region">AWS Region</param>
         /// <param name="serviceName">Name of Service</param>

@@ -23,7 +23,7 @@ namespace Amazon.KinesisTap.DiagnosticTool
     public class WindowsEventLogSimulatorCommand : ICommand
     { 
         /// <summary>
-        /// Prase and run the command
+        /// Parse and run the command
         /// </summary>
         /// <param name="args"></param>
         /// <returns></returns>

@@ -156,7 +156,7 @@ namespace Amazon.KinesisTap.Core
             string value = ResolveEnvironmentVariable(variableNoPrefix);
             if ("env".Equals(prefix, StringComparison.CurrentCultureIgnoreCase))
             {
-                //User specificly asking for environment variable
+                //User specifically asking for environment variable
                 return value;
             }
             else
@@ -346,7 +346,7 @@ namespace Amazon.KinesisTap.Core
         }
 
         /// <summary>
-        /// Conver a wildcard expression to regular expression. 
+        /// Convert a wildcard expression to regular expression. 
         /// Match '?' to a single character and '*' to any single characters
         /// Escape all special characters
         /// </summary>
@@ -369,7 +369,7 @@ namespace Amazon.KinesisTap.Core
         /// <summary>
         /// Extract fields from a string using regex named groups
         /// </summary>
-        /// <param name="extractionRegex">Regex used for extracing fields</param>
+        /// <param name="extractionRegex">Regex used for extracting fields</param>
         /// <param name="rawRecord">string</param>
         /// <returns>A dictionary of fields and values</returns>
         public static IDictionary<string, string> ExtractFields(Regex extractionRegex, string rawRecord)

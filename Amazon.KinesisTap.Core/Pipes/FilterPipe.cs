@@ -19,7 +19,7 @@ using System.Text;
 namespace Amazon.KinesisTap.Core
 {
     /// <summary>
-    /// Impplement the filter pipe semantics. The type does not change. Need to implement the filter method
+    /// Implement the filter pipe semantics. The type does not change. Need to implement the filter method
     /// </summary>
     /// <typeparam name="T"></typeparam>
     public abstract class FilterPipe<T> : Pipe<T, T>

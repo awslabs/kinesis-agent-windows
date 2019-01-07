@@ -30,7 +30,7 @@ namespace Amazon.KinesisTap.Core
         /// They don't depend on the environment (environment variables, ec2 meta data)
         /// </summary>
         /// <param name="variable">Name of the variable to resolve. Assume {} are already stripped off and starts with $.</param>
-        /// <returns>Return value from evaludating the variable.</returns>
+        /// <returns>Return value from evaluating the variable.</returns>
         object ResolveLocalVariable(string variable);
 
         /// <summary>

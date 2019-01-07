@@ -42,7 +42,7 @@ namespace Amazon.KinesisTap.Core.Test.Components
                     buffer.Add(i);
                 }
             });
-            //shoud block
+            //should block
             Thread.Sleep(500);
             buffer.Requeue(-1, false);
             sinkWaitHandle.Set();
@@ -81,7 +81,7 @@ namespace Amazon.KinesisTap.Core.Test.Components
                     buffer.Add(i);
                 }
             });
-            //shoud block
+            //should block
             Thread.Sleep(500);
             buffer.Requeue(-1, false);
             sinkWaitHandle.Set();

@@ -554,7 +554,7 @@ namespace Amazon.KinesisTap.Hosting
 
             try
             {
-                _logger?.LogInformation("Running self-updator");
+                _logger?.LogInformation("Running self-updater");
                 ProcessStartInfo startInfo = new ProcessStartInfo("choco", "upgrade KinesisTap -y");
                 startInfo.CreateNoWindow = true;
                 Process.Start(startInfo);
