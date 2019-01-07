@@ -146,11 +146,72 @@ namespace Amazon.KinesisTap.Core.Test
             Assert.Equal(13, logRecords.Count);
         }
 
+        [Fact]
+        public void TestBookmarkWithMultipleFilter()
+        {
+            string sourceId = "TestDirectorySourceBookmarkWithMultipleFilter";
+            Setup(sourceId);
+
+            WriteLogs("A", 2);
+            WriteLogs("B", 3);
+
+            ListEventSink logRecords = new ListEventSink();
+            DirectorySource<IDictionary<string, string>, LogContext> watcher = CreateDirectorySource(sourceId, "log_A.log|log_B.log", logRecords);
+            watcher.InitialPosition = InitialPositionEnum.Bookmark;
+            watcher.Start();
+            Thread.Sleep(2000);
+            watcher.Stop();
+            Assert.Empty(logRecords);
+
+            WriteLogs("A", 1);
+            WriteLogs("B", 5);
+
+            watcher.Start();
+            WriteLogs("A", 7);
+            Thread.Sleep(2000);
+            watcher.Stop();
+
+            Assert.Equal(13, logRecords.Count);
+        }
+
+        [Fact]
+        public void TestBookmarkWithExcludedExtension()
+        {
+            string sourceId = "TestDirectorySourceBookmarkWithExcludedExtension";
+            Setup(sourceId);
+
+            WriteLogs("A", 2);
+            WriteLogs("B", "zip", 3);
+
+            ListEventSink logRecords = new ListEventSink();
+            DirectorySource<IDictionary<string, string>, LogContext> watcher = CreateDirectorySource(sourceId, "*.*", logRecords);
+            watcher.InitialPosition = InitialPositionEnum.Bookmark;
+            watcher.Start();
+            Thread.Sleep(2000);
+            watcher.Stop();
+            Assert.Empty(logRecords);
+
+            WriteLogs("A", 1);
+            WriteLogs("B", "zip", 5);
+
+            watcher.Start();
+            WriteLogs("A", 7);
+            Thread.Sleep(2000);
+            watcher.Stop();
+
+            Assert.Equal(8, logRecords.Count);
+        }
+
         private DirectorySource<IDictionary<string, string>, LogContext> CreateDirectorySource(string sourceId, ListEventSink logRecords)
+        {
+            return CreateDirectorySource(sourceId, "log_?.log", logRecords);
+        }
+
+        private DirectorySource<IDictionary<string, string>, LogContext> CreateDirectorySource(string sourceId, string filter, ListEventSink logRecords)
         {
             DirectorySource<IDictionary<string, string>, LogContext> watcher = new DirectorySource<IDictionary<string, string>, LogContext>
                 (BookmarkDirectory,
-                "log_?.log",
+                filter,
                 1000,
                 new PluginContext(null, NullLogger.Instance, null),
                 new TimeStampRecordParser(RECORD_TIME_STAMP_FORMAT, null, DateTimeKind.Utc),
@@ -186,7 +247,12 @@ namespace Amazon.KinesisTap.Core.Test
 
         private void WriteLogs(string suffix, int records)
         {
-            string filepath = Path.Combine(BookmarkDirectory, $"log_{suffix}.log");
+            WriteLogs(suffix, "log", records);
+        }
+
+        private void WriteLogs(string suffix, string extension, int records)
+        {
+            string filepath = Path.Combine(BookmarkDirectory, $"log_{suffix}.{extension}");
             using (var sw = File.AppendText(filepath))
             {
                 DateTime timestamp = DateTime.Now;
