@@ -76,14 +76,15 @@ namespace Amazon.KinesisTap.Core.Test
         [Fact]
         public async Task SingleLogTest()
         {
+            string testName = "SingleLogTest";
             string filter = "KinesisTapTest????????.log";
             string logFileNameFormat = "KinesisTapTest{0:yyyyMMdd}.log";
 
-            await CreateAndRunWatcher(filter, async (logRecords) =>
+            await CreateAndRunWatcher(testName, filter, async (logRecords) =>
             {
                 int accumulatedRecords = 0;
                 //Run one batch of test
-                string filePath = GetFileNameFromTimeStamp(logFileNameFormat);
+                string filePath = GetFileNameFromTimeStamp(testName, logFileNameFormat);
                 accumulatedRecords = await RunDirectoryWatcherTest(filePath, logRecords, accumulatedRecords);
                 //Run another batch of test with the same file name
                 accumulatedRecords = await RunDirectoryWatcherTest(filePath, logRecords, accumulatedRecords);
@@ -97,17 +98,18 @@ namespace Amazon.KinesisTap.Core.Test
         [Fact]
         public async Task FileNameContainingDateTimeStampTest()
         {
+            string testName = "FileNameContainingDateTimeStampTest";
             string filter = "KinesisTapDateTimeStamp??????????????.log";
             string logFileNameFormat = "KinesisTapDateTimeStamp{0:yyyyMMddhhmmss}.log";
 
-            await CreateAndRunWatcher(filter, async (logRecords) =>
+            await CreateAndRunWatcher(testName, filter, async (logRecords) =>
             {
                 int accumulatedRecords = 0;
                 //Run one batch of test
-                string filePath = GetFileNameFromTimeStamp(logFileNameFormat);
+                string filePath = GetFileNameFromTimeStamp(testName, logFileNameFormat);
                 accumulatedRecords = await RunDirectoryWatcherTest(filePath, logRecords, accumulatedRecords);
                 //Run another batch of test with a different file name
-                filePath = GetFileNameFromTimeStamp(logFileNameFormat);
+                filePath = GetFileNameFromTimeStamp(testName, logFileNameFormat);
                 accumulatedRecords = await RunDirectoryWatcherTest(filePath, logRecords, accumulatedRecords);
             });
         }
@@ -122,16 +124,14 @@ namespace Amazon.KinesisTap.Core.Test
         [Fact]
         public async Task RotatingFileNameTest()
         {
+            string testName = "RotatingFileNameTest";
             string filter = "KinesisTapxyz.log*";
             string logFileName = "KinesisTapxyz.log";
 
-            //Clean up the temp files from the previous test rather than after each test so that we can inspect the test files
-            DeleteFiles(TestUtility.GetTestHome(), filter);
-
-            await CreateAndRunWatcher(filter, async (logRecords) =>
+            await CreateAndRunWatcher(testName, filter, async (logRecords) =>
             {
                 int accumulatedRecords = 0;
-                string filePath = Path.Combine(TestUtility.GetTestHome(), logFileName);
+                string filePath = Path.Combine(TestUtility.GetTestHome(), testName, logFileName);
                 WriteRandomRecords(filePath, out int records, out string lastLine1, GenerateSingleLineRecord);
                 accumulatedRecords += records;
                 RenameLogFile(filePath);
@@ -148,15 +148,16 @@ namespace Amazon.KinesisTap.Core.Test
         [Fact]
         public async Task SingleLineRecordParserBlankLineTest()
         {
+            string testName = "SingleLineRecordParserBlankLineTest";
             string filter = "SingleLineRecordParserTest.log";
             string logFileName = "SingleLineRecordParserTest.log";
-            string filePath = Path.Combine(TestUtility.GetTestHome(), logFileName);
+            string filePath = Path.Combine(TestUtility.GetTestHome(), testName, logFileName);
             if (File.Exists(filePath))
             {
                 File.Delete(filePath);
             }
 
-            await CreateAndRunWatcher(filter, async (logRecords) =>
+            await CreateAndRunWatcher(testName, filter, async (logRecords) =>
             {
                 string log = @"
 12/20/2017 15:40:58:	14117   Objects in OU=Servers,dc=ant,dc=amazon,dc=com	RunTime: 0 days, 0 hours, 0 minutes, 4.826 seconds
@@ -179,10 +180,11 @@ namespace Amazon.KinesisTap.Core.Test
         [Fact]
         public async Task DHCPSkipLinesTest()
         {
+            string testName = "DHCPSkipLinesTest";
             string filter = "*.DHCPlog";
             string logFileName = "DHCP.DHCPlog";
 
-            string filePath = Path.Combine(TestUtility.GetTestHome(), logFileName);
+            string filePath = Path.Combine(TestUtility.GetTestHome(), testName, logFileName);
             if (File.Exists(filePath))
             {
                 File.Delete(filePath);
@@ -190,7 +192,7 @@ namespace Amazon.KinesisTap.Core.Test
 
             var config = TestUtility.GetConfig("Sources", "DHCPLog");
 
-            await CreateAndRunWatcher(filter, config, async(logRecords) =>
+            await CreateAndRunWatcher(testName, filter, config, async(logRecords) =>
             {
                 string log = @"		Microsoft DHCP Service Activity Log
 
@@ -238,23 +240,65 @@ ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name, Transaction
         [Fact] 
         public async Task TimeStampedRecordTest()
         {
+            string testName = "TimeStampedRecordTest";
             string filter = "TimeStampLog????????.log";
             string logFileNameFormat = "TimeStampLog{0:yyyyMMdd}.log";
             string recordTimeStampFormat = "MM/dd/yyyy HH:mm:ss";
 
-            await CreateAndRunWatcher(filter, null, async (logRecords) =>
+            await CreateAndRunWatcher(testName, filter, null, async (logRecords) =>
             {
                 int accumulatedRecords = 0;
                 //Run one batch of test
-                string filePath = GetFileNameFromTimeStamp(logFileNameFormat);
+                string filePath = GetFileNameFromTimeStamp(testName, logFileNameFormat);
                 accumulatedRecords = await RunDirectoryWatcherTest(filePath, logRecords, accumulatedRecords, GenerateMultiLineRecord);
                 //Run another batch of test with the same file name
                 accumulatedRecords = await RunDirectoryWatcherTest(filePath, logRecords, accumulatedRecords, GenerateMultiLineRecord);
             }, new TimeStampRecordParser(recordTimeStampFormat, null, DateTimeKind.Utc));
         }
-#endregion
 
-#region private members
+        /// <summary>
+        /// Filter specification containing multiple filters.
+        /// </summary>
+        /// <returns></returns>
+        [Fact]
+        public async Task MultipleFilterTest()
+        {
+            string testName = "MultipleFilterTest";
+            string filter = "*.log|*.txt";
+
+            await CreateAndRunWatcher(testName, filter, async (logRecords) =>
+            {
+                int accumulatedRecords = 0;
+                //Run a test with extension 1
+                string filePath1 = Path.Combine(TestUtility.GetTestHome(), testName, "test.log");
+                accumulatedRecords = await RunDirectoryWatcherTest(filePath1, logRecords, accumulatedRecords);
+                //Run a test with extension 2
+                string filePath2 = Path.Combine(TestUtility.GetTestHome(), testName, "test.txt");
+                accumulatedRecords = await RunDirectoryWatcherTest(filePath2, logRecords, accumulatedRecords);
+            });
+        }
+
+        /// <summary>
+        /// Files like .zip should not be pickup by the wild-card filter
+        /// </summary>
+        /// <returns></returns>
+        [Fact]
+        public async Task ExcludedFileTest()
+        {
+            string testName = "ExcludedFileTest";
+            string filter = "*.*";
+
+            await CreateAndRunWatcher(testName, filter, async (logRecords) =>
+            {
+                string filePath = Path.Combine(TestUtility.GetTestHome(), testName, "test.zip");
+                WriteRandomRecords(filePath, out int records, out string lastLine, GenerateSingleLineRecord);
+                await Task.Delay(2000);
+                Assert.Empty(logRecords); //Should not pickup anything
+            });
+        }
+        #endregion
+
+        #region private members
         private void RenameLogFile(string filePath)
         {
             string directory = Path.GetDirectoryName(filePath);
@@ -269,16 +313,24 @@ ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name, Transaction
             File.Move(filePath, $"{filePath}.{fileNum:D8}");
         }
     
-        private async Task CreateAndRunWatcher(string filter, Func<List<IEnvelope>, Task> testBody)
+        private async Task CreateAndRunWatcher(string testName, string filter, Func<List<IEnvelope>, Task> testBody)
         {
-            await CreateAndRunWatcher(filter, null, testBody, new SingeLineRecordParser());
+            await CreateAndRunWatcher(testName, filter, null, testBody, new SingeLineRecordParser());
         }
 
-        private async Task CreateAndRunWatcher<TData>(string filter, IConfiguration config, Func<List<IEnvelope>, Task> testBody, IRecordParser<TData, LogContext> recordParser)
+        private async Task CreateAndRunWatcher<TData>(string testName, string filter, IConfiguration config, Func<List<IEnvelope>, Task> testBody, IRecordParser<TData, LogContext> recordParser)
         {
+            //Create a distinct directory based on testName so that tests can run in parallel
+            string testDir = Path.Combine(TestUtility.GetTestHome(), testName);
+            //The following will creates all directories and subdirectories in the specified path unless they already exist.
+            Directory.CreateDirectory(testDir);
+
+            //Clean up before the test rather than after so that we can inspect the files
+            DeleteFiles(testDir, "*.*");
+
             ListEventSink logRecords = new ListEventSink();
             DirectorySource<TData, LogContext> watcher = new DirectorySource<TData, LogContext>
-                (TestUtility.GetTestHome(), filter, 1000, new PluginContext(config, NullLogger.Instance, null), recordParser, DirectorySourceFactory.CreateLogSourceInfo);
+                (testDir, filter, 1000, new PluginContext(config, NullLogger.Instance, null), recordParser, DirectorySourceFactory.CreateLogSourceInfo);
             watcher.Subscribe(logRecords);
             watcher.Start();
 
@@ -324,11 +376,11 @@ ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name, Transaction
             return timestamp.ToString("MM/dd/yyyy HH:mm:ss" + ".fff") + Environment.NewLine + "Second Line." + Environment.NewLine + "Third Line.";
         }
 
-        private string GetFileNameFromTimeStamp(string fileNameFormat)
+        private string GetFileNameFromTimeStamp(string testName, string fileNameFormat)
         {
             DateTime timestamp = DateTime.Now;
             string file = string.Format(fileNameFormat, timestamp);
-            return Path.Combine(TestUtility.GetTestHome(), file); ;
+            return Path.Combine(TestUtility.GetTestHome(), testName, file); ;
         }
 
         private void AddRecords<T> (List<T> logRecords, IList<T> newRecord)

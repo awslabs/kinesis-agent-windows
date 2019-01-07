@@ -25,6 +25,7 @@ using System.Reactive.Subjects;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using Amazon.KinesisTap.Core.Metrics;
+using System.Text.RegularExpressions;
 
 namespace Amazon.KinesisTap.Core
 {
@@ -33,9 +34,14 @@ namespace Amazon.KinesisTap.Core
     /// </summary>
     public class DirectorySource<TData, TContext> : DependentEventSource<TData>, IBookmarkable where TContext : LogContext
     {
+        //Exclude well-known compressed files when using wild-card filter *.*
+        private static readonly string[] _excludedExtensions = new string[] { ".zip", ".gz", ".bz2" };
+
         private FileSystemWatcher _watcher;
         private readonly string _directory;
-        private readonly string _filter;
+        private readonly string _filterSpec;
+        private readonly string[] _fileFilters;
+        private readonly Regex[] _fileFilterRegexs;
         private readonly int _interval;
         private readonly int _skipLines;
         private Timer _timer;
@@ -53,11 +59,11 @@ namespace Amazon.KinesisTap.Core
         /// Constructor
         /// </summary>
         /// <param name="directory">Path of the directory to monitor</param>
-        /// <param name="filter">File name filter</param>
+        /// <param name="filterSpec">File name filter</param>
         /// <param name="logger">Logger</param>
         public DirectorySource(
             string directory, 
-            string filter, 
+            string filterSpec, 
             int interval,
             IPlugInContext context, 
             IRecordParser<TData, TContext> recordParser,
@@ -66,7 +72,13 @@ namespace Amazon.KinesisTap.Core
         {
             Guard.ArgumentNotNullOrEmpty(directory, nameof(directory));
             _directory = directory;
-            _filter = filter ?? "" ;
+            _filterSpec = filterSpec;
+            _fileFilters = ParseFilterSpec(filterSpec);
+            if (_fileFilters.Length > 1)
+            {
+                _fileFilterRegexs = _fileFilters.Select(ff => new Regex(Utility.WildcardToRegex(ff, true)))
+                    .ToArray();
+            }
             _interval = interval;
             _recordParser = recordParser;
             _logSourceInfoFactory = logSourceInfoFactory;
@@ -79,19 +91,40 @@ namespace Amazon.KinesisTap.Core
 
         }
 
-        private void InitializeWatcher()
+        /// <summary>
+        /// Parse filter specification and return a list of filters
+        /// </summary>
+        /// <param name="filterSpec">Filter Specification to parse.</param>
+        /// <returns>An array of filters. Should contain at least 1 or it will throw exception.</returns>
+        private string[] ParseFilterSpec(string filterSpec)
         {
-            _watcher = new FileSystemWatcher
+            string[] filters;
+            if (string.IsNullOrWhiteSpace(filterSpec))
             {
-                Path = _directory,
-                Filter = (string.IsNullOrEmpty(_filter)) ? null : _filter,
-                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size
-            };
-
-            _watcher.Changed += new FileSystemEventHandler(this.OnChanged);
-            _watcher.Created += new FileSystemEventHandler(this.OnChanged);
-            _watcher.Deleted += new FileSystemEventHandler(this.OnChanged);
-            _watcher.Renamed += new RenamedEventHandler(this.OnRenamed);
+                filters = new string[] { "*.*" };
+            }
+            else
+            {
+                string[] tempfilters = filterSpec.Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+                List<string> acceptedFilters = new List<string>();
+                foreach(var filter in tempfilters)
+                {
+                    if (ShouldExclude(filter))
+                    {
+                        _logger?.LogWarning($"Extension {Path.GetExtension(filter)} is not supported.");
+                    }
+                    else
+                    {
+                        acceptedFilters.Add(filter);
+                    }
+                }
+                if (acceptedFilters.Count == 0)
+                {
+                    throw new ArgumentException("No acceptable filters.");
+                }
+                filters = acceptedFilters.ToArray();
+            }
+            return filters;
         }
 
         #region public methods
@@ -127,7 +160,7 @@ namespace Amazon.KinesisTap.Core
 
                 });
 
-            _logger?.LogInformation($"DirectorySource id {this.Id} watching directory {_directory} with filter {_filter} started.");
+            _logger?.LogInformation($"DirectorySource id {this.Id} watching directory {_directory} with filter {_filterSpec} started.");
         }
 
         /// <summary>
@@ -149,7 +182,7 @@ namespace Amazon.KinesisTap.Core
             _started = false;
             SaveBookmark();
 
-            _logger?.LogInformation($"DirectorySource id {this.Id} watching directory {_directory} with filter {_filter} stopped.");
+            _logger?.LogInformation($"DirectorySource id {this.Id} watching directory {_directory} with filter {_filterSpec} stopped.");
         }
 
         /// <summary>
@@ -228,29 +261,27 @@ namespace Amazon.KinesisTap.Core
         {
             try
             {
+                string fileName = e.Name;
+
                 //Sometimes we receive event where e.name is null so we should just skip it
-                string filename = e.Name;
-                if (string.IsNullOrEmpty(filename))
-                {
-                    return;
-                }
+                if (string.IsNullOrEmpty(fileName) || ShouldExclude(fileName) || !ShouldInclude(fileName)) return;
 
                 //The entries in _buffer should be deleted before _logfiles and added after _logfiles
                 switch (e.ChangeType)
                 {
                     case WatcherChangeTypes.Deleted:
-                        RemoveFromBuffer(filename);
-                        _logFiles.Remove(filename);
+                        RemoveFromBuffer(fileName);
+                        _logFiles.Remove(fileName);
                         break;
                     case WatcherChangeTypes.Created:
-                        if (!_logFiles.ContainsKey(filename))
+                        if (!_logFiles.ContainsKey(fileName))
                         {
-                            _logFiles[filename] = _logSourceInfoFactory(e.FullPath, 0);
-                            AddToBuffer(filename);
+                            _logFiles[fileName] = _logSourceInfoFactory(e.FullPath, 0);
+                            AddToBuffer(fileName);
                         }
                         break;
                     case WatcherChangeTypes.Changed:
-                        AddToBuffer(filename);
+                        AddToBuffer(fileName);
                         break;
                 }
                 _logger?.LogDebug($"ThreadId{Thread.CurrentThread.ManagedThreadId} File: {e.FullPath} ChangeType: {e.ChangeType}");
@@ -266,7 +297,9 @@ namespace Amazon.KinesisTap.Core
             try
             {
                 //Sometimes we receive event where e.name is null so we should just skip it
-                if (string.IsNullOrEmpty(e.Name) || string.IsNullOrEmpty(e.OldName))
+                if (string.IsNullOrEmpty(e.Name) || string.IsNullOrEmpty(e.OldName)
+                    || ShouldExclude(e.Name) || ShouldExclude(e.OldName)
+                    || (!ShouldInclude(e.Name) && !ShouldInclude(e.OldName)))
                 {
                     return;
                 }
@@ -444,6 +477,51 @@ namespace Amazon.KinesisTap.Core
         #endregion
 
         #region private methods
+        /// <summary>
+        /// Determine whether should exclude file based on file extension defined in _excludedExtensions
+        /// E.g. .zip, .gz
+        /// </summary>
+        /// <param name="filePath">Path to the file</param>
+        /// <returns>Whether the file should be excluded</returns>
+        private static bool ShouldExclude(string filePath)
+        {
+            string extension = Path.GetExtension(filePath).ToLower();
+            return _excludedExtensions.Any(ext => ext.Equals(extension));
+        }
+
+        /// <summary>
+        /// Determine whether should include the file when there are multiple file filters.
+        /// If there is only one file filter, the filter is handled by FileSystemWatcher
+        /// If there are multiple file filters, such as "*.log|*.txt", this function will determine whether the file should be included
+        /// </summary>
+        /// <param name="fileName">File Name</param>
+        /// <returns>Whether the file should be included</returns>
+        private bool ShouldInclude(string fileName)
+        {
+            if (_fileFilters.Length <= 1) return true;
+            foreach(var regex in _fileFilterRegexs)
+            {
+                if (regex.IsMatch(fileName)) return true;
+            }
+            return false;
+        }
+
+        private void InitializeWatcher()
+        {
+            //If there are multiple filters, we will filter the files in the event handlers
+            _watcher = new FileSystemWatcher
+            {
+                Path = _directory,
+                Filter = _fileFilters.Length == 1 ? _fileFilters[0] : "*.*",
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size
+            };
+
+            _watcher.Changed += new FileSystemEventHandler(this.OnChanged);
+            _watcher.Created += new FileSystemEventHandler(this.OnChanged);
+            _watcher.Deleted += new FileSystemEventHandler(this.OnChanged);
+            _watcher.Renamed += new RenamedEventHandler(this.OnRenamed);
+        }
+
         private (long recordsRead, long bytesRead) ParseLogFiles(string[] files)
         {
             var toProcess = files
@@ -465,9 +543,15 @@ namespace Amazon.KinesisTap.Core
 
         private void ReadBookmarkFromLogFiles()
         {
-            // If the filename filter is specified as an empty string, return all log files under the target directory
+            var candidateFiles = _fileFilters.SelectMany(filter => Directory.GetFiles(_directory, filter))
+                .Where(file => !ShouldExclude(file));
 
-            string[] files = string.IsNullOrEmpty(_filter) ? Directory.GetFiles(_directory) : Directory.GetFiles(_directory, _filter);
+            if (_fileFilters.Length > 1)
+            {
+                //If there are multiple filters, they may overlap so we need to dedupe
+                candidateFiles = candidateFiles.Distinct(); 
+            }
+            string[] files = candidateFiles.ToArray();
 
             foreach (string filePath in files)
             {
@@ -546,19 +630,19 @@ namespace Amazon.KinesisTap.Core
             }
         }
 
-        private void AddToBuffer(string filename)
+        private void AddToBuffer(string fileName)
         {
             lock (_buffer)
             {
-                _buffer.Add(filename);
+                _buffer.Add(fileName);
             }
         }
 
-        private void RemoveFromBuffer(string filename)
+        private void RemoveFromBuffer(string fileName)
         {
             lock (_buffer)
             {
-                _buffer.Remove(filename);
+                _buffer.Remove(fileName);
             }
         }
 
