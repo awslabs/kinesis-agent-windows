@@ -38,7 +38,7 @@ namespace Amazon.KinesisTap.Core
         }
 
         /// <summary>
-        /// Allow turning on/off the strack trace compression.
+        /// Allow turning on/off the stack trace compression.
         /// </summary>
         public static bool DoCompressStackTrace { get; set; }
 

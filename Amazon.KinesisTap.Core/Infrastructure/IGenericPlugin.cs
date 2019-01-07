@@ -18,7 +18,7 @@ using System.Text;
 
 namespace Amazon.KinesisTap.Core
 {
-    //For plugins that are not specialized, such as source, sink, crendential providers
+    //For plugins that are not specialized, such as source, sink, credential providers
     public interface IGenericPlugin : IPlugIn
     {
     }

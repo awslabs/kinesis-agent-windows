@@ -29,7 +29,7 @@ namespace Amazon.KinesisTap.Expression.TextDecoration
     /// </summary>
     public class TextDecorationInterpreter<TData> : ExpressionInterpreter<TData>, ITextDecorationAstVisitor<TData, object>
     {
-        public TextDecorationInterpreter(IExpressionEvaluationContext<TData> evaludationContext) : base(evaludationContext)
+        public TextDecorationInterpreter(IExpressionEvaluationContext<TData> evaluationContext) : base(evaluationContext)
         {
         }
 

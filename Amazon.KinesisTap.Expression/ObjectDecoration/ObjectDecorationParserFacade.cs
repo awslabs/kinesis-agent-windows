@@ -46,7 +46,7 @@ namespace Amazon.KinesisTap.Expression.ObjectDecoration
         }
 
         /// <summary>
-        /// Parse a single object decoration value in key/value paris
+        /// Parse a single object decoration value in key/value pairs
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>

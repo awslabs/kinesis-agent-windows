@@ -27,7 +27,7 @@ namespace Amazon.KinesisTap.Core
 {
     /// <summary>
     /// This abstract class provides batching behavior.
-    /// It accepts indivudal event wrapped in envelopes.
+    /// It accepts individual event wrapped in envelopes.
     /// It then converts envelope to TRecord can be consumed by the downstream. Subclass override ConvertEnvelopToRecord to handle the conversion.
     /// It then batch TRecords to List<typeparamref name="TRecord"/> on time, record count and bytes of records, whichever occurs first.
     /// SubClass overrides GetRecordSize to calculate the size.

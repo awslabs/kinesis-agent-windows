@@ -25,9 +25,9 @@ namespace Amazon.KinesisTap.AWS
 {
     /// <summary>
     /// Utility to read and cache EC2 tags
-    /// The EC2 instance must have premission to access to its own tags
+    /// The EC2 instance must have permission to access to its own tags
     /// The tags are cached for 1 hour
-    /// We will try 3 times to get the tags to avoid indefintely retrying
+    /// We will try 3 times to get the tags to avoid indefinitely retrying
     /// </summary>
     public class EC2Utility
     {

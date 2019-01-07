@@ -72,13 +72,13 @@ namespace Amazon.KinesisTap.Core
                                     new RegexRecordParserOptions { RemoveUnmatchedRecord = removeUnmatched}), 
                                 CreateLogSourceInfo);
                         case "delimited":
-                            return CreateEventSouceWithDelimitedLogParser(context, timetampFormat, timeZoneKind);
+                            return CreateEventSourceWithDelimitedLogParser(context, timetampFormat, timeZoneKind);
                         case "singlelinejson":
                             return CreateEventSource(context, 
                                 new SingleLineJsonParser(timestampField, timetampFormat), 
                                 CreateLogSourceInfo);
                         default:
-                            throw new ArgumentException($"Unknow parser {recordParser}");
+                            throw new ArgumentException($"Unknown parser {recordParser}");
                     }
                 case "w3svclogsource":
                     return CreateEventSource(
@@ -176,7 +176,7 @@ namespace Amazon.KinesisTap.Core
             return parser;
         }
 
-        private static ISource CreateEventSouceWithDelimitedLogParser(IPlugInContext context, string timestampFormat, DateTimeKind timeZoneKind)
+        private static ISource CreateEventSourceWithDelimitedLogParser(IPlugInContext context, string timestampFormat, DateTimeKind timeZoneKind)
         {
             DelimitedLogParser parser = CreateDelimitedLogParser(context, timestampFormat, timeZoneKind);
 

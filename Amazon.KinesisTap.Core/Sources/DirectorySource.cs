@@ -321,7 +321,7 @@ namespace Amazon.KinesisTap.Core
                         }
                         else if (fileLength < fileContext.Position) //shrink or truncate
                         {
-                            _logger?.LogWarning($"File: {fi.Name} shrinked or truncated from {fileContext.Position} to {fi.Length}");
+                            _logger?.LogWarning($"File: {fi.Name} shrunk or truncated from {fileContext.Position} to {fi.Length}");
                             //Other than malicious attack, the most likely scenario is file truncate so we will read from the beginning
                             fileContext.Position = 0;
                         }

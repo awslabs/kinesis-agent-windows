@@ -18,7 +18,7 @@ using System.Text;
 
 namespace Amazon.KinesisTap.Core
 {
-    //Evaludate the data envelope and return evaluated data
+    //Evaluate the data envelope and return evaluated data
     public interface IEnvelopeEvaluator<T>
     {
         T Evaluate(IEnvelope envelope);

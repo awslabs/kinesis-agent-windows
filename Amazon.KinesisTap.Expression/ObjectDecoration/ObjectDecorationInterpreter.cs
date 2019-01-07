@@ -29,7 +29,7 @@ namespace Amazon.KinesisTap.Expression.ObjectDecoration
     /// </summary>
     public class ObjectDecorationInterpreter<TData> : ExpressionInterpreter<TData>, IObjectDecorationAstVisitor<TData, object>
     {
-        public ObjectDecorationInterpreter(IExpressionEvaluationContext<TData> evaludationContext) : base(evaludationContext)
+        public ObjectDecorationInterpreter(IExpressionEvaluationContext<TData> evaluationContext) : base(evaluationContext)
         {
         }
 
@@ -57,7 +57,7 @@ namespace Amazon.KinesisTap.Expression.ObjectDecoration
             foreach(var keyValuePairNode in keyValuePairNodes.List)
             {
                 var kv = (KeyValuePair<string, string>)Visit(keyValuePairNode, data);
-                if (!string.IsNullOrWhiteSpace(kv.Value)) //Supress whiteplaces
+                if (!string.IsNullOrWhiteSpace(kv.Value)) //Suppress white spaces
                 {
                     attributes.Add(kv);
                 }

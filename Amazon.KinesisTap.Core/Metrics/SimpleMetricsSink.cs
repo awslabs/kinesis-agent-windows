@@ -193,23 +193,23 @@ namespace Amazon.KinesisTap.Core.Metrics
             const string AGGREGATED_METRICS_ID = "._Total";
             foreach (var filter in filters)
             {
-                var trimedFilter = filter.Trim();
-                if (trimedFilter.IndexOf('.') < 0)
+                var trimmedFilter = filter.Trim();
+                if (trimmedFilter.IndexOf('.') < 0)
                 {
                     //straight forward service level metrics, such as 'Pipes*'
-                    _serviceMetricsFilters.Add(ConvertToRegex(trimedFilter));
+                    _serviceMetricsFilters.Add(ConvertToRegex(trimmedFilter));
                 }
                 else
                 {
-                    if (trimedFilter.EndsWith(AGGREGATED_METRICS_ID))
+                    if (trimmedFilter.EndsWith(AGGREGATED_METRICS_ID))
                     {
                         _aggregatedMetricsFilters.Add(
-                            ConvertToRegex(trimedFilter.Substring(0, trimedFilter.Length - AGGREGATED_METRICS_ID.Length))
+                            ConvertToRegex(trimmedFilter.Substring(0, trimmedFilter.Length - AGGREGATED_METRICS_ID.Length))
                         );
                     }
                     else
                     {
-                        _instanceMetricsFilters.Add(ConvertToRegex(trimedFilter));
+                        _instanceMetricsFilters.Add(ConvertToRegex(trimmedFilter));
                     }
                 }
             }

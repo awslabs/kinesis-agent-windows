@@ -45,7 +45,7 @@ namespace Amazon.KinesisTap.Windows
                 .ToList();
         }
 
-        #region priviate members for loading config
+        #region private members for loading config
         private CategoryInfo LoadCategoryConfig(IConfigurationSection categorySection)
         {
             string category = categorySection["Category"];

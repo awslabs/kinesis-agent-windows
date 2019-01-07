@@ -26,7 +26,7 @@ namespace Amazon.KinesisTap.Uls
     public class UlsLogParser : DelimitedLogParserBase<UlsLogRecord>
     {
         /// <summary>
-        /// Uls log is a tab dilimited
+        /// Uls log is a tab delimited
         /// </summary>
         public UlsLogParser() : base("\t", (data, context) => new UlsLogRecord(data, context))
         {
@@ -50,7 +50,7 @@ namespace Amazon.KinesisTap.Uls
             IDictionary<string, int> fieldIndexMap = new Dictionary<string, int>();
             for (int i = 0; i < fields.Length; i++)
             {
-                //The field name contains spaces that need to be trimed
+                //The field name contains spaces that need to be trimmed
                 fieldIndexMap[fields[i].Trim()] = i;
             }
             return fieldIndexMap;

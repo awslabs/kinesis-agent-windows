@@ -108,7 +108,7 @@ namespace Amazon.KinesisTap.AWS
                         if (attempts < this.AttemptLimit)
                         {
                             _logger?.LogDebug($"{this.GetType().Name} recoverable exception: {ex.ToMinimized()}");
-                            int delay = Utility.Random.Next(_interval * attempts) * 100; //attemps * (_interval * 1000/10)
+                            int delay = Utility.Random.Next(_interval * attempts) * 100; //attempts * (_interval * 1000/10)
                             await Task.Delay(delay);
                         }
                         else

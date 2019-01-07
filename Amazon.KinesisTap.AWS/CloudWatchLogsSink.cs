@@ -168,7 +168,7 @@ namespace Amazon.KinesisTap.AWS
                         else
                         {
                             _recordsSuccess += records.Count;
-                            _logger?.LogDebug($"CloudWatchLogsSink client {this.Id} succesfully sent {records.Count} records {batchBytes} bytes.");
+                            _logger?.LogDebug($"CloudWatchLogsSink client {this.Id} successfully sent {records.Count} records {batchBytes} bytes.");
                         }
                         break;
                     }
@@ -207,7 +207,7 @@ namespace Amazon.KinesisTap.AWS
                                 }
                                 if (_sequenceToken != null && invalidSequenceTokenCount < 2)
                                 {
-                                    continue; //Immediately try so that the sequence token does not become invaid again
+                                    continue; //Immediately try so that the sequence token does not become invalid again
                                 }
                             }
                             if (_buffer.Requeue(records, _throttle.ConsecutiveErrorCount < _maxAttempts))
@@ -303,21 +303,21 @@ namespace Amazon.KinesisTap.AWS
 
         private async Task CreateLogGroupAsync()
         {
-            _logger?.LogInformation($"CloudWatchLogsSink creating loggroup {_logGroupName}");
+            _logger?.LogInformation($"CloudWatchLogsSink creating log group {_logGroupName}");
             try
             {
                 await _client.CreateLogGroupAsync(new CreateLogGroupRequest(_logGroupName));
             }
             catch (Exception ex)
             {
-                _logger?.LogError($"CloudWatchLogsSink create logroup {_logGroupName} exception: {ex.ToMinimized()}");
+                _logger?.LogError($"CloudWatchLogsSink create log group {_logGroupName} exception: {ex.ToMinimized()}");
                 throw;
             }
         }
 
         private async Task CreateLogStreamAsync(string logStreamName)
         {
-            _logger?.LogInformation($"CloudWatchLogsSink creating logstream {_logGroupName}/{logStreamName}");
+            _logger?.LogInformation($"CloudWatchLogsSink creating log stream {_logGroupName}/{logStreamName}");
             try
             {
                 var response = await _client.CreateLogStreamAsync(new CreateLogStreamRequest()
@@ -328,7 +328,7 @@ namespace Amazon.KinesisTap.AWS
             }
             catch (Exception ex)
             {
-                _logger?.LogError($"CloudWatchLogsSink create logstream {_logGroupName}/{logStreamName} exception: {ex.ToMinimized()}");
+                _logger?.LogError($"CloudWatchLogsSink create log stream {_logGroupName}/{logStreamName} exception: {ex.ToMinimized()}");
                 throw;
             }
         }

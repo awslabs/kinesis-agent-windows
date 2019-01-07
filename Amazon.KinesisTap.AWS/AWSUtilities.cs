@@ -31,7 +31,7 @@ namespace Amazon.KinesisTap.AWS
         {
             if (!variable.StartsWith("{") || !variable.EndsWith("}"))
             {
-                //Variable already evaludated
+                //Variable already evaluated
                 return variable;
             }
 
@@ -112,10 +112,10 @@ namespace Amazon.KinesisTap.AWS
             // Order 1: If the sink has a profile entry, get the credential from profile store
             else if (!string.IsNullOrWhiteSpace(profileName))
             {
-                CredentialProfileStoreChain credentailProfileChaine = new CredentialProfileStoreChain();
-                if (credentailProfileChaine.TryGetAWSCredentials(profileName, out credential))
+                CredentialProfileStoreChain credentialProfileChaine = new CredentialProfileStoreChain();
+                if (credentialProfileChaine.TryGetAWSCredentials(profileName, out credential))
                 {
-                    if (credentailProfileChaine.TryGetProfile(profileName, out CredentialProfile profile))
+                    if (credentialProfileChaine.TryGetProfile(profileName, out CredentialProfile profile))
                     {
                         regionEndPoint = profile.Region;
                     }
@@ -125,12 +125,12 @@ namespace Amazon.KinesisTap.AWS
                     throw new AmazonServiceException($"Profile name {profileName} not found.");
                 }
             }
-            // Order 2: If there is an accessKey, create the credentail using accessKey and secretKey
+            // Order 2: If there is an accessKey, create the credential using accessKey and secretKey
             else if (!string.IsNullOrWhiteSpace(accessKey))
             {
                 credential = new BasicAWSCredentials(accessKey, secretKey);
             }
-            // Order 3: If nothing configured, using the Fallback credentails factory
+            // Order 3: If nothing configured, using the Fallback credentials factory
             else
             {
                 credential = FallbackCredentialsFactory.GetCredentials();

@@ -156,14 +156,14 @@ namespace Amazon.KinesisTap.AWS
                     else
                     {
                         _recordsFailedNonrecoverable += response.FailedPutCount;
-                        throw new AmazonKinesisFirehoseException($"Messages descarded after {_throttle.ConsecutiveErrorCount} attempts.");
+                        throw new AmazonKinesisFirehoseException($"Messages discarded after {_throttle.ConsecutiveErrorCount} attempts.");
                     }
                 }
                 else
                 {
                     _throttle.SetSuccess();
                     _recordsSuccess += records.Count;
-                    _logger?.LogDebug($"KinesisFirehoseSink {this.Id} succesfully sent {records.Count} records {batchBytes} bytes.");
+                    _logger?.LogDebug($"KinesisFirehoseSink {this.Id} successfully sent {records.Count} records {batchBytes} bytes.");
                 }
             }
             catch (Exception ex)

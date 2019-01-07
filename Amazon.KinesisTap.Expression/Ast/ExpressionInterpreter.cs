@@ -24,11 +24,11 @@ namespace Amazon.KinesisTap.Expression.Ast
 {
     public class ExpressionInterpreter<TData> : IAstVisitor<TData, object>
     {
-        protected readonly IExpressionEvaluationContext<TData> _evaludationContext;
+        protected readonly IExpressionEvaluationContext<TData> _evaluationContext;
 
-        public ExpressionInterpreter(IExpressionEvaluationContext<TData> evaludationContext)
+        public ExpressionInterpreter(IExpressionEvaluationContext<TData> evaluationContext)
         {
-            _evaludationContext = evaludationContext;
+            _evaluationContext = evaluationContext;
         }
 
         public virtual object Visit(Node node, TData data)
@@ -53,11 +53,11 @@ namespace Amazon.KinesisTap.Expression.Ast
             var variableName = identifierNode.Identifier;
             if (IsLocal(variableName))
             {
-                return _evaludationContext.GetLocalVariable(variableName, data);
+                return _evaluationContext.GetLocalVariable(variableName, data);
             }
             else
             {
-                return _evaludationContext.GetVariable(variableName);
+                return _evaluationContext.GetVariable(variableName);
             }
         }
 
@@ -81,13 +81,13 @@ namespace Amazon.KinesisTap.Expression.Ast
                     argumentTypes[i] = arguments[i].GetType();
                 }
             }
-            MethodInfo methodInfo = _evaludationContext.FunctionBinder.Resolve(functionName, argumentTypes);
+            MethodInfo methodInfo = _evaluationContext.FunctionBinder.Resolve(functionName, argumentTypes);
             if (methodInfo == null)
             {
                 //If we have null arguments, we will propagate null without warning.
                 if (!hasNullArguments)
                 {
-                    _evaludationContext.Logger?.LogWarning($"Cannot resolve function {functionName} with argument types {string.Join(",", argumentTypes.Select(t => t.Name))}");
+                    _evaluationContext.Logger?.LogWarning($"Cannot resolve function {functionName} with argument types {string.Join(",", argumentTypes.Select(t => t.Name))}");
                 }
                 return null;
             }

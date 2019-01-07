@@ -34,7 +34,7 @@ namespace Amazon.KinesisTap.Expression.TextDecoration
         {
             string functionName = invocationNode.FunctionName.Identifier;
             int argumentCount = invocationNode.Arguments.Count;
-            var candidates = _evaludationContext.FunctionBinder.GetCandidateMethods(functionName, argumentCount);
+            var candidates = _evaluationContext.FunctionBinder.GetCandidateMethods(functionName, argumentCount);
             if (candidates.Length == 0)
             {
                 throw new MissingMethodException($"Cannot resolve function {functionName} with {argumentCount} arguments.");
