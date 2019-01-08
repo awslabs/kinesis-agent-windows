@@ -31,7 +31,7 @@ namespace Amazon.KinesisTap.Core.Test
         {
             //Setup
             var eventSource = GetMockDependentEventSource();
-            DependentEventSource<int>.DelayBetweenDependencyPoll = TimeSpan.FromMilliseconds(500);
+            eventSource.DelayBetweenDependencyPoll = TimeSpan.FromMilliseconds(500);
             eventSource.IsAvailable = false;
 
             //Execute
@@ -55,7 +55,7 @@ namespace Amazon.KinesisTap.Core.Test
         {
             //Setup
             var eventSource = GetMockDependentEventSource();
-            DependentEventSource<int>.DelayBetweenDependencyPoll = TimeSpan.FromMilliseconds(500);
+            eventSource.DelayBetweenDependencyPoll = TimeSpan.FromMilliseconds(500);
             eventSource.IsAvailable = true;
 
             //Execute

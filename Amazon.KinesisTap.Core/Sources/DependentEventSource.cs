@@ -34,9 +34,8 @@ namespace Amazon.KinesisTap.Core
         private CancellationTokenSource _cancellationTokenSource = null;
         private int _resetInProgress = 0;
 
-        public static TimeSpan DelayBetweenDependencyPoll { get; set; } = TimeSpan.FromMinutes(5);
+        public TimeSpan DelayBetweenDependencyPoll { get; set; } = TimeSpan.FromMinutes(1);
         private static readonly TimeSpan MinimumDelayBetweenDependencyFailureLogging = TimeSpan.FromHours(1);
-
 
         public DependentEventSource(Dependency dependency, IPlugInContext context) : base(context)
         {
@@ -114,13 +113,13 @@ namespace Amazon.KinesisTap.Core
                         }
                         if (!_dependencyFailLastReported.HasValue)
                         {
-                            _logger?.LogError($"Dependent {_dependency.Name} is not available so no events can be collected for source {Id}. Will check again in {DelayBetweenDependencyPoll.TotalMinutes} minutes.");
+                            _logger?.LogError($"Dependent {_dependency.Name} is not available so no events can be collected for source {Id}. Will check again in {DelayBetweenDependencyPoll.TotalSeconds} seconds.");
                             _dependencyFailLastReported = DateTime.UtcNow;
                         }
                         else if (DateTime.UtcNow - _dependencyFailLastReported.Value > MinimumDelayBetweenDependencyFailureLogging)
                         {
                             _logger?.LogError($"Dependent {_dependency.Name} has not been available for {(DateTime.UtcNow - _dependencyFailStart)}.  "
-                                + "No events have been collected for that period of time. Will check again in {DelayBetweenDependencyPoll.TotalMinutes} minutes.");
+                                + $"No events have been collected for that period of time. Will check again in {DelayBetweenDependencyPoll.TotalSeconds} seconds.");
                             _dependencyFailLastReported = DateTime.UtcNow;
                         }
                         token.WaitHandle.WaitOne(DelayBetweenDependencyPoll);

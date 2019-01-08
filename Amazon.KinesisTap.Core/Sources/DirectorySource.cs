@@ -88,7 +88,7 @@ namespace Amazon.KinesisTap.Core
             }
 
             _timer = new Timer(OnTimer, null, Timeout.Infinite, Timeout.Infinite);
-
+            DelayBetweenDependencyPoll = TimeSpan.FromSeconds(5);
         }
 
         /// <summary>
