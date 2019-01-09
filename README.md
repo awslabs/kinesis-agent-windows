@@ -29,6 +29,8 @@ Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://s3-
 
 For other installation options, visit the [Kinesis Agent for Windows download page][kinesis-agent-windows-downloads].
 
+For beta versions, visit the [Kinesis Agent for Windows beta download page][kinesis-agent-windows-beta-downloads]. Visit [commit history][commit-history] for changes in each beta version.
+
 ## Configuring and starting Amazon Kinesis Agent for Windows
 
 **Note**: During the development of Kinesis Agent for Windows, the internal name was
@@ -81,8 +83,10 @@ Release 1.0.0.115 (November 6, 2018)
 
 [cloudwatch]: https://aws.amazon.com/cloudwatch/
 [cloudwatch-logs]: https://aws.amazon.com/cloudwatch/features/#Collect
+[commit-history]: https://github.com/awslabs/kinesis-agent-windows/commits/master
 [kinesis]: http://aws.amazon.com/kinesis
 [kinesis-agent-linux]: https://github.com/awslabs/amazon-kinesis-agent/
+[kinesis-agent-windows-beta-downloads]: https://s3-us-west-2.amazonaws.com/kinesis-agent-windows/beta/index.html
 [kinesis-agent-windows-downloads]: https://s3-us-west-2.amazonaws.com/kinesis-agent-windows/downloads/index.html
 [kinesis-agent-windows-issues]: https://github.com/awslabs/kinesis-agent-windows/issues
 [kinesis-agent-windows-user-guide]: https://docs.aws.amazon.com/kinesis-agent-windows/latest/userguide/what-is-kinesis-agent-windows.html
