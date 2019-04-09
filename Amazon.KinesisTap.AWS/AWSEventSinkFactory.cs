@@ -12,21 +12,21 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Amazon.KinesisTap.Core;
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
+
+using Amazon.KinesisFirehose;
+using Amazon.Kinesis;
+using Amazon.CloudWatchLogs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Amazon.KinesisFirehose;
-using Amazon.Runtime;
-using Amazon.Kinesis;
-using Amazon.Runtime.CredentialManagement;
-using Amazon.CloudWatchLogs;
-using System.Runtime.InteropServices;
 using Amazon.CloudWatch;
+
+using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.AWS.Telemetrics;
-using Amazon.CognitoIdentity;
+
 
 namespace Amazon.KinesisTap.AWS
 {
@@ -48,7 +48,13 @@ namespace Amazon.KinesisTap.AWS
                 case CLOUD_WATCH_LOG:
                     return new CloudWatchLogsSink(context, AWSUtilities.CreateAWSClient<AmazonCloudWatchLogsClient>(context));
                 case KINESIS_FIREHOSE:
-                    return new KinesisFirehoseSink(context, AWSUtilities.CreateAWSClient<AmazonKinesisFirehoseClient>(context));
+                    var firehoseSink = new KinesisFirehoseSink(context, AWSUtilities.CreateAWSClient<AmazonKinesisFirehoseClient>(context));
+                    string combineRecords = config["CombineRecords"];
+                    if (!string.IsNullOrWhiteSpace(combineRecords) && bool.TryParse(combineRecords, out bool canCombineRecords))
+                    {
+                        firehoseSink.CanCombineRecords = canCombineRecords;
+                    }
+                    return firehoseSink;
                 case KINESIS_STREAM:
                     return new KinesisStreamSink(context, AWSUtilities.CreateAWSClient<AmazonKinesisClient>(context));
                 case CLOUD_WATCH:
@@ -59,8 +65,19 @@ namespace Amazon.KinesisTap.AWS
 #else
                     const int TELEMETRICS_DEFAULT_INTERVAL = 3600;
 #endif
-                    return new TelemetricsSink(TELEMETRICS_DEFAULT_INTERVAL, context,
-                        TelemetricsClient.Default);
+                    //If RedirectToSinkId is specified, we use TelemetryConnector. Otherwise, TelemtryClient
+                    string redirectToSinkId = config[ConfigConstants.REDIRECT_TO_SINK_ID];
+                    ITelemetricsClient<HttpResponseMessage> telemetricsClient = null;
+                    if (string.IsNullOrWhiteSpace(redirectToSinkId))
+                    {
+                        telemetricsClient = TelemetricsClient.Default;
+                    }
+                    else
+                    {
+                        telemetricsClient = new TelemetricsSinkConnector(context);
+                        context.ContextData[ConfigConstants.TELEMETRY_CONNECTOR] = telemetricsClient; //Make telemetricsClient available to caller
+                    }
+                    return new TelemetricsSink(TELEMETRICS_DEFAULT_INTERVAL, context, telemetricsClient);
                 default:
                     throw new NotImplementedException($"Sink type {sinkType} is not implemented by AWSEventSinkFactory.");
             }

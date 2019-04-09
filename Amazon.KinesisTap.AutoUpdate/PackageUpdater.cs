@@ -43,9 +43,10 @@ namespace Amazon.KinesisTap.AutoUpdate
 
         public PackageUpdater(IPlugInContext context) : base(context)
         {
-            this.Interval = Utility.ParseInteger(_config[ConfigConstants.INTERVAL], 60); //Default to 60 minutes
+            int minuteInterval = Utility.ParseInteger(_config[ConfigConstants.INTERVAL], 60); //Default to 60 minutes
+            if (minuteInterval < 1) minuteInterval = 1; //Set minimum to 1 minutes
+            this.Interval = TimeSpan.FromMinutes(minuteInterval);
             this.PackageVersion = Utility.ResolveVariables(_config[PACKAGE_VERSION], Utility.ResolveVariable);
-            
         }
 
         protected override async Task OnTimer()

@@ -13,23 +13,15 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using Amazon.Runtime.CredentialManagement;
 
-namespace Amazon.KinesisTap.AWS.Telemetrics
+namespace Amazon.KinesisTap.AWS.CredentialProvider
 {
-    public interface ITelemetricsClient<TResponse>
+    public class CredentialsNotFoundException : Exception
     {
-        //An unique ID to Identify the installation. This could be a Cognito User pool ClientID
-        string ClientId { get; set; }
-
-        //Send metrics to telemetry
-        Task<TResponse> PutMetricsAsync(IDictionary<string, object> data);
-
-        //Generate a new unique ID
-        Task<string> CreateClientIdAsync();
-
-        //Allow each client to use its own parameter name to avoid conflict
-        string ClientIdParameterName { get; }
+        public CredentialsNotFoundException(string message)
+            : base(message)
+        {
+        }
     }
 }

@@ -35,7 +35,7 @@ namespace Amazon.KinesisTap.Core
         /// <returns></returns>
         public static int GetBuildNumber()
         {
-            int build = GetKinesisTapVersion().FilePrivatePart;
+            int build = GetKinesisTapVersion().FileBuildPart;
             return build;
         }
 

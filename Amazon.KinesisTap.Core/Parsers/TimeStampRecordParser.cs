@@ -23,16 +23,16 @@ namespace Amazon.KinesisTap.Core
 {
     public class TimeStampRecordParser : RegexRecordParser
     {
-        protected string _timeStamp;
+        protected readonly string _timeStamp;
 
         public TimeStampRecordParser(string timeStamp, ILogger logger, DateTimeKind timeZoneKind) :
-            this(timeStamp, logger, timeZoneKind, new RegexRecordParserOptions())
+            this(timeStamp, logger, null, null, timeZoneKind, new RegexRecordParserOptions())
         {
 
         }
 
-        public TimeStampRecordParser(string timeStamp, ILogger logger, DateTimeKind timeZoneKind, RegexRecordParserOptions parserOptions) : 
-            base(ConvertTimeStampToRegex(timeStamp), timeStamp, logger, null, timeZoneKind, parserOptions)
+        public TimeStampRecordParser(string timeStamp, ILogger logger, string extractionPattern, string extractionRegexOptions, DateTimeKind timeZoneKind, RegexRecordParserOptions parserOptions) : 
+            base(ConvertTimeStampToRegex(timeStamp), timeStamp, logger, extractionPattern, extractionRegexOptions, timeZoneKind, parserOptions)
         {
             _timeStamp = timeStamp; //e.g.: "MM/dd/yyyy HH:mm:ss"
         }

@@ -24,12 +24,13 @@ namespace Amazon.KinesisTap.Core
         private const string MONTH = "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)";
         private const string DAY = @"\d{1,2}";
         private const string TIME = @"\d{2}:\d{2}:\d{2}";
-        private const string SYSLOG_TIMESTAMP = MONTH + " " + DAY + " " + TIME;
+        private const string SYSLOG_TIMESTAMP = MONTH + @"\s{1,2}" + DAY + " " + TIME;
         private const string HOST_NAME = @"\S*";
         private const string PROGRAM = @"\S*";
         private const string MESSAGE = @".*";
         private const string TIMESTAMP_PATTERN = "^(?<TimeStamp>" + SYSLOG_TIMESTAMP + ")";
         private const string TIMESTAMP_FORMAT = "MMM dd HH:mm:ss";
+        private const string ALTERNATE_TIMESTAMP_FORMAT = "MMM  d HH:mm:ss";
         private const string EXTRACTION_PATTERN = "^(?<SysLogTimeStamp>" + SYSLOG_TIMESTAMP + ") "
             + "(?<Hostname>" + HOST_NAME + ") "
             + "(?<Program>" + PROGRAM + ") "
@@ -42,7 +43,7 @@ namespace Amazon.KinesisTap.Core
         }
 
         public SysLogParser(ILogger logger, DateTimeKind timeZoneKind, RegexRecordParserOptions parserOptions) : 
-            base(TIMESTAMP_PATTERN, TIMESTAMP_FORMAT, logger, EXTRACTION_PATTERN, timeZoneKind, parserOptions)
+            base(TIMESTAMP_PATTERN, TIMESTAMP_FORMAT, logger, EXTRACTION_PATTERN, null, timeZoneKind, parserOptions, ALTERNATE_TIMESTAMP_FORMAT)
         {
         }
     }

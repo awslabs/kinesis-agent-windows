@@ -19,6 +19,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -413,6 +414,31 @@ namespace Amazon.KinesisTap.Core
         public static DateTime FromEpochTime(long epochTime)
         {
             return epoch.AddMilliseconds(epochTime);
+        }
+
+        /// <summary>
+        /// Strip quotes from a string if it is quoted
+        /// </summary>
+        /// <param name="value">string to strip</param>
+        /// <returns>stripped string</returns>
+        public static string StripQuotes(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return value;
+            
+            if (value.StartsWith("'") || value.StartsWith("\""))
+            {
+                return value.Substring(1, value.Length - 2);
+            }
+
+            return value;
+        }
+
+        /// <summary>
+        /// Path of the process main module
+        /// </summary>
+        public static string MainModulePath
+        {
+            get { return Process.GetCurrentProcess().MainModule.FileName; }
         }
 
         private static readonly DateTime epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);

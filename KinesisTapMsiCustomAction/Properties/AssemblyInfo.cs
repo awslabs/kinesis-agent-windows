@@ -19,12 +19,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Amazon Kinesis Agent for Microsoft Windows")]
-[assembly: AssemblyDescription("Amazon Kinesis Agent for Microsoft Windows")]
-[assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Amazon")]
-[assembly: AssemblyProduct("Amazon Kinesis Agent for Microsoft Windows")]
-[assembly: AssemblyCopyright("Copyright © Amazon 2017-2018")]
+[assembly: AssemblyTitle("KinesisTapMsiCustomAction")]
+[assembly: AssemblyDescription("")]
+[assembly: AssemblyCompany("")]
+[assembly: AssemblyProduct("KinesisTapMsiCustomAction")]
+[assembly: AssemblyCopyright("Copyright ©  2019")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -34,7 +33,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("1ce3ddd0-7fdc-4edf-86f0-c9592fc9e895")]
+[assembly: Guid("e9b048b2-b6c9-4c75-a0da-bdfc414c2a06")]
 
 // Version information for an assembly consists of the following four values:
 //
@@ -46,5 +45,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("1.1.154.1")]
-[assembly: AssemblyFileVersion("1.1.154.1")]
+[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyFileVersion("1.0.0.0")]

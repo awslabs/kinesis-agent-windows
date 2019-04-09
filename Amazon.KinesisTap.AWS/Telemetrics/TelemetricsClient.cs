@@ -29,9 +29,11 @@ namespace Amazon.KinesisTap.AWS.Telemetrics
     public class TelemetricsClient : ITelemetricsClient<HttpResponseMessage>, IDisposable
     {
 #if DEBUG
+        private const string CLIENT_ID = "ClientId_Debug";
         private const string IDENTITY_POOL_ID = "us-west-2:3cd2324c-0eaa-46ee-bba6-04ff7bdb0f00";
         private const string TELEMETRIC_SERVICE_URI = "https://60q2i1r9q7.execute-api.us-west-2.amazonaws.com/prod/";
 #else
+        private const string CLIENT_ID = "ClientId";
         private const string IDENTITY_POOL_ID = "us-west-2:d773c513-c447-4b3c-89ba-a2cebde90b2e";
         private const string TELEMETRIC_SERVICE_URI = "https://yq2fhu9ppd.execute-api.us-west-2.amazonaws.com/prod/";
 #endif
@@ -80,7 +82,7 @@ namespace Amazon.KinesisTap.AWS.Telemetrics
             _httpClient = new HttpClient();
         }
 
-        public async Task<string> GetClientIdAsync()
+        public async Task<string> CreateClientIdAsync()
         {
             var getIdResponse = await _cognitoIdentityClient.GetIdAsync(new GetIdRequest()
             {
@@ -103,10 +105,14 @@ namespace Amazon.KinesisTap.AWS.Telemetrics
             }
             
             await AWSV4SignerExtensions.SignRequestAsync(message, REGION, SERVICE_NAME, _cognitoCredentials);
-            return await _httpClient.SendAsync(message);
+            var response = await _httpClient.SendAsync(message);
+            response.EnsureSuccessStatusCode();
+            return response;
         }
 
         public string ClientId { get; set; }
+
+        public string ClientIdParameterName => CLIENT_ID;
 
 
         #region IDisposable Support

@@ -24,27 +24,50 @@ namespace Amazon.KinesisTap.Core
 {
     public class RegexRecordParser : IRecordParser<IDictionary<string, string>, LogContext>
     {
-        protected Regex _regex;
-        protected Regex _extractionRegex;
-        protected string _timeStampFormat;
+        protected readonly Regex _regex;
+        protected readonly Regex _extractionRegex;
+        protected readonly string _timeStampFormat;
+        protected readonly string _alternateTimeStampFormat;
         protected string _peekLine;
         protected DateTime? _peekTimeStamp;
-        protected long _id;
-        protected ILogger _logger;
-        protected DateTimeKind _timeZoneKind;
-        protected RegexRecordParserOptions _parserOptions;
+        protected readonly long _id;
+        protected readonly ILogger _logger;
+        protected readonly DateTimeKind _timeZoneKind;
+        protected readonly RegexRecordParserOptions _parserOptions;
 
         public RegexRecordParser(string pattern,
           string timeStampFormat,
           ILogger logger,
           string extractionPattern,
+          string extractionRegexOptions,
           DateTimeKind timeZoneKind) : 
             this(pattern,
                 timeStampFormat,
                 logger, 
                 extractionPattern,
+                extractionRegexOptions,
                 timeZoneKind,
-                new RegexRecordParserOptions())
+                new RegexRecordParserOptions(),
+                null)
+        {
+
+        }
+
+        public RegexRecordParser(string pattern,
+            string timeStampFormat,
+            ILogger logger,
+            string extractionPattern,
+            string extractionRegexOptions,
+            DateTimeKind timeZoneKind,
+            RegexRecordParserOptions parserOptions) :
+            this(pattern,
+                timeStampFormat,
+                logger,
+                extractionPattern,
+                extractionRegexOptions,
+                timeZoneKind,
+                parserOptions,
+                null)
         {
 
         }
@@ -53,18 +76,23 @@ namespace Amazon.KinesisTap.Core
             string timeStampFormat, 
             ILogger logger, 
             string extractionPattern,
+            string extractionRegexOptions,
             DateTimeKind timeZoneKind,
-            RegexRecordParserOptions parserOptions)
+            RegexRecordParserOptions parserOptions, 
+            string alternateTimestampFormat
+            )
         {
             _regex = new Regex(pattern);
             if (!string.IsNullOrEmpty(extractionPattern))
             {
-                _extractionRegex = new Regex(extractionPattern);
+                RegexOptions regexOptions = ParseRegexOptions(extractionRegexOptions);
+                _extractionRegex = new Regex(extractionPattern, regexOptions);
             }
             _timeStampFormat = timeStampFormat;
             _logger = logger;
             _timeZoneKind = timeZoneKind;
             _parserOptions = parserOptions;
+            _alternateTimeStampFormat = alternateTimestampFormat;
         }
 
         public IEnumerable<IEnvelope<IDictionary<string, string>>> ParseRecords(StreamReader sr, LogContext context)
@@ -104,10 +132,12 @@ namespace Amazon.KinesisTap.Core
             while (!sr.EndOfStream)
             {
                 string line = sr.ReadLine();
+                _logger?.LogDebug($"Read line: {line}");
                 context.LineNumber++;
                 Match match = _regex.Match(line);
                 if (match.Success)
                 {
+                    _logger?.LogDebug("Matched regex.");
                     DateTime? timestampTemp = GetTimeStamp(match);
                     if (startedRecord)
                     {
@@ -125,8 +155,10 @@ namespace Amazon.KinesisTap.Core
                 }
                 else
                 {
+                    _logger?.LogDebug("Does not Match regex.");
                     if (startedRecord)
                     {
+                        _logger?.LogDebug("Added to existing record.");
                         sb.AppendLine();
                         sb.Append(line);
                     }
@@ -138,6 +170,7 @@ namespace Amazon.KinesisTap.Core
                         }
                         else
                         {
+                            _logger?.LogDebug("Starting new record.");
                             sb.Append(line);
                             startedRecord = true;
                         }
@@ -170,6 +203,19 @@ namespace Amazon.KinesisTap.Core
             get { return _peekLine != null; }
         }
 
+        protected RegexOptions ParseRegexOptions(string extractionRegexOptions)
+        {
+            RegexOptions regexOptions = RegexOptions.None;
+            if (!string.IsNullOrWhiteSpace(extractionRegexOptions))
+            {
+                foreach (var option in extractionRegexOptions.Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    regexOptions = regexOptions | Utility.ParseEnum<RegexOptions>(option.Trim());
+                }
+            }
+            return regexOptions;
+        }
+
         private DateTime? GetTimeStamp(Match match)
         {
             for(int i = 1; i < match.Groups.Count; i++)
@@ -182,6 +228,12 @@ namespace Amazon.KinesisTap.Core
                     {
                         return timeStamp;
                     }
+                    else if (_alternateTimeStampFormat != null 
+                        && DateTime.TryParseExact(match.Groups[i].Value, _alternateTimeStampFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime alternateTimeStamp))
+                    {
+                        return alternateTimeStamp;
+                    }
+
                     else
                     {
                         _logger?.LogError($"Unable to parse string {value} with DateTime format {_timeStampFormat}");

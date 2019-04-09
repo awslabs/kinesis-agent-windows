@@ -44,6 +44,7 @@ namespace Amazon.KinesisTap.Core
         private readonly Regex[] _fileFilterRegexs;
         private readonly int _interval;
         private readonly int _skipLines;
+        private readonly string _encoding;
         private Timer _timer;
         private ISubject<IEnvelope<TData>> _recordSubject = new Subject<IEnvelope<TData>>();
         private bool _hasBookmark;
@@ -85,6 +86,7 @@ namespace Amazon.KinesisTap.Core
             if (_config != null)
             {
                 _skipLines = Utility.ParseInteger(_config["SkipLines"], 0);
+                _encoding = _config["Encoding"];
             }
 
             _timer = new Timer(OnTimer, null, Timeout.Infinite, Timeout.Infinite);
@@ -146,7 +148,16 @@ namespace Amazon.KinesisTap.Core
             if (this.InitialPosition != InitialPositionEnum.EOS && File.Exists(GetBookmarkFilePath()))
             {
                 _hasBookmark = true;
-                LoadSavedBookmark();
+                try
+                {
+                    LoadSavedBookmark();
+                }
+                catch
+                {
+                    //Error is already logged. Fall back to Bookmark mode for the session
+                    //ReadBookmarkFromLogFiles below will recreate bookmark
+                    this.InitialPosition = InitialPositionEnum.Bookmark;
+                }
             }
             ReadBookmarkFromLogFiles();
             _started = true;
@@ -207,18 +218,34 @@ namespace Amazon.KinesisTap.Core
         {
             lock (_bookmarkFileLock)
             {
-                using (var fs = new FileStream(GetBookmarkFilePath(), FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                using (var sr = new StreamReader(fs))
+                try
                 {
-                    while (!sr.EndOfStream)
+                    using (var fs = new FileStream(GetBookmarkFilePath(), FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using (var sr = new StreamReader(fs))
                     {
-                        string line = sr.ReadLine();
-                        if (!string.IsNullOrWhiteSpace(line))
+                        while (!sr.EndOfStream)
                         {
-                            string[] parts = line.Split(',');
-                            _logFiles[Path.GetFileName(parts[0])] = _logSourceInfoFactory(parts[0], long.Parse(parts[1]));
+                            string line = sr.ReadLine();
+                            if (!string.IsNullOrWhiteSpace(line))
+                            {
+                                try
+                                {
+                                    string[] parts = line.Split(',');
+                                    _logFiles[Path.GetFileName(parts[0])] = _logSourceInfoFactory(parts[0], long.Parse(parts[1]));
+                                }
+                                catch(Exception ex)
+                                {
+                                    //Allow continue processing because it is legitimate for system to remove log files while the agent is stopped
+                                    _logger?.LogWarning($"Fail to process bookmark {line}: {ex.ToMinimized()}");
+                                }
+                            }
                         }
                     }
+                }
+                catch(Exception ex)
+                {
+                    _logger?.LogError($"Failed loading bookmark: {ex.ToMinimized()}");
+                    throw; //Inform caller the error
                 }
             }
         }
@@ -231,21 +258,28 @@ namespace Amazon.KinesisTap.Core
             // the gathering of position data and writing the file needs to be atomic.
             lock (_bookmarkFileLock)
             {
-                string bookmarkDir = Path.GetDirectoryName(GetBookmarkFilePath());
-                if (!Directory.Exists(bookmarkDir))
+                try
                 {
-                    Directory.CreateDirectory(bookmarkDir);
-                }
-                if (InitialPosition != InitialPositionEnum.EOS)
-                {
-                    using (var fs = File.OpenWrite(GetBookmarkFilePath()))
-                    using (var sw = new StreamWriter(fs))
+                    string bookmarkDir = Path.GetDirectoryName(GetBookmarkFilePath());
+                    if (!Directory.Exists(bookmarkDir))
                     {
-                        foreach (var logFile in _logFiles.Values)
+                        Directory.CreateDirectory(bookmarkDir);
+                    }
+                    if (InitialPosition != InitialPositionEnum.EOS)
+                    {
+                        using (var fs = File.OpenWrite(GetBookmarkFilePath()))
+                        using (var sw = new StreamWriter(fs))
                         {
-                            sw.WriteLine($"{logFile.FilePath},{logFile.Position}");
+                            foreach (var logFile in _logFiles.Values)
+                            {
+                                sw.WriteLine($"{logFile.FilePath},{logFile.Position}");
+                            }
                         }
                     }
+                }
+                catch(Exception ex)
+                {
+                    _logger?.LogError($"Failed saving bookmark: {ex.ToMinimized()}");
                 }
             }
         }
@@ -418,7 +452,7 @@ namespace Amazon.KinesisTap.Core
                 {
                     //The responsibility of the following line has been moved to parser in case the parser need to get the meta data before the position
                     //fs.Position = sourceInfo.Position; 
-                    using (var sr = new StreamReader(fs))
+                    using (var sr = CreateStreamReader(fs, _encoding))
                     {
                         var records = _recordParser.ParseRecords(sr, sourceInfo);
                         foreach (var record in records)
@@ -646,6 +680,17 @@ namespace Amazon.KinesisTap.Core
             }
         }
 
+        private StreamReader CreateStreamReader(Stream stream, string encoding)
+        {
+            if (string.IsNullOrWhiteSpace(encoding))
+            {
+                return new StreamReader(stream);
+            }
+            else
+            {
+                return new StreamReader(stream, Encoding.GetEncoding(encoding));
+            }
+        }
         #endregion
     }
 }

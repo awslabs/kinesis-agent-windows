@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Include>
+  <?define ProductName = "Amazon Kinesis Agent for Microsoft Windows"?>
+  <?define ServiceName = "AWSKinesisTap"?>
+  <?define ProductManufacturer = "Amazon Web Services"?>
+  <?define InstallFolderName = "AWSKinesisTap"?>
+</Include>

@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+
+  <!-- To test run: msiexec /i AWSKinesisTap.msi /l*v InstallLog.txt-->
+  
+  <!-- Product parameters are stored in Config.wxi-->
+  <?include Config.wxi?>
+
+  <!-- Get the production version from exe -->
+  <?define ProductVersion = "!(bind.FileVersion.KinesisTapExe)"?>
+
+  <!-- Create platform dependent variables -->
+  <?if $(sys.BUILDARCH) = x64 ?>
+    <?define bitness = "(64 bit)" ?>
+    <?define Win64 = "yes" ?>
+    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+  <?else ?>
+    <?define bitness = "(32 bit)" ?>
+    <?define Win64 = "no" ?>
+    <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+  <?endif ?>
+
+
+  <!-- We will always do major upgrade.-->
+  <!-- GUID are automated generated for IDs of "*" using Key information -->
+  <!-- It is important not to change the UpgradeCode -->
+  <Product Id="*"
+    Name="$(var.ProductName)"
+    Language="1033"
+    Version="$(var.ProductVersion)"
+    Manufacturer="$(var.ProductManufacturer)"
+    UpgradeCode="107D5014-F03A-4B70-A587-3B7ECF37A969">
+    <Package 
+      Id="*"
+      InstallerVersion="200"
+      Description="Version: $(var.ProductVersion) $(var.bitness)"
+      Compressed="yes"
+      InstallScope="perMachine" />
+
+    <!-- Allow rollback to older version by install older version on top of newer version. -->
+    <!-- Allow upgrade by revision number only. -->
+    <!-- Rollback to previous installation if upgrade fails. -->
+    <MajorUpgrade Schedule="afterInstallInitialize" AllowDowngrades="yes" />
+
+    <!-- Embed cab in ProductName.msi -->
+    <MediaTemplate EmbedCab="yes"/>
+
+    <!-- Require .net framework 4.6 or later. -->
+    <PropertyRef Id="WIX_IS_NETFRAMEWORK_46_OR_LATER_INSTALLED"/>
+    <Condition Message='This setup requires the .NET Framework 4.6.'>
+      <![CDATA[Installed OR (WIX_IS_NETFRAMEWORK_46_OR_LATER_INSTALLED)]]>
+    </Condition>
+
+    <Feature Id="ProductFeature" Title="Amazon Kinesis Agent for Microsoft Windows" Level="1">
+      <ComponentGroupRef Id="KinesisTapComponents" />
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+
+    <UIRef Id="WixUI_Minimal" />
+    
+    <!-- License agreement -->
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+
+    <!-- Icon in Products and Features. -->
+    <Icon Id="icon.ico" SourceFile="favicon.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+
+    <!-- Reference the .net custom action. Wix wrap the .net custom action with *.CA.dll-->
+    <Binary Id="KinesisTapMsiCustomAction" SourceFile="..\KinesisTapMsiCustomAction\bin\$(var.Configuration)\KinesisTapMsiCustomAction.CA.dll" />
+    <!-- This custom action passes parameter to .net custom action. -->
+    <CustomAction
+      Id="InstallAppSettings.SetProperty"
+      Property="InstallAppSettings"
+      Value="INSTALLFOLDER=[INSTALLFOLDER]" />
+    <!-- .net custom action that install appsettings.json. Keep the exiting one during upgrade. -->
+    <CustomAction 
+      Id="InstallAppSettings" 
+      BinaryKey="KinesisTapMsiCustomAction"  
+      DllEntry="InstallAppSettings"
+      Impersonate="no"
+      Execute="deferred" />
+    <CustomAction
+      Id="UpdateKinesisTapExeConfig.SetProperty"
+      Property="UpdateKinesisTapExeConfig"
+      Value="INSTALLFOLDER=[INSTALLFOLDER]" />
+    <!-- .net custom action that install kinesistap.exe.config. Update the binding policy during upgrade. -->
+    <CustomAction 
+      Id="UpdateKinesisTapExeConfig" 
+      BinaryKey="KinesisTapMsiCustomAction"  
+      DllEntry="UpdateKinesisTapExeConfig"
+      Impersonate="no"
+      Execute="deferred" />
+    <CustomAction
+      Id="InstallNLog.SetProperty"
+      Property="InstallNLog"
+      Value="INSTALLFOLDER=[INSTALLFOLDER]" />
+    <!-- .net custom action that install NLog.xml. Update the binding policy during upgrade. -->
+    <CustomAction
+      Id="InstallNLog"
+      BinaryKey="KinesisTapMsiCustomAction"
+      DllEntry="InstallNLog"
+      Impersonate="no"
+      Execute="deferred" />
+    <CustomAction
+      Id="UpgradePowershellInstalledKinesisTap.SetProperty"
+      Property="UpgradePowershellInstalledKinesisTap"
+      Value="SERVICENAME=$(var.ServiceName)" />
+    <!-- .net custom action that upgrade from Powershell installed KinesisTap. Update the binding policy during upgrade. -->
+    <CustomAction
+      Id="UpgradePowershellInstalledKinesisTap"
+      BinaryKey="KinesisTapMsiCustomAction"
+      DllEntry="UpgradePowershellInstalledKinesisTap"
+      Impersonate="no"
+      Execute="deferred" />
+    
+    <!-- Schedule custom actions in the installation pipeline. -->
+    <InstallExecuteSequence>
+      <!-- Run the following custom action only on install or upgrade. -->
+      <Custom Action='UpgradePowershellInstalledKinesisTap.SetProperty' After='CostFinalize'>NOT REMOVE</Custom>
+      <Custom Action='UpgradePowershellInstalledKinesisTap' After='InstallFiles'>NOT REMOVE</Custom>
+      <Custom Action='InstallAppSettings.SetProperty' After='CostFinalize'>NOT REMOVE</Custom>
+      <Custom Action='InstallAppSettings' After='InstallFiles'>NOT REMOVE</Custom>
+      <Custom Action='UpdateKinesisTapExeConfig.SetProperty' After='CostFinalize'>NOT REMOVE</Custom>
+      <Custom Action='UpdateKinesisTapExeConfig' After='InstallFiles'>NOT REMOVE</Custom>
+      <Custom Action='InstallNLog.SetProperty' After='CostFinalize'>NOT REMOVE</Custom>
+      <Custom Action='InstallNLog' After='InstallFiles'>NOT REMOVE</Custom>
+    </InstallExecuteSequence>
+  </Product>
+
+  <Fragment>
+    <!-- Allow downgrade of individual exes or dlls in the new package. -->
+    <Property Id="REINSTALLMODE" Value="a"/>
+    <!-- Install directory structure. -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="$(var.PlatformProgramFilesFolder)">
+        <Directory Id="MyCompanyFolder" Name="Amazon">
+          <Directory Id="INSTALLFOLDER" Name="$(var.InstallFolderName)" />
+        </Directory>
+      </Directory>
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents"
+      Directory="INSTALLFOLDER">
+      <!-- Use AWSKinesisTap.exe to key the ServiceInstall-->
+      <Component Id="ProductComponent"
+        Guid="{8DBCA2DE-9D6E-47AD-8EBE-1B6384D327EF}">
+        <File Id="KinesisTapExe" Name="AWSKinesisTap.exe" DiskId="1" Source="$(var.Amazon.KinesisTap.TargetDir)\AWSKinesisTap.exe" Vital="yes" KeyPath="yes" />
+
+        <!-- Tell WiX to install the Service -->
+        <ServiceInstall
+          Id="ServiceInstaller"
+          Type="ownProcess"
+          Name="$(var.ServiceName)"
+          DisplayName="Amazon Kinesis Agent for Microsoft Windows"
+          Description="AWS Windows Log and Metrics Agent."
+          Start="auto"
+          ErrorControl="normal">
+          <util:ServiceConfig xmlns:util="http://schemas.microsoft.com/wix/UtilExtension"
+            FirstFailureActionType="restart"
+            SecondFailureActionType="restart"
+            ThirdFailureActionType="restart"
+            ResetPeriodInDays="1"
+            RestartServiceDelayInSeconds="20" />
+        </ServiceInstall>
+        
+        <!-- Tell WiX to start the Service -->
+        <ServiceControl
+          Id="StartService"
+          Start="install"
+          Stop="both"
+          Remove="uninstall"
+          Name="$(var.ServiceName)"
+          Wait="yes" />
+
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

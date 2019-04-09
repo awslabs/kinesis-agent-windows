@@ -49,8 +49,6 @@ namespace Amazon.KinesisTap.Core
         public const string QUEUE_PATH = "QueuePath";
         public const string QUEUE = "Queue";
 
-        public const string KINESISTAP_CLIENTID = "KINESISTAP_CLIENTID";
-
         public const string BOOKMARKS = "Bookmarks";
 
         public const double DEFAULT_BACKOFF_FACTOR = 0.5d;
@@ -75,5 +73,9 @@ namespace Amazon.KinesisTap.Core
         public const string KINESISTAP_CORE = "Amazon.KinesisTap.ConsoleHost.dll";
         public const string LINUX_DEFAULT_PROGRAM_DATA_PATH = "/opt/amazon-kinesistap/var";
         public const string LINUX_DEFAULT_CONFIG_PATH = "/opt/amazon-kinesistap/etc";
+
+        //Telemetry Connector
+        public const string REDIRECT_TO_SINK_ID = "RedirectToSinkId";
+        public const string TELEMETRY_CONNECTOR = "_TELEMETRY_CONNECTOR";
     }
 }

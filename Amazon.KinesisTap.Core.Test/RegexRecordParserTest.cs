@@ -32,7 +32,7 @@ namespace Amazon.KinesisTap.Core.Test
             using (StreamReader sr = new StreamReader(stream))
             {
                 RegexRecordParser parser = new RegexRecordParser(@"^\[\w+\]\[(?<TimeStamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]",
-                    "yyyy/MM/dd HH:mm:ss.fff", null, null, DateTimeKind.Utc, new RegexRecordParserOptions());
+                    "yyyy/MM/dd HH:mm:ss.fff", null, null, null, DateTimeKind.Utc, new RegexRecordParserOptions());
                 var records = parser.ParseRecords(sr, new LogContext()).ToList();
                 
                 Assert.Equal("[FATAL][2017/05/03 21:31:00.534][0x00003ca8][0000059c][][EQCASLicensingSubSystem][eqGetLicenseForSystemID][0] 'EQException.File: EQCASLicensingSubSystem.cpp'", records[0].GetMessage(null));
@@ -67,6 +67,7 @@ namespace Amazon.KinesisTap.Core.Test
                     "yyyy/MM/dd HH:mm:ss.fff",
                     null,
                     extractionPatterm,
+                    null,
                     DateTimeKind.Utc,
                     new RegexRecordParserOptions()
                 );
