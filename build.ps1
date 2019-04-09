@@ -179,48 +179,4 @@ Compress-Archive -Path "$birdwatcherReleaseDir\*" -DestinationPath "$(Join-Path 
 
 $integrationTestPublishDir = "$env:TMP\KTIntegrationTest"
 
-$ciProjDir = Join-Path -Path $PSScriptRoot -ChildPath "Amazon.KinesisTap.CiIntegration.Test"
-robocopy "$ciProjDir\KinesisTapIntegrationTests\bin\release" $integrationTestPublishDir /S /MIR
-if ($LASTEXITCODE -lt 8) {
-    Write-Verbose "Initial CI Integration Test package copy successful"
-    $LASTEXITCODE = 0
-} else {
-    Write-Verbose "Initial CI Integration Test package copy failed, error code: $LASTERRORCODE"
-    Exit $LASTEXITCODE
-}
-
-
-robocopy "$ciProjDir\ThrowUnhandledException\bin\Release" $integrationTestPublishDir /S
-if ($LASTEXITCODE -lt 8) {
-    Write-Verbose "Final CI Integration Test package copy successful"
-    $LASTEXITCODE = 0
-} else {
-    Write-Verbose "Final CI Integration Test package copy failed, error code: $LASTERRORCODE"
-    Exit $LASTEXITCODE
-}
-
-$ciZipFilePathDir = "$ciProjDir\bin\release"
-if (Test-Path -Path $ciZipFilePathDir) {
-    Remove-Item -Path $ciZipFilePathDir\*.* -Recurse -Force
-}
-else {
-    New-Item -Path $ciZipFilePathDir -ItemType Directory
-}
-
-Write-Verbose "After directory create, last exit code: $LASTEXITCODE"
-
-Compress-Archive -Path "$integrationTestPublishDir\*" -DestinationPath "$ciZipFilePathDir\KinesisTapIntegrationTests.zip" -CompressionLevel Optimal -Force
-
-Write-Verbose "After compress archive, last exit code: $LASTEXITCODE"
-
-Write-Verbose "Integration test zip path: $ciZipFilePathDir\KinesisTapIntegrationTests.zip"
-$dirListing = (dir "$ciZipFilePathDir\KinesisTapIntegrationTests.zip")
-Write-Verbose "Integration test directory: $dirListing"
-
-Write-Verbose "After directory list, last exit code: $LASTEXITCODE"
-
-Write-Verbose "Script completed in $($stopwatch.Elapsed.TotalSeconds) seconds"
-
-Write-Verbose "At end last exit code: $LASTEXITCODE"
-
 Exit $LASTERRORCODE
