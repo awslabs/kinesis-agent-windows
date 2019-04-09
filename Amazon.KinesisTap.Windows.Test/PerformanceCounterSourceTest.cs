@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -82,6 +83,22 @@ namespace Amazon.KinesisTap.Windows.Test
             Assert.Contains(metrics, m => m.Value.Value > 0);
             performanceCounterSource.Stop();
         }
+
+        [Fact]
+        [Trait("Category", "Integration")]
+        public void TestPerformanceCounterSourceWithInstanceRegex()
+        {
+            var config = TestUtility.GetConfig("Sources", "PerformanceCounterWithInstanceRegex");
+            var performanceCounterSource = new PerformanceCounterSource(new PluginContext(config, NullLogger.Instance, null));
+            performanceCounterSource.Start();
+            var results = performanceCounterSource.Query(null);
+            var metrics = results.Data as ICollection<KeyValuePair<MetricKey, MetricValue>>;
+            Assert.True(metrics.Count > 0);
+            Regex instanceRegex = new Regex("^Local Area Connection\\* \\d$");
+            Assert.All(metrics, m => Assert.Matches(instanceRegex, m.Key.Id));
+            performanceCounterSource.Stop();
+        }
+
 
         [Fact]
         [Trait("Category", "Integration")]

@@ -22,15 +22,17 @@ namespace Amazon.KinesisTap.Windows
 {
     public class CategoryInfo
     {
-        public CategoryInfo(string categoryName, string[] instances, string[] counters)
+        public CategoryInfo(string categoryName, string[] instances, string[] counters, string instanceRegex)
         {
             this.CategoryName = categoryName;
             this.InstanceFilters = instances;
             this.CounterFilters = counters;
+            this.InstanceRegex = instanceRegex;
         }
 
         public string CategoryName { get; private set; }
         public string[] InstanceFilters { get; private set; }
         public  string[] CounterFilters { get; private set; }
+        public string InstanceRegex { get; private set; }
     }
 }

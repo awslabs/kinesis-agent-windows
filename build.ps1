@@ -27,6 +27,8 @@ function FixLastWriteTime
 
 $stopwatch = New-Object System.Diagnostics.Stopwatch
 $stopwatch.Start()
+$VerbosePreference = "Continue"
+$InformationPreference = "Continue"
 
 $serviceName="AWSKinesisTap"
 Set-Location -Path "$PSScriptRoot"
@@ -62,7 +64,7 @@ if (!$packageOnly)
 
     try
     {
-	    Write-Verbose "Building agent"
+	    Write-Verbose 'Building agent'
 	    & "$msbuild" $sln /p:Configuration=Release /p:Platform="Any CPU"
     }
     catch
@@ -71,12 +73,14 @@ if (!$packageOnly)
     }
 }
 
-$zipFile = Join-Path -Path $projDir -ChildPath "bin\KinesisTap.zip"
-if (Test-Path -Path $zipFile)
-{
-	Write-Verbose 'Deleting previously created zip file'
-	Remove-Item -Path $zipFile -Recurse -Confirm:$false -Force
-}
+$kinesisTapPath = Join-Path -Path $releaseDir -ChildPath "$serviceName.exe"
+$productVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($kinesisTapPath).FileVersion
+$outputDir = Join-Path -Path $projDir -ChildPath "bin\"
+
+Write-Verbose 'Copy msi to output dir'
+Copy-Item -Path "$(Join-Path -Path $PSScriptRoot -ChildPath "KinesisTapWixSetup\bin\x64\Release\$serviceName.msi")" -Destination "$(Join-Path -Path $outputDir -ChildPath "$serviceName.$productVersion.msi")"
+
+$msiFile = Join-Path -Path $projDir -ChildPath "bin\$serviceName.$productVersion.msi"
 
 #Write-Verbose 'Deleting PDB files'
 #Get-ChildItem -Path $releaseDir -Recurse *.pdb | Remove-Item -Force
@@ -118,20 +122,15 @@ Write-Verbose 'Copying Amazon.KinesisTap.AutoUpdate.??? and .pdb to bin\release'
 Copy-Item "$PSScriptRoot\Amazon.KinesisTap.AutoUpdate\bin\release\netstandard1.3\Amazon.KinesisTap.AutoUpdate.???" "$releaseDir" 
 
 
+
 Write-Verbose 'Fix LastWriteTime of each file: https://github.com/PowerShell/Microsoft.PowerShell.Archive/issues/55'
 FixLastWriteTime $releaseDir
-
-Write-Verbose 'Zipping release directory'
-Compress-Archive -Path "$releaseDir\*" -DestinationPath $zipFile -CompressionLevel Fastest
 
 #build chocolatey package
 $chocolateyTemplateDir = Join-Path -Path $PSScriptRoot -ChildPath "ChocolateyTemplate"
 Write-Verbose 'Prepare chocolatey package'
-$kinesisTapPath = Join-Path -Path $releaseDir -ChildPath "$serviceName.exe"
 
-$chocolateyPackageVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($kinesisTapPath).FileVersion
-$chocolateyPackageName = "KinesisTap.$chocolateyPackageVersion"
-$outputDir = Join-Path -Path $projDir -ChildPath "bin\"
+$chocolateyPackageName = "KinesisTap.$productVersion"
 $chocolateyPackageDir = Join-Path -Path $outputDir -ChildPath $chocolateyPackageName
 $chocolateyPackageFile = "$chocolateyPackageDir.nupkg"
 if (Test-Path -Path $chocolateyPackageDir)
@@ -148,10 +147,10 @@ if (Test-Path -Path $chocolateyPackageFile)
 
 $null = New-Item -ItemType Directory -Path $chocolateyPackageDir -Force
 & robocopy.exe $chocolateyTemplateDir $chocolateyPackageDir /E /R:1 /W:1 /NJH /NJS /NP
-& Copy-Item -Path $zipFile -Destination "$chocolateyPackageDir\tools"
+& Copy-Item -Path "$(Join-Path -Path $outputDir -ChildPath "$serviceName.$productVersion.msi")" -Destination "$chocolateyPackageDir\tools\$serviceName.msi"
 
 $nuspec = [xml](Get-Content -Path "$chocolateyPackageDir\KinesisTap.nuspec")
-$nuspec.SelectSingleNode("//package/metadata/version")."#text" = $chocolateyPackageVersion
+$nuspec.SelectSingleNode("//package/metadata/version")."#text" = $productVersion
 $nuspec.Save("$chocolateyPackageDir\KinesisTap.nuspec")
 
 Write-Verbose 'Create chocolatey package'
@@ -171,12 +170,57 @@ if (Test-Path -Path $birdwatcherOutputDir)
 
 New-Item -ItemType Directory -Path $birdwatcherReleaseDir -Force
 
-Copy-Item -Path $zipFile -Destination "$(Join-Path -Path $birdwatcherReleaseDir -ChildPath 'KinesisTap.zip')"
+Copy-Item -Path $msiFile -Destination "$(Join-Path -Path $birdwatcherReleaseDir -ChildPath 'KinesisTap.msi')"
 Copy-Item -Path "$(Join-Path -Path $chocolateyTemplateDir 'tools\chocolateyinstall.ps1')" -Destination "$(Join-Path -Path $birdwatcherReleaseDir -ChildPath 'install.ps1')" 
 Copy-Item -Path "$(Join-Path -Path $chocolateyTemplateDir 'tools\chocolateyuninstall.ps1')" -Destination "$(Join-Path -Path $birdwatcherReleaseDir -ChildPath 'uninstall.ps1')"
 
 $birdwatcherZipFileName = $serviceName + ".zip"
 Compress-Archive -Path "$birdwatcherReleaseDir\*" -DestinationPath "$(Join-Path -Path $birdwatcherOutputDir -ChildPath $birdwatcherZipFileName)"
 
+$integrationTestPublishDir = "$env:TMP\KTIntegrationTest"
+
+$ciProjDir = Join-Path -Path $PSScriptRoot -ChildPath "Amazon.KinesisTap.CiIntegration.Test"
+robocopy "$ciProjDir\KinesisTapIntegrationTests\bin\release" $integrationTestPublishDir /S /MIR
+if ($LASTEXITCODE -lt 8) {
+    Write-Verbose "Initial CI Integration Test package copy successful"
+    $LASTEXITCODE = 0
+} else {
+    Write-Verbose "Initial CI Integration Test package copy failed, error code: $LASTERRORCODE"
+    Exit $LASTEXITCODE
+}
+
+
+robocopy "$ciProjDir\ThrowUnhandledException\bin\Release" $integrationTestPublishDir /S
+if ($LASTEXITCODE -lt 8) {
+    Write-Verbose "Final CI Integration Test package copy successful"
+    $LASTEXITCODE = 0
+} else {
+    Write-Verbose "Final CI Integration Test package copy failed, error code: $LASTERRORCODE"
+    Exit $LASTEXITCODE
+}
+
+$ciZipFilePathDir = "$ciProjDir\bin\release"
+if (Test-Path -Path $ciZipFilePathDir) {
+    Remove-Item -Path $ciZipFilePathDir\*.* -Recurse -Force
+}
+else {
+    New-Item -Path $ciZipFilePathDir -ItemType Directory
+}
+
+Write-Verbose "After directory create, last exit code: $LASTEXITCODE"
+
+Compress-Archive -Path "$integrationTestPublishDir\*" -DestinationPath "$ciZipFilePathDir\KinesisTapIntegrationTests.zip" -CompressionLevel Optimal -Force
+
+Write-Verbose "After compress archive, last exit code: $LASTEXITCODE"
+
+Write-Verbose "Integration test zip path: $ciZipFilePathDir\KinesisTapIntegrationTests.zip"
+$dirListing = (dir "$ciZipFilePathDir\KinesisTapIntegrationTests.zip")
+Write-Verbose "Integration test directory: $dirListing"
+
+Write-Verbose "After directory list, last exit code: $LASTEXITCODE"
+
 Write-Verbose "Script completed in $($stopwatch.Elapsed.TotalSeconds) seconds"
 
+Write-Verbose "At end last exit code: $LASTEXITCODE"
+
+Exit $LASTERRORCODE

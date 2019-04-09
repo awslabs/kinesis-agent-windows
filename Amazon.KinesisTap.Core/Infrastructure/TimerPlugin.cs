@@ -27,7 +27,8 @@ namespace Amazon.KinesisTap.Core
     {
         Timer _timer;
 
-        public int Interval { get; set; }
+        //Timestamp between plug-in invocation
+        public TimeSpan Interval { get; protected set; }
 
         public TimerPlugin(IPlugInContext context) : base(context)
         {
@@ -37,8 +38,8 @@ namespace Amazon.KinesisTap.Core
         public override void Start()
         {
             //Randomize the first time
-            int dueTime = Utility.Random.Next(Interval * 60000); //in milliseconds
-            _timer.Change(dueTime, Interval * 60000);
+            int dueTime = Utility.Random.Next((int)Interval.TotalMilliseconds); //in milliseconds
+            _timer.Change(dueTime, (int)Interval.TotalMilliseconds);
         }
 
         public override void Stop()
@@ -55,7 +56,7 @@ namespace Amazon.KinesisTap.Core
 
         private void EnableTimer()
         {
-            _timer.Change(Interval * 60000, Interval * 60000);
+            _timer.Change((int)Interval.TotalMilliseconds, (int)Interval.TotalMilliseconds);
         }
 
         private void OnTimerInternal(object stateInfo)

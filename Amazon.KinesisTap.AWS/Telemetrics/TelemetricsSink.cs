@@ -27,12 +27,6 @@ namespace Amazon.KinesisTap.AWS.Telemetrics
 {
     public class TelemetricsSink : AWSMetricsSink<IDictionary<string, object>, HttpResponseMessage, long>
     {
-#if DEBUG
-        const string CLIENT_ID = "ClientId_Debug";
-#else
-        const string CLIENT_ID = "ClientId";
-#endif
-
         private ITelemetricsClient<HttpResponseMessage> _telemetricsClient;
         private string _clientId;
 
@@ -51,11 +45,11 @@ namespace Amazon.KinesisTap.AWS.Telemetrics
         public override void Start()
         {
             base.Start();
-            _clientId = _context.ParameterStore.GetParameter(CLIENT_ID);
+            _clientId = _context.ParameterStore.GetParameter(_telemetricsClient.ClientIdParameterName);
             if (string.IsNullOrWhiteSpace(_clientId))
             {
-                _clientId = TelemetricsClient.Default.GetClientIdAsync().Result;
-                _context.ParameterStore.SetParameter(CLIENT_ID, _clientId);
+                _clientId = _telemetricsClient.CreateClientIdAsync().Result;
+                _context.ParameterStore.SetParameter(_telemetricsClient.ClientIdParameterName, _clientId);
             }
             _telemetricsClient.ClientId = _clientId;
         }
@@ -106,7 +100,6 @@ namespace Amazon.KinesisTap.AWS.Telemetrics
         protected override async Task<HttpResponseMessage> SendRequestAsync(IDictionary<string, object> data)
         {
             var response = await _telemetricsClient.PutMetricsAsync(data);
-            response.EnsureSuccessStatusCode();
             return response;
         }
     }

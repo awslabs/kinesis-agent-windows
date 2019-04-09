@@ -175,8 +175,9 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
                 string pattern = config[$"{sourceSection.Path}:{"Pattern"}"];
                 string timestampFormat = config[$"{sourceSection.Path}:{"TimestampFormat"}"];
                 string extractionPattern = config[$"{sourceSection.Path}:{"ExtrationPattern"}"];
+                string extractionRegexOptions = config[$"{sourceSection.Path}:{"ExtractionRegexOptions"}"];
 
-                RegexRecordParser parser = new RegexRecordParser(pattern, timestampFormat, null, extractionPattern, DateTimeKind.Utc);
+                RegexRecordParser parser = new RegexRecordParser(pattern, timestampFormat, null, extractionPattern, extractionRegexOptions, DateTimeKind.Utc);
                 var records = parser.ParseRecords(sr, new LogContext()).ToList();
                 if (records.Count == 1)
                 {

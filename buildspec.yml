@@ -19,6 +19,8 @@ phases:
       - .\build.ps1 -packageOnly
 artifacts:
   files:
+    - Amazon.KinesisTap/bin/*.msi
     - Amazon.KinesisTap/bin/*.nupkg
     - Amazon.KinesisTap.Deploy/*
     - Amazon.KinesisTap/Birdwatcher/bin/*.zip
+    - Amazon.KinesisTap.CiIntegration.Test/bin/release/*.zip

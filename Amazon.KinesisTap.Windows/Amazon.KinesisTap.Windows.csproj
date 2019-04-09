@@ -170,6 +170,7 @@
     <Compile Include="EtwEventEnvelope.cs" />
     <Compile Include="EtwEventSource.cs" />
     <Compile Include="EventInfo.cs" />
+    <Compile Include="EventInfoFilters.cs" />
     <Compile Include="EventLogSource.cs" />
     <Compile Include="PerformanceCounterSourceConfigLoader.cs" />
     <Compile Include="ServiceDependency.cs" />

@@ -93,6 +93,50 @@ namespace Amazon.KinesisTap.AWS
             _logger?.LogInformation($"KinesisFirehoseSink id {this.Id} for StreamName {_deliveryStreamName} stopped.");
         }
 
+        /// <summary>
+        /// Combining multiple small records to a large record under 5K to save customer cost.
+        /// https://aws.amazon.com/kinesis/data-firehose/pricing/
+        /// </summary>
+        public bool CanCombineRecords { get; set; }
+
+        /// <summary>
+        /// Combine multiple records to a single record up to 5 KB
+        /// </summary>
+        /// <param name="records"></param>
+        /// <returns></returns>
+        public static List<Record> CombineRecords(List<Record> records)
+        {
+            List<Record> combinedRecords = new List<Record>();
+            Record prevRecord = null;
+            foreach (var record in records)
+            {
+                if (prevRecord == null)
+                {
+                    prevRecord = record;
+                }
+                else
+                {
+                    if (prevRecord.Data.Length + record.Data.Length <= 5000)
+                    {
+                        Combine(prevRecord, record);
+                    }
+                    else
+                    {
+                        prevRecord.Data.Position = 0; //Reset position for the next reader
+                        combinedRecords.Add(prevRecord);
+                        prevRecord = record;
+                    }
+                }
+            }
+            if (prevRecord != null)
+            {
+                prevRecord.Data.Position = 0;
+                combinedRecords.Add(prevRecord);
+            }
+
+            return combinedRecords;
+        }
+
         protected override Record CreateRecord(string record, IEnvelope envelope)
         {
             //Use a newline delimiter per recommendation of http://docs.aws.amazon.com/firehose/latest/APIReference/API_PutRecordBatch.html
@@ -114,34 +158,40 @@ namespace Amazon.KinesisTap.AWS
             return recordSize;
         }
 
-        protected override async Task OnNextAsync(List<Envelope<Record>> records, long batchBytes)
+        protected override async Task OnNextAsync(List<Envelope<Record>> envelopes, long batchBytes)
         {
-            _logger?.LogDebug($"KinesisFirehoseSink {this.Id} sending {records.Count} records {batchBytes} bytes.");
+            _logger?.LogDebug($"KinesisFirehoseSink {this.Id} sending {envelopes.Count} records {batchBytes} bytes.");
 
             DateTime utcNow = DateTime.UtcNow;
-            _clientLatency = (long)records.Average(r => (utcNow - r.Timestamp).TotalMilliseconds);
+            _clientLatency = (long)envelopes.Average(r => (utcNow - r.Timestamp).TotalMilliseconds);
 
             long elapsedMilliseconds = Utility.GetElapsedMilliseconds();
             try
             {
-                _recordsAttempted += records.Count;
+                _recordsAttempted += envelopes.Count;
                 _bytesAttempted += batchBytes;
-                PutRecordBatchResponse response = await _firehoseClient.PutRecordBatchAsync(_deliveryStreamName, 
-                    records.Select(r => r.Data).ToList());
+                List<Record> records = envelopes.Select(r => r.Data).ToList();
+                if (this.CanCombineRecords)
+                {
+                    records = CombineRecords(records);
+                }
+
+                PutRecordBatchResponse response = await _firehoseClient.PutRecordBatchAsync(_deliveryStreamName,
+                    records);
                 _latency = Utility.GetElapsedMilliseconds() - elapsedMilliseconds;
                 if (response.FailedPutCount > 0 && response.RequestResponses != null)
                 {
                     _throttle.SetError();
                     _recoverableServiceErrors++;
-                    _recordsSuccess += records.Count - response.FailedPutCount;
-                    _logger?.LogError($"KinesisFirehoseSink client {this.Id} BatchRecordCount={records.Count} FailedPutCount={response.FailedPutCount} Attempt={_throttle.ConsecutiveErrorCount}");
+                    _recordsSuccess += envelopes.Count - response.FailedPutCount;
+                    _logger?.LogError($"KinesisFirehoseSink client {this.Id} BatchRecordCount={envelopes.Count} FailedPutCount={response.FailedPutCount} Attempt={_throttle.ConsecutiveErrorCount}");
                     List<Envelope<Record>> requeueRecords = new List<Envelope<Record>>();
                     for (int i = 0;  i < response.RequestResponses.Count; i++)
                     {
                         var reqResponse = response.RequestResponses[i];
                         if (!string.IsNullOrEmpty(reqResponse.ErrorCode))
                         {
-                            requeueRecords.Add(records[i]);
+                            requeueRecords.Add(envelopes[i]);
                             //When there is error, reqResponse.RecordId would be null. So we have to use the sequence number within the batch here.
                             if (_throttle.ConsecutiveErrorCount >= _maxAttempts)
                             {
@@ -162,8 +212,8 @@ namespace Amazon.KinesisTap.AWS
                 else
                 {
                     _throttle.SetSuccess();
-                    _recordsSuccess += records.Count;
-                    _logger?.LogDebug($"KinesisFirehoseSink {this.Id} successfully sent {records.Count} records {batchBytes} bytes.");
+                    _recordsSuccess += envelopes.Count;
+                    _logger?.LogDebug($"KinesisFirehoseSink {this.Id} successfully sent {envelopes.Count} records {batchBytes} bytes.");
                 }
             }
             catch (Exception ex)
@@ -171,10 +221,10 @@ namespace Amazon.KinesisTap.AWS
                 _latency = Utility.GetElapsedMilliseconds() - elapsedMilliseconds;
                 _throttle.SetError();
                 if (IsRecoverableException(ex) 
-                    && _buffer.Requeue(records, _throttle.ConsecutiveErrorCount < _maxAttempts))
+                    && _buffer.Requeue(envelopes, _throttle.ConsecutiveErrorCount < _maxAttempts))
                 {
                     _recoverableServiceErrors++;
-                    _recordsFailedRecoverable += records.Count;
+                    _recordsFailedRecoverable += envelopes.Count;
                     if (LogThrottler.ShouldWrite(LogThrottler.CreateLogTypeId(this.GetType().FullName, "OnNextAsync", "Requeued", this.Id), TimeSpan.FromMinutes(5)))
                     {
                         _logger?.LogWarning($"KinesisFirehoseSink client {this.Id} Service Unavailable. Request requeued. Attempts {_throttle.ConsecutiveErrorCount}");
@@ -183,7 +233,7 @@ namespace Amazon.KinesisTap.AWS
                 else
                 {
                     _nonrecoverableServiceErrors++;
-                    _recordsFailedNonrecoverable += records.Count;
+                    _recordsFailedNonrecoverable += envelopes.Count;
                     _logger?.LogError($"KinesisFirehoseSink client {this.Id} exception: {ex.ToMinimized()}");
                 }
             }
@@ -193,6 +243,12 @@ namespace Amazon.KinesisTap.AWS
         protected override ISerializer<List<Envelope<Record>>> GetSerializer()
         {
             return AWSSerializationUtility.FirehoseRecordListBinarySerializer;
+        }
+
+        private static void Combine(Record prevRecord, Record record)
+        {
+            prevRecord.Data.Position = prevRecord.Data.Length; //Set the position to the end for append
+            prevRecord.Data.Write(record.Data.ToArray(), 0, (int)record.Data.Length);
         }
 
         private bool IsRecoverableException(Exception ex)

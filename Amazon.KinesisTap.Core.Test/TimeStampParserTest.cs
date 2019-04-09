@@ -83,5 +83,36 @@ namespace Amazon.KinesisTap.Core.Test
 
             TestTimestampLogInternal(expectedTime1, expectedTime2, timeZoneKind);
         }
+
+        [Fact]
+        public void TestSQLLog()
+        {
+            string log = @"2019-02-13 04:50:33.89 Server      Microsoft SQL Server 2014 (SP2-GDR) (KB4057120) - 12.0.5214.6 (X64)
+                Jan  9 2018 15:03:12
+                Copyright (c) Microsoft Corporation
+                Enterprise Edition (64-bit) on Windows NT 6.3 <X64> (Build 9600: ) (Hypervisor)
+2019-02-13 04:50:34.00 Server      UTC adjustment: 0:00";
+            using (Stream stream = Utility.StringToStream(log))
+            using (StreamReader sr = new StreamReader(stream))
+            {
+                string extractionPatterm = "^\\s*(?<TimeStamp>\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{2})\\s(?<Source>\\w+)\\s+(?<Message>.*)$";
+                TimeStampRecordParser parser = new TimeStampRecordParser(
+                    "yyyy-MM-dd HH:mm:ss.ff",
+                    null,
+                    extractionPatterm,
+                    "Singleline",
+                    DateTimeKind.Utc,
+                    new RegexRecordParserOptions()
+                );
+                var records = parser.ParseRecords(sr, new LogContext()).ToList();
+
+                Assert.Equal(2, records.Count);
+
+                Assert.Equal("2019-02-13 04:50:33.89", records[0].Data["TimeStamp"]);
+                Assert.Equal("Server", records[0].Data["Source"]);
+                Assert.True(records[0].Data["Message"].Length > 0);
+            }
+        }
+
     }
 }

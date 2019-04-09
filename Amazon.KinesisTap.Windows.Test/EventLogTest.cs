@@ -18,11 +18,13 @@ using System.Diagnostics.Eventing.Reader;
 using System.Reactive;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+
+using Microsoft.Extensions.Configuration;
+using Xunit;
 
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Core.Test;
-using Microsoft.Extensions.Configuration;
-using Xunit;
 
 namespace Amazon.KinesisTap.Windows.Test
 {
@@ -169,8 +171,9 @@ namespace Amazon.KinesisTap.Windows.Test
                 source.Start();
                 System.Threading.Thread.Sleep(1000);
                 //Should get the record when the source is stopped
-                Assert.True(records.Count > 0);
-                Assert.True(records[0].Timestamp >= dateTime2);
+                var foundRecord = records.FirstOrDefault(r => msg.Equals(((EventRecordEnvelope)r).Data.Description));
+                Assert.NotNull(foundRecord);
+                Assert.True(foundRecord.Timestamp >= dateTime2);
             }
         }
 
@@ -195,6 +198,30 @@ namespace Amazon.KinesisTap.Windows.Test
             GenerateAndCaptureEvents(records, config);
 
             Assert.True(((EventRecordEnvelope)records[0]).Data.EventData.Count > 0);
+        }
+
+        [Fact]
+        public void TestExcludeOwnSecurityEvents()
+        {
+            var filter = EventInfoFilters.GetFilter(EventInfoFilters.EXCLUDE_OWN_SECURITY_EVENTS);
+            Assert.True(filter(new EventInfo()));
+            Assert.False(filter(new EventInfo
+            {
+                LogName = "Security",
+                EventData = new List<object>()
+                {
+                    Utility.MainModulePath
+                }
+            }));
+            //Check the \device\harddiskvolumnX rooted path
+            Assert.False(filter(new EventInfo
+            {
+                LogName = "Security",
+                EventData = new List<object>()
+                {
+                    @"\device\harddiskvolume1" + Utility.MainModulePath.Substring(2)
+                }
+            }));
         }
 
         private static void DeleteExistingBookmarkFile(string sourceId)

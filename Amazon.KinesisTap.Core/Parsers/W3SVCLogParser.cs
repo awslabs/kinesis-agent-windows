@@ -28,7 +28,7 @@ namespace Amazon.KinesisTap.Core
 
         protected override bool IsComment(string line)
         {
-            return line.StartsWith("#");
+            return line.StartsWith("#") || line.StartsWith("\x00", StringComparison.Ordinal);
         }
 
         protected override bool IsHeader(string line)

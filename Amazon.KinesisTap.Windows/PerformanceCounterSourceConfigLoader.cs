@@ -52,7 +52,8 @@ namespace Amazon.KinesisTap.Windows
             return new CategoryInfo(
                 category,
                 categorySection["Instances"]?.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries),
-                LoadCountersConfig(category, categorySection.GetSection("Counters"))
+                LoadCountersConfig(category, categorySection.GetSection("Counters")),
+                categorySection["InstanceRegex"]
             );
         }
 

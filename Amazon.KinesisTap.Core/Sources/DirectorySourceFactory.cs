@@ -44,6 +44,8 @@ namespace Amazon.KinesisTap.Core
                     {
                         removeUnmatched = bool.Parse(removeUnmatchedConfig);
                     }
+                    string extractionPattern = config["ExtractionPattern"];
+                    string extractionRegexOptions = config["ExtractionRegexOptions"];
                     switch (recordParser)
                     {
                         case "singleline":
@@ -52,18 +54,18 @@ namespace Amazon.KinesisTap.Core
                                 CreateLogSourceInfo);
                         case "regex":
                             string pattern = config["Pattern"];
-                            string extractionPattern = config["ExtractionPattern"];
                             return CreateEventSource(context, 
                                 new RegexRecordParser(pattern, 
                                     timetampFormat, 
                                     logger, 
-                                    extractionPattern, 
+                                    extractionPattern,
+                                    extractionRegexOptions,
                                     timeZoneKind,
                                     new RegexRecordParserOptions { RemoveUnmatchedRecord = removeUnmatched }), 
                                 CreateLogSourceInfo);
                         case "timestamp":
                             return CreateEventSource(context, 
-                                new TimeStampRecordParser(timetampFormat, logger, timeZoneKind,
+                                new TimeStampRecordParser(timetampFormat, logger, extractionPattern, extractionRegexOptions, timeZoneKind,
                                     new RegexRecordParserOptions { RemoveUnmatchedRecord = removeUnmatched }), 
                                 CreateLogSourceInfo);
                         case "syslog":

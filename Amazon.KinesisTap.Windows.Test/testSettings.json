@@ -38,6 +38,18 @@
       ]
     },
     {
+      "Id": "PerformanceCounterWithInstanceRegex",
+      "SourceType": "WindowsPerformanceCounterSource",
+      "Categories": [
+        {
+          "Category": "Network Adapter",
+          "InstanceRegex": "^Local Area Connection\\* \\d$",
+          "Counters": [ "Bytes Received/sec", "Bytes Sent/sec" ]
+        }
+      ]
+    },
+
+    {
       "Id": "ApplicationLog",
       "SourceType": "WindowsEventLogSource",
       "LogName": "Application"

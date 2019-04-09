@@ -72,9 +72,29 @@ namespace Amazon.KinesisTap.AWS
             return expectedSequenceToken;
         }
 
+        /// <summary>
+        /// Create AWS Client from plug-in context
+        /// </summary>
+        /// <typeparam name="TAWSClient">The type of AWS Client</typeparam>
+        /// <param name="context">Plug-in context</param>
+        /// <returns>AWS Client</returns>
         public static TAWSClient CreateAWSClient<TAWSClient>(IPlugInContext context) where TAWSClient : AmazonServiceClient
         {
             (AWSCredentials credential, RegionEndpoint region) = GetAWSCredentialsRegion(context);
+            TAWSClient awsClient;
+            awsClient = CreateAWSClient<TAWSClient>(credential, region);
+            return awsClient;
+        }
+
+        /// <summary>
+        /// Generate AWS Client using credential and region
+        /// </summary>
+        /// <typeparam name="TAWSClient">The type of AWS Client</typeparam>
+        /// <param name="credential">AWSCredentials</param>
+        /// <param name="region">RegionEndpoint</param>
+        /// <returns></returns>
+        public static TAWSClient CreateAWSClient<TAWSClient>(AWSCredentials credential, RegionEndpoint region) where TAWSClient : AmazonServiceClient
+        {
             TAWSClient awsClient;
             if (region != null)
             {
@@ -84,6 +104,7 @@ namespace Amazon.KinesisTap.AWS
             {
                 awsClient = (TAWSClient)Activator.CreateInstance(typeof(TAWSClient), credential);
             }
+
             return awsClient;
         }
 
@@ -149,6 +170,29 @@ namespace Amazon.KinesisTap.AWS
             }
 
             return (credential, regionEndPoint);
+        }
+
+        /// <summary>
+        /// Get AWS Credentials from parameters. If none supplied, use the FallbackCredentialsFactory.
+        /// </summary>
+        /// <param name="accessKey">Access Key</param>
+        /// <param name="secretKey">Secret Key</param>
+        /// <param name="token">Token</param>
+        /// <returns>AWSCredentials</returns>
+        public static AWSCredentials GetAWSCredentials(string accessKey, string secretKey, string token)
+        {
+            if (string.IsNullOrWhiteSpace(accessKey))
+            {
+                return FallbackCredentialsFactory.GetCredentials();
+            }
+            else if (string.IsNullOrWhiteSpace(token))
+            {
+                return new BasicAWSCredentials(accessKey, secretKey);
+            }
+            else
+            {
+                return new SessionAWSCredentials(accessKey, secretKey, token);
+            }
         }
 
         public static (string bucketName, string key) ParseS3Url(string url)

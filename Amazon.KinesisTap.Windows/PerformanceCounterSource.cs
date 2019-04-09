@@ -243,7 +243,7 @@ namespace Amazon.KinesisTap.Windows
             IList<Regex> counterPatterns,
             bool isInitialLoad)
         {
-            (HashSet<string> instanceNames, IList<Regex> instancePatterns) = GetNamesAndPatterns(categoryInfo.InstanceFilters);
+            (HashSet<string> instanceNames, IList<Regex> instancePatterns) = GetNamesAndPatterns(categoryInfo.InstanceFilters, categoryInfo.InstanceRegex);
             if (isInitialLoad)
             {
                 foreach (var instanceName in instanceNames)
@@ -336,6 +336,11 @@ namespace Amazon.KinesisTap.Windows
 
         private static (HashSet<string> names, IList<Regex> patterns) GetNamesAndPatterns(string[] nameOrPatterns)
         {
+            return GetNamesAndPatterns(nameOrPatterns, null);
+        }
+
+        private static (HashSet<string> names, IList<Regex> patterns) GetNamesAndPatterns(string[] nameOrPatterns, string regex)
+        {
             HashSet<string> names = new HashSet<string>();
             IList<Regex> patterns = new List<Regex>();
             if (nameOrPatterns != null)
@@ -352,6 +357,10 @@ namespace Amazon.KinesisTap.Windows
                         names.Add(nameOrPattern);
                     }
                 }
+            }
+            if (!string.IsNullOrWhiteSpace(regex))
+            {
+                patterns.Add(new Regex(regex));
             }
             return (names, patterns);
         }

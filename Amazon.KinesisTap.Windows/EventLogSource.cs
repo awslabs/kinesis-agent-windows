@@ -44,6 +44,7 @@ namespace Amazon.KinesisTap.Windows
         private long? _prevRecordId;
         private readonly bool _includeEventData;
         private bool _isStartFromReset = false;
+        private readonly string[] _customFilters;
 
         public EventLogSource(string logName, string query, IPlugInContext context) : base(new ServiceDependency("EventLog"), context)
         {
@@ -64,6 +65,19 @@ namespace Amazon.KinesisTap.Windows
             if (!string.IsNullOrWhiteSpace(includeEventData))
             {
                 _includeEventData = Convert.ToBoolean(includeEventData);
+            }
+
+            string customFilters = context?.Configuration?["CustomFilters"];
+            if (!string.IsNullOrWhiteSpace(customFilters))
+            {
+                _customFilters = customFilters.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach(var filter in _customFilters)
+                {
+                    if (EventInfoFilters.GetFilter(filter) == null)
+                    {
+                        throw new ConfigurationException($"Custom filter {filter} does not exist. Please check the filter name.");
+                    }
+                }
             }
         }
 
@@ -362,7 +376,30 @@ namespace Amazon.KinesisTap.Windows
             {
                 return; //Don't send if timetamp initial position is in the future
             }
-            _recordSubject.OnNext(new EventRecordEnvelope(eventRecord, _includeEventData));
+
+            EventRecordEnvelope envelope;
+            if (_customFilters?.Length > 0)
+            {
+                envelope = new EventRecordEnvelope(eventRecord, true); //Need event data for filtering
+
+                //Don't send if any filter return false
+                if (_customFilters.Any(name => !EventInfoFilters.GetFilter(name)(envelope.Data)))
+                {
+                    return;
+                }
+
+                //Strip off Event Data if not configured
+                if (!_includeEventData)
+                {
+                    envelope.Data.EventData = null;
+                }
+            }
+            else
+            {
+                envelope = new EventRecordEnvelope(eventRecord, _includeEventData);
+            }
+
+            _recordSubject.OnNext(envelope);
             _metrics?.PublishCounter(this.Id, MetricsConstants.CATEGORY_SOURCE, CounterTypeEnum.Increment, 
                 MetricsConstants.EVENTLOG_SOURCE_EVENTS_READ, 1, MetricUnit.Count);
         }

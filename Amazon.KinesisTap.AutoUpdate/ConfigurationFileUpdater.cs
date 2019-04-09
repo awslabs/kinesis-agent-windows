@@ -43,7 +43,9 @@ namespace Amazon.KinesisTap.AutoUpdate
 
         public ConfigurationFileUpdater(IPlugInContext context) : base(context)
         {
-            this.Interval = Utility.ParseInteger(_config[ConfigConstants.INTERVAL], 5); //Default to 5 minutes
+            int minuteInterval = Utility.ParseInteger(_config[ConfigConstants.INTERVAL], 5); //Default to 5 minutes
+            if (minuteInterval < 1) minuteInterval = 1; //Set minimum to 1 minute
+            this.Interval = TimeSpan.FromMinutes(minuteInterval);
             this.Source = Utility.ResolveVariables(_config["Source"], Utility.ResolveVariable);
             this.Destination = _config["Destination"];
         }

@@ -33,6 +33,8 @@ namespace Amazon.KinesisTap.Hosting
     public class LogManager
     {
         private const string KINESISTAP_METRICS_SOURCE = "_KinesisTapMetricsSource";
+        private const string KINESISTAP_TELEMETRICS_SOURCE = "_KinesisTapTelemetricsSource";
+        private const string TELEMETRICS = "Telemetrics";
 
         private readonly ITypeLoader _typeLoader;
         private readonly IParameterStore _parameterStore;
@@ -439,11 +441,49 @@ namespace Amazon.KinesisTap.Hosting
                     pipesFailedToConnect++;
                 }
             }
+
+            //If telemetry is redirected, connect it to sink
+            IConfiguration telemetricsSection = _config.GetSection(TELEMETRICS);
+            string redirectToSinkId = telemetricsSection[ConfigConstants.REDIRECT_TO_SINK_ID];
+            if (!string.IsNullOrWhiteSpace(redirectToSinkId))
+            {
+                if (ConnectTelemetry(redirectToSinkId))
+                {
+                    pipesConnected++;
+                }
+                else
+                {
+                    pipesFailedToConnect++;
+                }
+            }
+
             _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
                 {
                     { MetricsConstants.PIPES_CONNECTED, new MetricValue(pipesConnected) },
                     { MetricsConstants.PIPES_FAILED_TO_CONNECT, new MetricValue(pipesFailedToConnect) }
                 });
+        }
+
+        private bool ConnectTelemetry(string redirectToSinkId)
+        {
+            try
+            {
+                if (!_sinks.TryGetValue(redirectToSinkId, out ISink sink))
+                {
+                    _logger?.LogError($"Sink {redirectToSinkId} not found for telemetry.");
+                    return false;
+                }
+                else
+                {
+                    ((IEventSource)_sources[ConfigConstants.TELEMETRY_CONNECTOR]).Subscribe((IEventSink)sink);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError($"Unable to connect telemetry to Sink {redirectToSinkId} failed: {ex.ToMinimized()}");
+                return true;
+            }
         }
 
         private bool LoadPipe(IConfigurationSection config)
@@ -614,10 +654,9 @@ namespace Amazon.KinesisTap.Hosting
 
         private void CreateTelemetricsSink()
         {
-            const string TELEMETRICS = "Telemetrics";
             try
             {
-                IConfiguration telemetricsSection = _config.GetSection("Telemetrics");
+                IConfiguration telemetricsSection = _config.GetSection(TELEMETRICS);
                 if ("true".Equals(telemetricsSection["off"]))
                 {
                     return;
@@ -625,10 +664,15 @@ namespace Amazon.KinesisTap.Hosting
                 var factory = _sinkFactoryCatalog.GetFactory(TELEMETRICS);
                 if (factory != null)
                 {
-                    var sink = factory.CreateInstance(TELEMETRICS, CreatePlugInContext(telemetricsSection));
+                    var context = CreatePlugInContext(telemetricsSection);
+                    var sink = factory.CreateInstance(TELEMETRICS, context);
                     sink.Start();
                     _sinks["_" + TELEMETRICS] = sink;
                     _subscriptions.Add(_metrics.Subscribe(sink));
+                    if (context.ContextData.TryGetValue(ConfigConstants.TELEMETRY_CONNECTOR, out object telemetryConnector))
+                    {
+                        _sources[ConfigConstants.TELEMETRY_CONNECTOR] = (ISource)telemetryConnector;
+                    }
                 }
             }
             catch (Exception ex)
