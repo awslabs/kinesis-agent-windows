@@ -117,7 +117,7 @@ xcopy "$(SolutionDir)Amazon.KinesisTap.Uls\bin\$(Configuration)\netstandard1.3\A
 xcopy "$(SolutionDir)Amazon.KinesisTap.AutoUpdate\bin\$(Configuration)\netstandard1.3\Amazon.KinesisTap.AutoUpdate.%3f%3f%3f" "$(SolutionDir)msibuild" /y /i
 
 if exist "$(SolutionDir)signed_artifacts" (
-move "$(SolutionDir)signed_artifacts\KinesisTap.exe" "$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)"
+move "$(SolutionDir)signed_artifacts\AWSKinesisTap.exe" "$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)"
 xcopy "$(SolutionDir)signed_artifacts\%2a" "$(SolutionDir)\msibuild" /y /i
 )
 
