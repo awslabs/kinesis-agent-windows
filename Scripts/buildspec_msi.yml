@@ -1,0 +1,31 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - nuget install xunit.runner.console -OutputDirectory packages -Version 2.2.0
+  pre_build:
+    commands:
+      - mkdir c:\temp
+      - mkdir c:\temp\bookmark
+      - mkdir signed_artifacts
+      - $input_artifacts = (Get-ChildItem Env:CODEBUILD_SRC_DIR_BuildOutput_artifacts).Value
+      - Get-ChildItem $input_artifacts -Recurse -filter *.dll | Copy-Item -Destination signed_artifacts
+      - Get-ChildItem $input_artifacts -Recurse -filter *.exe | Copy-Item -Destination signed_artifacts
+  build:
+    commands:
+      - nuget restore KinesisTap.sln
+      - msbuild KinesisTap.sln /p:Configuration=Release /p:Platform="Any CPU"
+      - dotnet test Amazon.KinesisTap.AWS.Test\Amazon.KinesisTap.AWS.Test.csproj --filter Category!=Integration
+      - dotnet test Amazon.KinesisTap.Core.Test\Amazon.KinesisTap.Core.Test.csproj --filter Category!=Integration
+      - packages\xunit.runner.console.2.2.0\tools\xunit.console Amazon.KinesisTap.Windows.Test\bin\Release\Amazon.KinesisTap.Windows.Test.dll -notrait "Category=Integration"
+  post_build:
+    commands:
+      - .\build.ps1 -packageOnly
+artifacts:
+  files:
+    - Amazon.KinesisTap/bin/*.msi
+    - Amazon.KinesisTap/bin/*.nupkg
+    - Amazon.KinesisTap.Deploy/*
+    - Amazon.KinesisTap/Birdwatcher/bin/*.zip
+    - Amazon.KinesisTap.CiIntegration.Test/bin/release/*.zip
