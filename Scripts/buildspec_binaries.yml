@@ -1,0 +1,25 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - nuget install xunit.runner.console -OutputDirectory packages -Version 2.2.0
+  pre_build:
+    commands:
+      - mkdir c:\temp
+      - mkdir c:\temp\bookmark
+  build:
+    commands:
+      - nuget restore KinesisTap.sln
+      - msbuild KinesisTap.sln /p:Configuration=Release /p:Platform="Any CPU"
+      - dotnet test Amazon.KinesisTap.AWS.Test\Amazon.KinesisTap.AWS.Test.csproj --filter Category!=Integration
+      - dotnet test Amazon.KinesisTap.Core.Test\Amazon.KinesisTap.Core.Test.csproj --filter Category!=Integration
+      - packages\xunit.runner.console.2.2.0\tools\xunit.console Amazon.KinesisTap.Windows.Test\bin\Release\Amazon.KinesisTap.Windows.Test.dll -notrait "Category=Integration"
+  post_build:
+    commands:
+      - .\build.ps1 -packageOnly
+artifacts:
+  files:
+    - Amazon.KinesisTap/bin/Release/KinesisTap.exe
+    - msibuild/Amazon.KinesisTap.*.dll
+    - msibuild/*.exe
