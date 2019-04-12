@@ -14,9 +14,8 @@ phases:
       - Get-ChildItem $input_artifacts -Recurse -filter *.exe | Copy-Item -Destination signed_artifacts
   build:
     commands:
-      - nuget restore KinesisTap.sln
-      - msbuild KinesisTap.sln /p:Configuration=Release /p:Platform="Any CPU"
-      - dotnet test Amazon.KinesisTap.AWS.Test\Amazon.KinesisTap.AWS.Test.csproj --filter Category!=Integration
+      - nuget restore AWSKinesisTap.sln
+      - msbuild AWSKinesisTap.sln /p:Configuration=Release /p:Platform="Any CPU"
       - dotnet test Amazon.KinesisTap.Core.Test\Amazon.KinesisTap.Core.Test.csproj --filter Category!=Integration
       - packages\xunit.runner.console.2.2.0\tools\xunit.console Amazon.KinesisTap.Windows.Test\bin\Release\Amazon.KinesisTap.Windows.Test.dll -notrait "Category=Integration"
   post_build:
