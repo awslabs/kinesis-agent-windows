@@ -28,10 +28,11 @@ namespace Amazon.KinesisTap.Core
     /// <typeparam name="T">The type of the event data</typeparam>
     public abstract class EventSource<T> : IEventSource<T>
     {
-        protected IPlugInContext _context;
-        protected IConfiguration _config;
-        protected ILogger _logger;
-        protected IMetrics _metrics;
+        protected readonly IPlugInContext _context;
+        protected readonly IConfiguration _config;
+        protected readonly ILogger _logger;
+        protected readonly IMetrics _metrics;
+        protected readonly bool _required; 
 
         /// <summary>
         /// EventSource constructor that takes a context
@@ -43,6 +44,15 @@ namespace Amazon.KinesisTap.Core
             this._config = context.Configuration;
             this._logger = context.Logger;
             this._metrics = context.Metrics;
+            string required = _config?[ConfigConstants.REQUIRED];
+            if (string.IsNullOrWhiteSpace(required))
+            {
+                _required = true;
+            }
+            else
+            {
+                _required = bool.Parse(required);
+            }
         }
 
         /// <summary>
@@ -129,6 +139,12 @@ namespace Amazon.KinesisTap.Core
         {
             return Subscribe((IObserver<IEnvelope<T>>)observer);
         }
+
+        /// <summary>
+        /// Default to true. If not EventSource is not required, suppress error if the event source cannot be started.
+        /// Each individual source decides whether to support this flag
+        /// </summary>
+        public bool Required => _required;
 
         /// <summary>
         /// Get the path for the bookmark file

@@ -14,23 +14,15 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
-using Amazon.KinesisTap.Core;
-
-namespace Amazon.KinesisTap.Windows
+namespace Amazon.KinesisTap.Core
 {
-    /// <summary>
-    /// Windows specific startup code
-    /// </summary>
-    public class WindowsStartup
+   /// <summary>
+   /// Interface for provider of network status information
+   /// </summary>
+    public interface INetworkStatus
     {
-        public static void Start()
-        {
-            Utility.ResolveEnvironmentVariable = WindowsUtility.ResolveEnvironmentVariable;
-            NetworkStatus.CurrentNetwork = new WindowsNetworkStatus();
-        }
+        bool IsAvailable();
     }
 }

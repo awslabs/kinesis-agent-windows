@@ -144,7 +144,10 @@ namespace Amazon.KinesisTap.Windows
             {
                 ae.Handle((x) =>
                 {
-                    _logger?.LogError($"EventLogSource id {this.Id} logging {_logName} EventLog with query {_query} error {x.ToMinimized()}.");
+                    if (_required || !(x is EventLogNotFoundException))
+                    {
+                        _logger?.LogError($"EventLogSource id {this.Id} logging {_logName} EventLog with query {_query} error {x.ToMinimized()}.");
+                    }
                     return true;
                 });
             }

@@ -14,23 +14,17 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Net.NetworkInformation;
 using System.Text;
-using System.Threading.Tasks;
 
-using Amazon.KinesisTap.Core;
-
-namespace Amazon.KinesisTap.Windows
+namespace Amazon.KinesisTap.Core
 {
     /// <summary>
-    /// Windows specific startup code
+    /// Provide access to network status.
+    /// Due to lack of library in .net standard 1.3, the concrete class is supplied by platform specific start-up.
     /// </summary>
-    public class WindowsStartup
+    public static class NetworkStatus
     {
-        public static void Start()
-        {
-            Utility.ResolveEnvironmentVariable = WindowsUtility.ResolveEnvironmentVariable;
-            NetworkStatus.CurrentNetwork = new WindowsNetworkStatus();
-        }
+        public static INetworkStatus CurrentNetwork { get; internal set; }
     }
 }

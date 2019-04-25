@@ -40,7 +40,6 @@ namespace Amazon.KinesisTap.Windows.Test
             Assert.True(records.Count > 0);
         }
 
-
         [Fact]
         public void TestInitialPositionBOS()
         {
@@ -188,7 +187,6 @@ namespace Amazon.KinesisTap.Windows.Test
             Assert.Null(((EventRecordEnvelope)records[0]).Data.EventData);
         }
 
-
         [Fact]
         public void TestEventData()
         {
@@ -222,6 +220,37 @@ namespace Amazon.KinesisTap.Windows.Test
                     @"\device\harddiskvolume1" + Utility.MainModulePath.Substring(2)
                 }
             }));
+        }
+
+        /// <summary>
+        /// Test if the EventLogSource is required
+        /// </summary>
+        [Theory]
+        [InlineData("NonExisting")]
+        [InlineData("NonExistingNotRequired")]
+        public void TestRequired(string sourceId)
+        {
+            var config = TestUtility.GetConfig("Sources", sourceId);
+            string logName = config["LogName"];
+            string requiredSetting = config["Required"];
+            bool required = string.IsNullOrWhiteSpace(requiredSetting) ?
+                true : bool.Parse(requiredSetting);
+            MemoryLogger logger = new MemoryLogger(null);
+            using (EventLogSource source = new EventLogSource(logName, null, new PluginContext(config, logger, null)))
+            {
+                source.Start();
+
+                System.Threading.Thread.Sleep(1000);
+
+                if (required)
+                {
+                    Assert.NotEmpty(logger.Entries.Where(e => e.Contains("error")));
+                }
+                else
+                {
+                    Assert.Empty(logger.Entries.Where(e => e.Contains("error")));
+                }
+            }
         }
 
         private static void DeleteExistingBookmarkFile(string sourceId)
