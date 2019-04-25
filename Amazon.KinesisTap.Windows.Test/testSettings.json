@@ -59,6 +59,17 @@
       "SourceType": "WindowsEventLogSource",
       "LogName": "Application",
       "IncludeEventData": true
+    },
+    {
+      "Id": "NonExisting",
+      "SourceType": "WindowsEventLogSource",
+      "LogName": "NonExisting"
+    },
+    {
+      "Id": "NonExistingNotRequired",
+      "SourceType": "WindowsEventLogSource",
+      "LogName": "NonExisting",
+      "Required": "false"
     }
   ]
 }

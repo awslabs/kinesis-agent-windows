@@ -96,6 +96,21 @@ namespace Amazon.KinesisTap.AWS
                 await Task.Delay((int)(delay * (1.0d 
                     + Utility.Random.NextDouble() * _jittingFactor))) ;
             }
+
+            //Implement the network check after the throttle in case that the network becomes unavailable after throttle delay
+            if (NetworkStatus.CurrentNetwork != null)
+            {
+                int waitCount = 0;
+                while (!NetworkStatus.CurrentNetwork.IsAvailable())
+                {
+                    if (waitCount % 30 == 0) //Reduce the log entries
+                    {
+                        _logger?.LogInformation("Network not available. Will retry.");
+                    }
+                    waitCount++;
+                    await Task.Delay(10000); //Wait 10 seconds
+                }
+            }
             await OnNextAsync(records, batchBytes);
         }
 

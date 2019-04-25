@@ -12,25 +12,7 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
 
-using Amazon.KinesisTap.Core;
-
-namespace Amazon.KinesisTap.Windows
-{
-    /// <summary>
-    /// Windows specific startup code
-    /// </summary>
-    public class WindowsStartup
-    {
-        public static void Start()
-        {
-            Utility.ResolveEnvironmentVariable = WindowsUtility.ResolveEnvironmentVariable;
-            NetworkStatus.CurrentNetwork = new WindowsNetworkStatus();
-        }
-    }
-}
+[assembly: InternalsVisibleTo("Amazon.KinesisTap.Windows")]
+[assembly: InternalsVisibleTo("Amazon.KinesisTap.AWS.Test")]

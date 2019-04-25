@@ -42,6 +42,7 @@ namespace Amazon.KinesisTap.Core
         public const string INTERVAL = "Interval";
         public const string EPOCH = "epoch";
 
+
         public const string QUEUE_TYPE = "QueueType";
         public const string QUEUE_TYPE_MEMORY = "memory";
         public const string QUEUE_TYPE_FILE = "file";
@@ -64,6 +65,7 @@ namespace Amazon.KinesisTap.Core
         public const string KINESISTAP_STANDARD_PATH = @"C:\Program Files\Amazon\KinesisTap\" + KINESISTAP_EXE_NAME;
 
         public const string TYPE = "Type";
+        public const string REQUIRED = "Required";
 
         //Environment variables
         public const string KINESISTAP_PROGRAM_DATA = "KINESISTAP_PROGRAM_DATA";

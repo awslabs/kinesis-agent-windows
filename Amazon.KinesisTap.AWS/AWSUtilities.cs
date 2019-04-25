@@ -12,16 +12,20 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Amazon.KinesisTap.Core;
 using System;
 using System.Collections.Generic;
-using System.Text;
-using Amazon.Util;
 using System.Diagnostics;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+
 using Amazon.CloudWatchLogs.Model;
-using Microsoft.Extensions.Configuration;
 using Amazon.Runtime;
 using Amazon.Runtime.CredentialManagement;
+using Amazon.Util;
+using Microsoft.Extensions.Configuration;
+
+using Amazon.KinesisTap.Core;
 
 namespace Amazon.KinesisTap.AWS
 {
@@ -83,6 +87,7 @@ namespace Amazon.KinesisTap.AWS
             (AWSCredentials credential, RegionEndpoint region) = GetAWSCredentialsRegion(context);
             TAWSClient awsClient;
             awsClient = CreateAWSClient<TAWSClient>(credential, region);
+            awsClient.BeforeRequestEvent += AwsClient_BeforeRequestEvent;
             return awsClient;
         }
 
@@ -206,6 +211,34 @@ namespace Amazon.KinesisTap.AWS
                 throw new InvalidParameterException($"Not a s3 Url: {url}");
             }
             throw new InvalidParameterException($"Not a wellformed Url: {url}");
+        }
+
+        public static string UserAgent
+        {
+            get
+            {
+                if (_userAgent == null)
+                {
+                    string programName = Path.GetFileNameWithoutExtension(ConfigConstants.KINESISTAP_EXE_NAME);
+                    string version = ProgramInfo.GetKinesisTapVersion().ProductVersion;
+                    string osDescription = RuntimeInformation.OSDescription + " " + Environment.GetEnvironmentVariable("OS");
+                    string dotnetFramework = RuntimeInformation.FrameworkDescription;
+                    _userAgent = $"{programName}/{version} | {osDescription} | {dotnetFramework}";
+                }
+                return _userAgent;
+            }
+        }
+
+        private static string _userAgent;
+
+        private static void AwsClient_BeforeRequestEvent(object sender, RequestEventArgs args)
+        {
+            WebServiceRequestEventArgs wsArgs = args as WebServiceRequestEventArgs;
+            if (wsArgs != null)
+            {
+                string currentUserAgent = wsArgs.Headers[AWSSDKUtils.UserAgentHeader];
+                wsArgs.Headers[AWSSDKUtils.UserAgentHeader] = UserAgent;
+            }
         }
     }
 }

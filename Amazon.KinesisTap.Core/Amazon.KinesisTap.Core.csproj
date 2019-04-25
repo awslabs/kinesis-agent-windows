@@ -28,6 +28,7 @@
     <PackageReference Include="System.Diagnostics.Process" Version="4.3.0" />
     <PackageReference Include="System.IO.FileSystem.Watcher" Version="4.3.0" />
     <PackageReference Include="System.Net.NameResolution" Version="4.3.0" />
+    <PackageReference Include="System.Net.NetworkInformation" Version="4.3.0" />
     <PackageReference Include="System.Reactive" Version="3.1.1" />
     <PackageReference Include="System.ValueTuple" Version="4.4.0" />
     <PackageReference Include="System.Xml.XmlSerializer" Version="4.3.0" />
