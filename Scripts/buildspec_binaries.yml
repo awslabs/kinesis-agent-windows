@@ -19,6 +19,6 @@ phases:
       - .\build.ps1 -packageOnly
 artifacts:
   files:
-    - Amazon.KinesisTap/bin/Release/KinesisTap.exe
+    - Amazon.KinesisTap/bin/Release/AWSKinesisTap.exe
     - msibuild/Amazon.KinesisTap.*.dll
     - msibuild/*.exe
