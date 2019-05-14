@@ -44,6 +44,7 @@ namespace Amazon.KinesisTap.Hosting
         private readonly IFactoryCatalog<ICredentialProvider> _credentialProviderFactoryCatalog = new FactoryCatalog<ICredentialProvider>();
         private readonly IFactoryCatalog<IGenericPlugin> _genericPluginFactoryCatalog = new FactoryCatalog<IGenericPlugin>();
         private readonly IFactoryCatalog<IPipe> _pipeFactoryCatalog = new FactoryCatalog<IPipe>();
+        private readonly IFactoryCatalog<IRecordParser> _recordParserCatalog = new FactoryCatalog<IRecordParser>(); 
 
         private readonly IDictionary<string, ISource> _sources = new Dictionary<string, ISource>();
         private readonly IDictionary<string, ISink> _sinks = new Dictionary<string, ISink>();
@@ -89,6 +90,8 @@ namespace Amazon.KinesisTap.Hosting
             _logger = loggerFactory.CreateLogger<LogManager>();
 
             _metrics = new KinesisTapMetricsSource(CreatePlugInContext(_config.GetSection("Metrics")));
+
+            PluginContext.ApplicationContext = new PluginContext(_config, _logger, _metrics);
 
             _sources[KINESISTAP_METRICS_SOURCE] = _metrics;
 
@@ -250,6 +253,15 @@ namespace Amazon.KinesisTap.Hosting
                 });
             });
 
+            LoadFactories<IRecordParser>(_recordParserCatalog, (loaded, failed) =>
+            {
+                _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
+                {
+                    { MetricsConstants.PARSER_FACTORIES_LOADED, new MetricValue(loaded) },
+                    { MetricsConstants.PARSER_FACTORIES_FAILED_TO_LOAD, new MetricValue(failed) }
+                });
+            });
+
             LoadFactories<ISource>(_sourceFactoryCatalog, (loaded, failed) => {
                 _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
                 {
@@ -284,7 +296,7 @@ namespace Amazon.KinesisTap.Hosting
             });
         }
 
-        private void LoadFactories<T>(IFactoryCatalog<T> catalog, Action<int, int> writeMetrics)
+        internal void LoadFactories<T>(IFactoryCatalog<T> catalog, Action<int, int> writeMetrics)
         {
             int loaded = 0;
             int failed = 0;
@@ -711,7 +723,9 @@ namespace Amazon.KinesisTap.Hosting
 
         private IPlugInContext CreatePlugInContext(IConfiguration config)
         {
-            return new PluginContext(config, _logger, _metrics, _credentialProviders, _parameterStore);
+            var plugInContext = new PluginContext(config, _logger, _metrics, _credentialProviders, _parameterStore);
+            plugInContext.ContextData[PluginContext.PARSER_FACTORIES] = new ReadOnlyFactoryCatalog<IRecordParser>(_recordParserCatalog); //allow plug-ins access a list of parsers
+            return plugInContext;
         }
 
         private void LoadGenericPlugins()

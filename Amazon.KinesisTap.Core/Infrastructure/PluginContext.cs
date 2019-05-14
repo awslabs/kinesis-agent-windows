@@ -26,6 +26,7 @@ namespace Amazon.KinesisTap.Core
     {
         public const string SOURCE_TYPE = "SOURCE_TYPE";
         public const string SINK_TYPE = "SINK_TYPE";
+        public const string PARSER_FACTORIES = "PARSER_FACTORIES";
 
         private readonly IConfiguration _config;
         private readonly ILogger _logger;
@@ -58,5 +59,10 @@ namespace Amazon.KinesisTap.Core
         public ICredentialProvider GetCredentialProvider(string id) => _credentialProviders?[id];
 
         public IDictionary<string, object> ContextData => _contextData;
+
+        /// <summary>
+        /// Allow application to access logger, metrics
+        /// </summary>
+        public static IPlugInContext ApplicationContext { get; internal set; }
     }
 }

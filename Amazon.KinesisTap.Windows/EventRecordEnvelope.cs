@@ -12,8 +12,6 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Amazon.KinesisTap.Core;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Eventing.Reader;
@@ -21,11 +19,16 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+
+using Amazon.KinesisTap.Core;
+
 namespace Amazon.KinesisTap.Windows
 {
     public class EventRecordEnvelope : Envelope<EventInfo>
     {
-        public EventRecordEnvelope(EventRecord record, bool includeEventData) : base(ConvertEventRecordToEventInfo(record, includeEventData))
+        public EventRecordEnvelope(EventRecord record, bool includeEventData, IPlugInContext context) : base(ConvertEventRecordToEventInfo(record, includeEventData))
         {
         }
 
@@ -49,7 +52,7 @@ namespace Amazon.KinesisTap.Windows
                 Description = record.FormatDescription(),
                 Index = record.RecordId,
                 UserName = record.UserId?.Value,
-                Keywords = GetKeywords(record.KeywordsDisplayNames),
+                Keywords = GetKeywords(record),
             };
 
             if (includeEventData)
@@ -69,15 +72,20 @@ namespace Amazon.KinesisTap.Windows
             return string.Empty;
         }
 
-        private static string GetKeywords(IEnumerable<string> names)
+        private static string GetKeywords(EventRecord record)
         {
-            if (names != null)
+            try
             {
-                try
+                IEnumerable<string> names = record.KeywordsDisplayNames;
+                if (names != null)
                 {
                     return string.Join(",", names.ToArray());
                 }
-                catch { }
+            }
+            catch(EventLogNotFoundException)
+            {
+                //Some but not all events with eventId 0 throws EventLogNotFoundException when accessing the KeywordsDisplayNames property
+                PluginContext.ApplicationContext?.Logger?.LogDebug($"Unable to get KeywordsDisplayNames for {record.Id} and provider {record.ProviderName}");
             }
             return string.Empty;
         }

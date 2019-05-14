@@ -19,7 +19,17 @@ using System.Text;
 
 namespace Amazon.KinesisTap.Core
 {
-    public interface IRecordParser<out TData, TContext> where TContext : LogContext
+    /// <summary>
+    /// Marker interface of parsers
+    /// </summary>
+    public interface IRecordParser { }
+
+    /// <summary>
+    /// Interface for Record Parsers
+    /// </summary>
+    /// <typeparam name="TData">Type of parser output</typeparam>
+    /// <typeparam name="TContext"Type of parser context></typeparam>
+    public interface IRecordParser<out TData, TContext> : IRecordParser where TContext : LogContext
     {
         IEnumerable<IEnvelope<TData>> ParseRecords(StreamReader sr, TContext context);
     }

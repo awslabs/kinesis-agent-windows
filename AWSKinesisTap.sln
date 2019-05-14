@@ -49,6 +49,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KinesisTapMsiCustomAction",
 EndProject
 Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "KinesisTapWixSetup", "KinesisTapWixSetup\KinesisTapWixSetup.wixproj", "{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "example", "example", "{D3F846C4-AEEC-440B-B4B9-A34EFBF1BB8E}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.ParserExamples", "Amazon.KinesisTap.ParserExamples\Amazon.KinesisTap.ParserExamples.csproj", "{8734C519-4D5F-4893-9EB0-CD90B42CF776}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -283,6 +287,18 @@ Global
 		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}.Release|x64.Build.0 = Release|x64
 		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}.Release|x86.ActiveCfg = Release|x86
 		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}.Release|x86.Build.0 = Release|x86
+		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Debug|x64.Build.0 = Debug|Any CPU
+		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Debug|x86.Build.0 = Debug|Any CPU
+		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Release|x64.ActiveCfg = Release|Any CPU
+		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Release|x64.Build.0 = Release|Any CPU
+		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Release|x86.ActiveCfg = Release|Any CPU
+		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -307,6 +323,7 @@ Global
 		{05AB5CD0-B79D-4FAC-99BA-341F51ED8490} = {59AF3E35-C33A-4A3B-9E1B-BAA76439D006}
 		{E9B048B2-B6C9-4C75-A0DA-BDFC414C2A06} = {9D24016C-126C-4CE5-8F2E-4D76B2EF24D4}
 		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9} = {9D24016C-126C-4CE5-8F2E-4D76B2EF24D4}
+		{8734C519-4D5F-4893-9EB0-CD90B42CF776} = {D3F846C4-AEEC-440B-B4B9-A34EFBF1BB8E}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F17B29AD-BF48-46EE-8A30-6CE143282C1D}

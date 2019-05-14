@@ -383,7 +383,7 @@ namespace Amazon.KinesisTap.Windows
             EventRecordEnvelope envelope;
             if (_customFilters?.Length > 0)
             {
-                envelope = new EventRecordEnvelope(eventRecord, true); //Need event data for filtering
+                envelope = new EventRecordEnvelope(eventRecord, true, _context); //Need event data for filtering
 
                 //Don't send if any filter return false
                 if (_customFilters.Any(name => !EventInfoFilters.GetFilter(name)(envelope.Data)))
@@ -399,7 +399,7 @@ namespace Amazon.KinesisTap.Windows
             }
             else
             {
-                envelope = new EventRecordEnvelope(eventRecord, _includeEventData);
+                envelope = new EventRecordEnvelope(eventRecord, _includeEventData, _context);
             }
 
             _recordSubject.OnNext(envelope);

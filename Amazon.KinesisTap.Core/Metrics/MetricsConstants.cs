@@ -88,5 +88,9 @@ namespace Amazon.KinesisTap.Core.Metrics
         //Generic Plugins
         public const string PLUGINS_STARTED = "PluginsStarted";
         public const string PLUGINS_FAILED_TO_START = "PluginsFailedToStart";
+
+        //Parser
+        public const string PARSER_FACTORIES_LOADED = "ParserFactoriesLoaded";
+        public const string PARSER_FACTORIES_FAILED_TO_LOAD = "ParserFactoriesFailedToLoad";
     }
 }

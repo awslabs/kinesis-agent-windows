@@ -14,6 +14,9 @@
  */
 using System;
 using System.IO;
+using System.Linq;
+using System.Reflection;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -80,7 +83,18 @@ namespace Amazon.KinesisTap.Core
                                 new SingleLineJsonParser(timestampField, timetampFormat), 
                                 CreateLogSourceInfo);
                         default:
-                            throw new ArgumentException($"Unknown parser {recordParser}");
+                            IFactoryCatalog<IRecordParser> parserFactories = 
+                                context?.ContextData?[PluginContext.PARSER_FACTORIES] as IFactoryCatalog<IRecordParser>;
+                            var parser = parserFactories.GetFactory(recordParser);
+                            if (parser == null)
+                            {
+                                throw new ArgumentException($"Unknown parser {recordParser}");
+                            }
+                            else
+                            {
+                                return CreateEventSource(context, 
+                                    parser.CreateInstance(recordParser, context), CreateLogSourceInfo);
+                            }
                     }
                 case "w3svclogsource":
                     return CreateEventSource(
@@ -99,19 +113,7 @@ namespace Amazon.KinesisTap.Core
         ) where TContext : LogContext
         {
             IConfiguration config = context.Configuration;
-            string directory = config["Directory"];
-            string filter = config["FileNameFilter"];
-            string intervalSetting = config["Interval"];
-            int interval = 0; //Seconds
-            if (!string.IsNullOrEmpty(intervalSetting))
-            {
-                int.TryParse(intervalSetting, out interval);
-            }
-            if (interval == 0)
-            {
-                interval = 1;
-            }
-
+            GetDirectorySourceParameters(config, out string directory, out string filter, out int interval);
             DirectorySource<TData, TContext> source = new DirectorySource<TData, TContext>(
                 directory,
                 filter,
@@ -178,6 +180,48 @@ namespace Amazon.KinesisTap.Core
             return parser;
         }
 
+        /// <summary>
+        /// This is the non-generic version of the CreateEventSource relying on reflection to instantiate generic methods.
+        /// </summary>
+        /// <param name="context">Plug-in context</param>
+        /// <param name="recordParser">Record Parser. Must implement IRecordParser<TData,LogContext></param>
+        /// <param name="logSourceInfoFactory">Factory method for generating LogContext</param>
+        /// <returns>Generated Directory Source</returns>
+        internal static ISource CreateEventSource(IPlugInContext context,
+            IRecordParser recordParser,
+            Func<string, long, LogContext> logSourceInfoFactory)
+        {
+            Guard.ArgumentNotNull(recordParser, "recordParser");
+
+            IConfiguration config = context.Configuration;
+            GetDirectorySourceParameters(config, out string directory, out string filter, out int interval);
+
+            var recordParserType = recordParser.GetType().GetTypeInfo().ImplementedInterfaces
+                .FirstOrDefault(t => t.GetTypeInfo().IsGenericType && t.GetGenericTypeDefinition() == typeof(IRecordParser<,>));
+            if (recordParserType == null) throw new ConfigurationException("recordParser must implement generic interface IRecordParser<,>");
+
+            var directorySourceType = typeof(DirectorySource<,>);
+            var genericDirectorySourceType = directorySourceType.MakeGenericType(recordParserType.GenericTypeArguments);
+            var source = (ISource)Activator.CreateInstance(genericDirectorySourceType,
+                directory,
+                filter,
+                interval * 1000, //milliseconds
+                context,
+                recordParser,
+                logSourceInfoFactory);
+
+            ((dynamic)source).NumberOfConsecutiveIOExceptionsToLogError = 3;
+
+            //The following is the translation of EventSource<TData>.LoadCommonSourceConfig(config, source);
+            typeof(EventSource<>)
+                .MakeGenericType(recordParserType.GenericTypeArguments[0])
+                .GetMethod("LoadCommonSourceConfig", BindingFlags.Static | BindingFlags.Public)
+                .Invoke(null, new object[] { config, source });
+
+            source.Id = config[ConfigConstants.ID] ?? Guid.NewGuid().ToString();
+            return source;
+        }
+
         private static ISource CreateEventSourceWithDelimitedLogParser(IPlugInContext context, string timestampFormat, DateTimeKind timeZoneKind)
         {
             DelimitedLogParser parser = CreateDelimitedLogParser(context, timestampFormat, timeZoneKind);
@@ -201,6 +245,22 @@ namespace Amazon.KinesisTap.Core
                 }
             }
             return lineCount;
+        }
+
+        private static void GetDirectorySourceParameters(IConfiguration config, out string directory, out string filter, out int interval)
+        {
+            directory = config["Directory"];
+            filter = config["FileNameFilter"];
+            string intervalSetting = config["Interval"];
+            interval = 0;
+            if (!string.IsNullOrEmpty(intervalSetting))
+            {
+                int.TryParse(intervalSetting, out interval);
+            }
+            if (interval == 0)
+            {
+                interval = 1;
+            }
         }
     }
 }
