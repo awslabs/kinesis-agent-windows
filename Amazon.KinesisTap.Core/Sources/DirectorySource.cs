@@ -32,7 +32,7 @@ namespace Amazon.KinesisTap.Core
     /// <summary>
     /// Watch a direction for log files
     /// </summary>
-    public class DirectorySource<TData, TContext> : DependentEventSource<TData>, IBookmarkable where TContext : LogContext
+    public class DirectorySource<TData, TContext> : DependentEventSource<TData>, IBookmarkable where TContext : LogContext, new()
     {
         //Exclude well-known compressed files when using wild-card filter *.*
         private static readonly string[] _excludedExtensions = new string[] { ".zip", ".gz", ".bz2" };
@@ -54,7 +54,6 @@ namespace Amazon.KinesisTap.Core
         protected IRecordParser<TData, TContext> _recordParser;
         protected ISet<string> _buffer = new HashSet<string>();
         protected IDictionary<string, TContext> _logFiles = new ConcurrentDictionary<string, TContext>();
-        protected Func<string, long, TContext> _logSourceInfoFactory;
 
         /// <summary>
         /// Constructor
@@ -67,8 +66,7 @@ namespace Amazon.KinesisTap.Core
             string filterSpec, 
             int interval,
             IPlugInContext context, 
-            IRecordParser<TData, TContext> recordParser,
-            Func<string, long, TContext> logSourceInfoFactory
+            IRecordParser<TData, TContext> recordParser
         ) : base(new DirectoryDependency(directory), context)
         {
             Guard.ArgumentNotNullOrEmpty(directory, nameof(directory));
@@ -82,7 +80,6 @@ namespace Amazon.KinesisTap.Core
             }
             _interval = interval;
             _recordParser = recordParser;
-            _logSourceInfoFactory = logSourceInfoFactory;
             if (_config != null)
             {
                 _skipLines = Utility.ParseInteger(_config["SkipLines"], 0);
@@ -91,42 +88,6 @@ namespace Amazon.KinesisTap.Core
 
             _timer = new Timer(OnTimer, null, Timeout.Infinite, Timeout.Infinite);
             DelayBetweenDependencyPoll = TimeSpan.FromSeconds(5);
-        }
-
-        /// <summary>
-        /// Parse filter specification and return a list of filters
-        /// </summary>
-        /// <param name="filterSpec">Filter Specification to parse.</param>
-        /// <returns>An array of filters. Should contain at least 1 or it will throw exception.</returns>
-        private string[] ParseFilterSpec(string filterSpec)
-        {
-            string[] filters;
-            if (string.IsNullOrWhiteSpace(filterSpec))
-            {
-                filters = new string[] { "*.*" };
-            }
-            else
-            {
-                string[] tempfilters = filterSpec.Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
-                List<string> acceptedFilters = new List<string>();
-                foreach(var filter in tempfilters)
-                {
-                    if (ShouldExclude(filter))
-                    {
-                        _logger?.LogWarning($"Extension {Path.GetExtension(filter)} is not supported.");
-                    }
-                    else
-                    {
-                        acceptedFilters.Add(filter);
-                    }
-                }
-                if (acceptedFilters.Count == 0)
-                {
-                    throw new ArgumentException("No acceptable filters.");
-                }
-                filters = acceptedFilters.ToArray();
-            }
-            return filters;
         }
 
         #region public methods
@@ -231,7 +192,7 @@ namespace Amazon.KinesisTap.Core
                                 try
                                 {
                                     string[] parts = line.Split(',');
-                                    _logFiles[Path.GetFileName(parts[0])] = _logSourceInfoFactory(parts[0], long.Parse(parts[1]));
+                                    _logFiles[Path.GetFileName(parts[0])] = CreateLogSourceInfo(parts[0], long.Parse(parts[1]));
                                 }
                                 catch(Exception ex)
                                 {
@@ -310,7 +271,7 @@ namespace Amazon.KinesisTap.Core
                     case WatcherChangeTypes.Created:
                         if (!_logFiles.ContainsKey(fileName))
                         {
-                            _logFiles[fileName] = _logSourceInfoFactory(e.FullPath, 0);
+                            _logFiles[fileName] = CreateLogSourceInfo(e.FullPath, 0);
                             AddToBuffer(fileName);
                         }
                         break;
@@ -342,14 +303,14 @@ namespace Amazon.KinesisTap.Core
                 RemoveFromBuffer(e.OldName);
                 if (_logFiles.ContainsKey(e.OldName))
                 {
-                    var newSourceInfo = _logSourceInfoFactory(e.FullPath, _logFiles[e.OldName].Position);
+                    var newSourceInfo = CreateLogSourceInfo(e.FullPath, _logFiles[e.OldName].Position);
                     newSourceInfo.LineNumber = _logFiles[e.OldName].LineNumber;
                     _logFiles[e.Name] = newSourceInfo;
                     _logFiles.Remove(e.OldName);
                 }
                 else
                 {
-                    _logFiles.Add(e.Name, _logSourceInfoFactory(e.FullPath, 0));
+                    _logFiles.Add(e.Name, CreateLogSourceInfo(e.FullPath, 0));
                 }
                 AddToBuffer(e.Name);
                 _logger?.LogInformation("File: {0} renamed to {1}", e.OldFullPath, e.FullPath);
@@ -443,7 +404,7 @@ namespace Amazon.KinesisTap.Core
 
             if (!_logFiles.TryGetValue(fileName, out TContext sourceInfo))
             {
-                sourceInfo = _logSourceInfoFactory(fullPath, 0);
+                sourceInfo = CreateLogSourceInfo(fullPath, 0);
                 _logFiles.Add(fileName, sourceInfo);
             }
             try
@@ -595,7 +556,7 @@ namespace Amazon.KinesisTap.Core
                 switch(this.InitialPosition)
                 {
                     case InitialPositionEnum.EOS:
-                        _logFiles[fileName] = _logSourceInfoFactory(filePath, fi.Length);
+                        _logFiles[fileName] = CreateLogSourceInfo(filePath, fi.Length);
                         break;
                     case InitialPositionEnum.BOS:
                         if (_hasBookmark)
@@ -605,7 +566,7 @@ namespace Amazon.KinesisTap.Core
                         else
                         {
                             //Process all files
-                            _logFiles.Add(fileName, _logSourceInfoFactory(filePath, 0));
+                            _logFiles.Add(fileName, CreateLogSourceInfo(filePath, 0));
                             AddToBuffer(fileName);
                         }
                         break;
@@ -616,7 +577,7 @@ namespace Amazon.KinesisTap.Core
                         }
                         else
                         {
-                            _logFiles[fileName] = _logSourceInfoFactory(filePath, fi.Length);
+                            _logFiles[fileName] = CreateLogSourceInfo(filePath, fi.Length);
                         }
                         break;
                     case InitialPositionEnum.Timestamp:
@@ -629,13 +590,13 @@ namespace Amazon.KinesisTap.Core
                             DateTime fileDateTime = File.GetLastWriteTimeUtc(filePath);
                             if (fileDateTime > this.InitialPositionTimestamp)
                             {
-                                _logFiles.Add(fileName, _logSourceInfoFactory(filePath, 0));
+                                _logFiles.Add(fileName, CreateLogSourceInfo(filePath, 0));
                                 AddToBuffer(fileName);
 
                             }
                             else
                             {
-                                _logFiles[fileName] = _logSourceInfoFactory(filePath, fi.Length);
+                                _logFiles[fileName] = CreateLogSourceInfo(filePath, fi.Length);
                             }
                         }
                         break;
@@ -659,7 +620,7 @@ namespace Amazon.KinesisTap.Core
             else
             {
                 //New file
-                _logFiles.Add(fileName, _logSourceInfoFactory(filePath, 0));
+                _logFiles.Add(fileName, CreateLogSourceInfo(filePath, 0));
                 AddToBuffer(fileName);
             }
         }
@@ -690,6 +651,67 @@ namespace Amazon.KinesisTap.Core
             {
                 return new StreamReader(stream, Encoding.GetEncoding(encoding));
             }
+        }
+
+        private static TContext CreateLogSourceInfo(string filePath, long position)
+        {
+            var context = new TContext() { FilePath = filePath, Position = position };
+            if (position > 0)
+            {
+                context.LineNumber = GetLineCount(filePath, position);
+            }
+            return context;
+        }
+
+        private static long GetLineCount(string filePath, long position)
+        {
+            long lineCount = 0;
+            using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var sr = new StreamReader(fs))
+            {
+                while (!sr.EndOfStream && sr.BaseStream.Position < position)
+                {
+                    sr.ReadLine();
+                    lineCount++;
+                }
+            }
+            return lineCount;
+        }
+
+        /// <summary>
+        /// Parse filter specification and return a list of filters
+        /// </summary>
+        /// <param name="filterSpec">Filter Specification to parse.</param>
+        /// <returns>An array of filters. Should contain at least 1 or it will throw exception.</returns>
+        private string[] ParseFilterSpec(string filterSpec)
+        {
+            string[] filters;
+            if (string.IsNullOrWhiteSpace(filterSpec))
+            {
+                filters = new string[] { "*.*" };
+            }
+            else
+            {
+                string[] tempfilters = filterSpec.Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+                List<string> acceptedFilters = new List<string>();
+                foreach (var filter in tempfilters)
+                {
+                    if (ShouldExclude(filter))
+                    {
+                        _logger?.LogWarning($"Extension {Path.GetExtension(filter)} is not supported.");
+                    }
+                    else
+                    {
+                        acceptedFilters.Add(filter);
+                    }
+                }
+                if (acceptedFilters.Count == 0)
+                {
+                    throw new ArgumentException("No acceptable filters.");
+                }
+                filters = acceptedFilters.ToArray();
+            }
+            return filters;
         }
         #endregion
     }

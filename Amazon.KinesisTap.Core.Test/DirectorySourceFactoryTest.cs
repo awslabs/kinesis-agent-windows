@@ -32,9 +32,21 @@ namespace Amazon.KinesisTap.Core.Test
             IRecordParser parser = new SingleLineJsonParser(timestampField, timetampFormat);
 
             PluginContext context = new PluginContext(config, null, null);
-            var source = DirectorySourceFactory.CreateEventSource(context, parser, DirectorySourceFactory.CreateLogSourceInfo);
+            var source = DirectorySourceFactory.CreateEventSource(context, parser);
             Assert.NotNull(source);
             Assert.IsType<DirectorySource<JObject, LogContext>>(source);
+        }
+
+        [Fact]
+        public void TestNonGenericCreateEventSourceWithDelimitedParser()
+        {
+            var config = TestUtility.GetConfig("Sources", "DHCPParsed");
+            string timestampField = config["TimestampField"];
+            PluginContext context = new PluginContext(config, null, null);
+            IRecordParser parser = DirectorySourceFactory.CreateDelimitedLogParser(context, timestampField, DateTimeKind.Utc);
+            var source = DirectorySourceFactory.CreateEventSource(context, parser);
+            Assert.NotNull(source);
+            Assert.IsType<DirectorySource<DelimitedLogRecord, DelimitedLogContext>>(source);
         }
     }
 }

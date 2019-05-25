@@ -30,7 +30,7 @@ using System.Reflection;
 
 namespace Amazon.KinesisTap.AWS
 {
-    public class CloudWatchSink : AWSMetricsSink<PutMetricDataRequest, PutMetricDataResponse, MetricValue>
+    public class CloudWatchSink : AWSMetricsSink<PutMetricDataRequest, PutMetricDataResponse, MetricValue>, IEventSink<List<MetricDatum>>
     {
         private IAmazonCloudWatch _cloudWatchClient;
         private string _namespace;
@@ -134,6 +134,23 @@ namespace Amazon.KinesisTap.AWS
                 { MetricsConstants.CLOUDWATCH_PREFIX + MetricsConstants.RECOVERABLE_SERVICE_ERRORS, MetricValue.ZeroCount },
                 { MetricsConstants.CLOUDWATCH_PREFIX + MetricsConstants.SERVICE_SUCCESS, MetricValue.ZeroCount }
             });
+        }
+
+        public void OnNext(IEnvelope<List<MetricDatum>> datums)
+        {
+            List<MetricDatum> records = new List<MetricDatum>();
+            foreach (MetricDatum datum in datums.Data)
+            {
+                // Append the default dimensions if datum doesn't have dimensions
+                if (datum.Dimensions == null || datum.Dimensions.Count == 0)
+                {
+                    datum.Dimensions = _dimensions.ToList();
+                }
+                records.Add(datum);
+            }
+            
+            // Send Metric datums request
+            PutMetricDataAsync(records).Wait();
         }
         #endregion
 

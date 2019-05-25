@@ -38,8 +38,7 @@ namespace Amazon.KinesisTap.ExchangeSource
                     exchangeLogParser.TimeStampField = config["TimeStampField"];
                     return DirectorySourceFactory.CreateEventSource(
                         context,
-                        exchangeLogParser,
-                        DirectorySourceFactory.CreateDelimitedLogSourceInfo);
+                        exchangeLogParser);
                 default:
                     throw new ArgumentException($"Source {entry} not recognized.");
             }

@@ -22,8 +22,17 @@ using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.Core
 {
-    public class DirectorySourceFactory: IFactory<ISource>
+    /// <summary>
+    /// Factory for DirectorySource and W3SVCSource
+    /// </summary>
+    public class DirectorySourceFactory : IFactory<ISource>
     {
+        /// <summary>
+        /// Create an instance o the DirectorySource
+        /// </summary>
+        /// <param name="entry">Name of the source</param>
+        /// <param name="context">Plug-in Context</param>
+        /// <returns></returns>
         public virtual ISource CreateInstance(string entry, IPlugInContext context)
         {
             IConfiguration config = context.Configuration;
@@ -53,74 +62,74 @@ namespace Amazon.KinesisTap.Core
                     {
                         case "singleline":
                             return CreateEventSource(context,
-                                new SingeLineRecordParser(),
-                                CreateLogSourceInfo);
+                                new SingeLineRecordParser());
                         case "regex":
                             string pattern = config["Pattern"];
-                            return CreateEventSource(context, 
-                                new RegexRecordParser(pattern, 
-                                    timetampFormat, 
-                                    logger, 
+                            return CreateEventSource(context,
+                                new RegexRecordParser(pattern,
+                                    timetampFormat,
+                                    logger,
                                     extractionPattern,
                                     extractionRegexOptions,
                                     timeZoneKind,
-                                    new RegexRecordParserOptions { RemoveUnmatchedRecord = removeUnmatched }), 
-                                CreateLogSourceInfo);
+                                    new RegexRecordParserOptions { RemoveUnmatchedRecord = removeUnmatched }));
                         case "timestamp":
-                            return CreateEventSource(context, 
+                            return CreateEventSource(context,
                                 new TimeStampRecordParser(timetampFormat, logger, extractionPattern, extractionRegexOptions, timeZoneKind,
-                                    new RegexRecordParserOptions { RemoveUnmatchedRecord = removeUnmatched }), 
-                                CreateLogSourceInfo);
+                                    new RegexRecordParserOptions { RemoveUnmatchedRecord = removeUnmatched }));
                         case "syslog":
-                            return CreateEventSource(context, 
-                                new SysLogParser(logger, timeZoneKind, 
-                                    new RegexRecordParserOptions { RemoveUnmatchedRecord = removeUnmatched}), 
-                                CreateLogSourceInfo);
+                            return CreateEventSource(context,
+                                new SysLogParser(logger, timeZoneKind,
+                                    new RegexRecordParserOptions { RemoveUnmatchedRecord = removeUnmatched }));
                         case "delimited":
                             return CreateEventSourceWithDelimitedLogParser(context, timetampFormat, timeZoneKind);
                         case "singlelinejson":
-                            return CreateEventSource(context, 
-                                new SingleLineJsonParser(timestampField, timetampFormat), 
-                                CreateLogSourceInfo);
+                            return CreateEventSource(context,
+                                new SingleLineJsonParser(timestampField, timetampFormat));
                         default:
-                            IFactoryCatalog<IRecordParser> parserFactories = 
+                            IFactoryCatalog<IRecordParser> parserFactories =
                                 context?.ContextData?[PluginContext.PARSER_FACTORIES] as IFactoryCatalog<IRecordParser>;
-                            var parser = parserFactories.GetFactory(recordParser);
-                            if (parser == null)
+                            var parserFactory = parserFactories.GetFactory(recordParser);
+                            if (parserFactory == null)
                             {
                                 throw new ArgumentException($"Unknown parser {recordParser}");
                             }
                             else
                             {
-                                return CreateEventSource(context, 
-                                    parser.CreateInstance(recordParser, context), CreateLogSourceInfo);
+                                return CreateEventSource(context,
+                                    parserFactory.CreateInstance(recordParser, context));
                             }
                     }
                 case "w3svclogsource":
                     return CreateEventSource(
                         context,
-                        new W3SVCLogParser(),
-                        CreateDelimitedLogSourceInfo);
+                        new W3SVCLogParser());
                 default:
                     throw new ArgumentException($"Source {entry} not recognized.");
             }
         }
 
-        public static IEventSource<TData> CreateEventSource<TData, TContext>(
-            IPlugInContext context, 
-            IRecordParser<TData, TContext> recordParser,
-            Func<string, long, TContext> logSourceInfoFactory
-        ) where TContext : LogContext
+        /// <summary>
+        /// A generic version of the Factory method to create directory source
+        /// </summary>
+        /// <typeparam name="TData">Parser output type</typeparam>
+        /// <typeparam name="TLogContext">Log context</typeparam>
+        /// <param name="context">Plug-in Context</param>
+        /// <param name="recordParser">Record Parser</param>
+        /// <returns>Event Source</returns>
+        public static IEventSource<TData> CreateEventSource<TData, TLogContext>(
+            IPlugInContext context,
+            IRecordParser<TData, TLogContext> recordParser
+        ) where TLogContext : LogContext, new()
         {
             IConfiguration config = context.Configuration;
             GetDirectorySourceParameters(config, out string directory, out string filter, out int interval);
-            DirectorySource<TData, TContext> source = new DirectorySource<TData, TContext>(
+            DirectorySource<TData, TLogContext> source = new DirectorySource<TData, TLogContext>(
                 directory,
                 filter,
                 interval * 1000, //milliseconds
                 context,
-                recordParser,
-                logSourceInfoFactory);
+                recordParser);
             source.NumberOfConsecutiveIOExceptionsToLogError = 3;
 
             EventSource<TData>.LoadCommonSourceConfig(config, source);
@@ -129,32 +138,23 @@ namespace Amazon.KinesisTap.Core
             return source;
         }
 
-        public static LogContext CreateLogSourceInfo(string filePath, long position)
-        {
-            var context = new LogContext() { FilePath = filePath, Position = position };
-            if (position > 0)
-            {
-                context.LineNumber = GetLineCount(filePath, position);
-            }
-            return context;
-        }
-
-        public static DelimitedLogContext CreateDelimitedLogSourceInfo(string filePath, long position)
-        {
-            var context = new DelimitedLogContext() { FilePath = filePath, Position = position };
-            if (position > 0)
-            {
-                context.LineNumber = GetLineCount(filePath, position);
-            }
-            return context;
-        }
-
+        /// <summary>
+        /// Register factories
+        /// </summary>
+        /// <param name="catalog">Source catalog</param>
         public virtual void RegisterFactory(IFactoryCatalog<ISource> catalog)
         {
             catalog.RegisterFactory("DirectorySource", this);
             catalog.RegisterFactory("W3SVCLogSource", this);
         }
 
+        /// <summary>
+        /// Create delimited parser
+        /// </summary>
+        /// <param name="context">Plug-in context</param>
+        /// <param name="timestampFormat">Timestamp format</param>
+        /// <param name="timeZoneKind">Timezone Kind</param>
+        /// <returns>Delimited log parser</returns>
         public static DelimitedLogParser CreateDelimitedLogParser(IPlugInContext context, string timestampFormat, DateTimeKind timeZoneKind)
         {
             IConfiguration config = context.Configuration;
@@ -188,8 +188,7 @@ namespace Amazon.KinesisTap.Core
         /// <param name="logSourceInfoFactory">Factory method for generating LogContext</param>
         /// <returns>Generated Directory Source</returns>
         internal static ISource CreateEventSource(IPlugInContext context,
-            IRecordParser recordParser,
-            Func<string, long, LogContext> logSourceInfoFactory)
+            IRecordParser recordParser)
         {
             Guard.ArgumentNotNull(recordParser, "recordParser");
 
@@ -207,8 +206,7 @@ namespace Amazon.KinesisTap.Core
                 filter,
                 interval * 1000, //milliseconds
                 context,
-                recordParser,
-                logSourceInfoFactory);
+                recordParser);
 
             ((dynamic)source).NumberOfConsecutiveIOExceptionsToLogError = 3;
 
@@ -228,23 +226,7 @@ namespace Amazon.KinesisTap.Core
 
             return CreateEventSource(
                 context,
-                parser,
-                CreateDelimitedLogSourceInfo);
-        }
-
-        private static long GetLineCount(string filePath, long position)
-        {
-            long lineCount = 0;
-            using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-            using (var sr = new StreamReader(fs))
-            {
-                while(!sr.EndOfStream && sr.BaseStream.Position < position)
-                {
-                    sr.ReadLine();
-                    lineCount++;
-                }
-            }
-            return lineCount;
+                parser);
         }
 
         private static void GetDirectorySourceParameters(IConfiguration config, out string directory, out string filter, out int interval)

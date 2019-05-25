@@ -40,8 +40,7 @@ namespace Amazon.KinesisTap.Core.Test
                     filter, 
                     1000,
                     new PluginContext(null, logger, null), 
-                    new SingeLineRecordParser(), 
-                    DirectorySourceFactory.CreateLogSourceInfo);
+                    new SingeLineRecordParser());
                 watcher.Start();
                 Assert.Equal($"DirectorySource id {null} watching directory {TestUtility.GetTestHome()} with filter {filter} started.", logger.LastEntry);
                 watcher.Stop();
@@ -59,8 +58,7 @@ namespace Amazon.KinesisTap.Core.Test
                     null,
                     1000,
                     new PluginContext(null, logger, null),
-                    new SingeLineRecordParser(),
-                    DirectorySourceFactory.CreateLogSourceInfo);
+                    new SingeLineRecordParser());
                 watcher.Start();
                 Assert.Equal($"DirectorySource id {null} watching directory {TestUtility.GetTestHome()} with filter  started.", logger.LastEntry);
                 watcher.Stop();
@@ -330,7 +328,7 @@ ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name, Transaction
 
             ListEventSink logRecords = new ListEventSink();
             DirectorySource<TData, LogContext> watcher = new DirectorySource<TData, LogContext>
-                (testDir, filter, 1000, new PluginContext(config, NullLogger.Instance, null), recordParser, DirectorySourceFactory.CreateLogSourceInfo);
+                (testDir, filter, 1000, new PluginContext(config, NullLogger.Instance, null), recordParser);
             watcher.Subscribe(logRecords);
             watcher.Start();
 

@@ -333,6 +333,10 @@
       <Project>{ba06fc95-2e11-4277-9377-77d1e9f2a21a}</Project>
       <Name>Amazon.KinesisTap.Hosting</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Amazon.KinesisTap.Metrics\Amazon.KinesisTap.Metrics.csproj">
+      <Project>{9a3b3258-1fa0-4fe1-99e2-bed07ece657f}</Project>
+      <Name>Amazon.KinesisTap.Metrics</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Amazon.KinesisTap.Windows\Amazon.KinesisTap.Windows.csproj">
       <Project>{6b0c158a-4100-440b-8155-8ed309a75b81}</Project>
       <Name>Amazon.KinesisTap.Windows</Name>

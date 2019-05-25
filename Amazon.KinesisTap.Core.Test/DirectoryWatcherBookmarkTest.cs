@@ -214,8 +214,7 @@ namespace Amazon.KinesisTap.Core.Test
                 filter,
                 1000,
                 new PluginContext(null, NullLogger.Instance, null),
-                new TimeStampRecordParser(RECORD_TIME_STAMP_FORMAT, null, DateTimeKind.Utc),
-                DirectorySourceFactory.CreateLogSourceInfo);
+                new TimeStampRecordParser(RECORD_TIME_STAMP_FORMAT, null, DateTimeKind.Utc));
             watcher.Id = sourceId;
             watcher.Subscribe(logRecords);
             return watcher;

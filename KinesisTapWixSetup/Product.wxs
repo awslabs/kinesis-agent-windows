@@ -172,7 +172,7 @@
           Stop="both"
           Remove="uninstall"
           Name="$(var.ServiceName)"
-          Wait="yes" />
+          Wait="no" />
 
       </Component>
     </ComponentGroup>

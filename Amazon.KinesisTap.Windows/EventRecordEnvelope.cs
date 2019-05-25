@@ -85,7 +85,7 @@ namespace Amazon.KinesisTap.Windows
             catch(EventLogNotFoundException)
             {
                 //Some but not all events with eventId 0 throws EventLogNotFoundException when accessing the KeywordsDisplayNames property
-                PluginContext.ApplicationContext?.Logger?.LogDebug($"Unable to get KeywordsDisplayNames for {record.Id} and provider {record.ProviderName}");
+                PluginContext.ApplicationContext?.Logger?.LogDebug($"Unable to get KeywordsDisplayNames for event Id {record.Id} and provider {record.ProviderName}");
             }
             return string.Empty;
         }

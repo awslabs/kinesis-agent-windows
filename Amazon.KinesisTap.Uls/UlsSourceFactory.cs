@@ -42,8 +42,7 @@ namespace Amazon.KinesisTap.Uls
                     UlsLogParser ulsParser = new UlsLogParser();
                     return DirectorySourceFactory.CreateEventSource(
                         context,
-                        ulsParser,
-                        DirectorySourceFactory.CreateDelimitedLogSourceInfo);
+                        ulsParser);
                 default:
                     throw new ArgumentException($"Source {entry} not recognized.");
             }
