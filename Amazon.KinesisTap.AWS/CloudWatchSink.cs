@@ -256,13 +256,23 @@ namespace Amazon.KinesisTap.AWS
 
         private async Task PutMetricDataAsync(List<MetricDatum> datums)
         {
+            _logger?.LogDebug($"CloudWatchSink {this.Id} sending a total of {datums.Count} datums.");
             //cloudwatch can only handle 20 datums at a time
             foreach (var subDatums in datums.Chunk(20))
             {
+                var metricsToSend = subDatums as List<MetricDatum>;
+                if (metricsToSend == null)
+                {
+                    _logger?.LogError($"CloudWatchSink {this.Id} trying to send a chunk with null datums");
+                }
+                else
+                {
+                    _logger?.LogDebug($"CloudWatchSink {this.Id} trying to send a chunk with {metricsToSend.Count} datums.");
+                }
                 var putMetricDataRequest = new PutMetricDataRequest()
                 {
                     Namespace = _namespace,
-                    MetricData = subDatums as List<MetricDatum>
+                    MetricData = metricsToSend
                 };
                 await PutMetricDataAsync(putMetricDataRequest);
             }

@@ -53,8 +53,11 @@ namespace Amazon.KinesisTap.Core
 
         protected override void SetThrottled()
         {
-            // try to recover the rate
-            _rateAdjustmentFactor += (1- _rateAdjustmentFactor) * _recoveryFactor;
+            // try to recover the rate if no error
+            if (this.ConsecutiveErrorCount == 0)
+            {
+                _rateAdjustmentFactor += (1 - _rateAdjustmentFactor) * _recoveryFactor;
+            }
         }
     }
 }

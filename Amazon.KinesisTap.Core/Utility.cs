@@ -491,7 +491,7 @@ namespace Amazon.KinesisTap.Core
         {
             return source
             .Select((x, i) => new { Index = i, Value = x })
-            .GroupBy(x => x.Index / 3)
+            .GroupBy(x => x.Index / chunkSize)
             .Select(x => x.Select(v => v.Value).ToList());
         }
     }

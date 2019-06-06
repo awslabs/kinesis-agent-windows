@@ -56,7 +56,7 @@ namespace Amazon.KinesisTap
             Task.Run(() =>
             {
                 _logManger?.Stop();
-            }).Wait();
+            }).Wait(5000);
             btnStart.Enabled = true;
         }
 

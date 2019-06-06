@@ -55,7 +55,7 @@ namespace Amazon.KinesisTap.Core
         public const double DEFAULT_BACKOFF_FACTOR = 0.5d;
         public const double DEFAULT_RECOVERY_FACTOR = 0.5d;
         public const double DEFAULT_JITTING_FACTOR = 0.1d;
-        public const double DEFAULT_MIN_RATE_ADJUSTMENT_FACTOR = 1.0d / 32;
+        public const double DEFAULT_MIN_RATE_ADJUSTMENT_FACTOR = 1.0d / 128;
         public const int DEFAULT_MAX_ATTEMPTS = 1;
 
         public const string NEWLINE = "\n";

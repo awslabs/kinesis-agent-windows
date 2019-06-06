@@ -55,7 +55,10 @@ namespace Amazon.KinesisTap
 
         protected override void OnStop()
         {
-            _logManger?.Stop();
+            Task.Run(() =>
+           {
+               _logManger?.Stop();
+           }).Wait(5000); //Wait for 5 seconds for the service to shut down so that we don't wait indefinitely
         }
 
         private void LogError(Exception ex)

@@ -20,9 +20,14 @@ using System.Threading.Tasks;
 using System.Reactive.Threading.Tasks;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
+
+using Amazon.Runtime;
+using Amazon.CognitoIdentity.Model;
+using Microsoft.Extensions.Logging;
+
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Core.Metrics;
-using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.AWS
 {
@@ -178,6 +183,13 @@ namespace Amazon.KinesisTap.AWS
             {
                 return CreateRecord(record, envelope);
             }
+        }
+
+        protected virtual bool IsRecoverableException(Exception ex)
+        {
+            return (ex is AmazonServiceException
+                && ex?.InnerException is WebException)
+                || ex is NotAuthorizedException;
         }
     }
 }

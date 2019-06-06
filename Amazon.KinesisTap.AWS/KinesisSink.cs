@@ -12,12 +12,11 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Amazon.KinesisTap.Core;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Text;
+
+using Amazon.KinesisTap.Core;
 
 namespace Amazon.KinesisTap.AWS
 {
@@ -39,7 +38,7 @@ namespace Amazon.KinesisTap.AWS
 
         protected override long GetDelayMilliseconds(int recordCount, long batchBytes)
         {
-            long timeToWait = _throttle.GetDelayMilliseconds(new long[] { recordCount, batchBytes });
+            long timeToWait = _throttle.GetDelayMilliseconds(new long[] { 1, recordCount, batchBytes }); //The 1st element indicates 1 API call.
             return timeToWait;
         }
     }

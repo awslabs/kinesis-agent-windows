@@ -12,18 +12,18 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Amazon.Kinesis;
-using Amazon.Kinesis.Model;
-using Amazon.KinesisTap.Core;
-using Amazon.KinesisTap.Core.Metrics;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
-using System.Diagnostics;
+
+using Amazon.Kinesis;
+using Amazon.Kinesis.Model;
+using Microsoft.Extensions.Logging;
+
+using Amazon.KinesisTap.Core;
+using Amazon.KinesisTap.Core.Metrics;
 
 namespace Amazon.KinesisTap.AWS
 {
@@ -59,6 +59,7 @@ namespace Amazon.KinesisTap.AWS
             _throttle = new AdaptiveThrottle(
                             new TokenBucket[]
                             {
+                                new TokenBucket(1, _maxRecordsPerSecond/200), //Number of API calls per second. For simplicity, we tie to _maxRecordsPerSecond
                                 new TokenBucket(_count, _maxRecordsPerSecond), 
                                 new TokenBucket(_maxBatchSize, _maxBytesPerSecond) 
                             },
@@ -133,29 +134,25 @@ namespace Amazon.KinesisTap.AWS
                 _recordsSuccess += records.Count;
                 _logger?.LogDebug($"KinesisStreamSink {this.Id} successfully sent {records.Count} records {batchBytes} bytes.");
             }
-            catch (ProvisionedThroughputExceededException pex)
+            catch (Exception ex)
             {
                 _latency = Utility.GetElapsedMilliseconds() - elapsedMilliseconds;
                 _throttle.SetError();
-                if (_buffer.Requeue(records, _throttle.ConsecutiveErrorCount < _maxAttempts))
+                if (this.IsRecoverableException(ex) && _buffer.Requeue(records, _throttle.ConsecutiveErrorCount < _maxAttempts))
                 {
                     _recoverableServiceErrors++;
                     _recordsFailedRecoverable += records.Count;
+                    if (LogThrottler.ShouldWrite(LogThrottler.CreateLogTypeId(this.GetType().FullName, "OnNextAsync", "Requeued", this.Id), TimeSpan.FromMinutes(5)))
+                    {
+                        _logger?.LogWarning($"KinesisStreamSink {this.Id} requeued request after exception (attempt {_throttle.ConsecutiveErrorCount}): {ex.ToMinimized()}");
+                    }
                 }
                 else
                 {
                     _nonrecoverableServiceErrors++;
                     _recordsFailedNonrecoverable += records.Count;
-                    _logger?.LogError($"KinesisStreamSink client exception after {_throttle.ConsecutiveErrorCount} attempts: {pex.ToMinimized()}");
+                    _logger?.LogError($"KinesisStreamSink {this.Id} client exception after {_throttle.ConsecutiveErrorCount} attempts: {ex.ToMinimized()}");
                 }
-            }
-            catch (Exception ex)
-            {
-                _latency = Utility.GetElapsedMilliseconds() - elapsedMilliseconds;
-                _throttle.SetError();
-                _nonrecoverableServiceErrors++;
-                _recordsFailedNonrecoverable += records.Count;
-                _logger?.LogError($"KinesisStreamSink client exception: {ex.ToMinimized()}");
             }
             PublishMetrics(MetricsConstants.KINESIS_STREAM_PREFIX);
         }
@@ -163,6 +160,11 @@ namespace Amazon.KinesisTap.AWS
         protected override ISerializer<List<Envelope<PutRecordsRequestEntry>>> GetSerializer()
         {
             return AWSSerializationUtility.PutRecordsRequestEntryListBinarySerializer;
+        }
+
+        protected override bool IsRecoverableException(Exception ex)
+        {
+            return base.IsRecoverableException(ex) || ex is ProvisionedThroughputExceededException;
         }
     }
 }

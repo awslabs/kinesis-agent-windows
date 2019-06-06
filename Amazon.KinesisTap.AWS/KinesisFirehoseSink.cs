@@ -17,7 +17,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Reactive.Linq;
-using System.Net;
 
 using Amazon.KinesisFirehose;
 using Amazon.KinesisFirehose.Model;
@@ -26,7 +25,6 @@ using Microsoft.Extensions.Logging;
 
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Core.Metrics;
-
 
 namespace Amazon.KinesisTap.AWS
 {
@@ -62,8 +60,9 @@ namespace Amazon.KinesisTap.AWS
             _throttle = new AdaptiveThrottle(
                 new TokenBucket[]
                 {
-                                new TokenBucket(_count, _maxRecordsPerSecond), 
-                                new TokenBucket(_maxBatchSize, _maxBytesPerSecond) 
+                    new TokenBucket(1, _maxRecordsPerSecond/200), //Number of API calls per second. For simplicity, we tie to _maxRecordsPerSecond
+                    new TokenBucket(_count, _maxRecordsPerSecond), 
+                    new TokenBucket(_maxBatchSize, _maxBytesPerSecond) 
                 },
                 _backoffFactor,
                 _recoveryFactor,
@@ -227,14 +226,14 @@ namespace Amazon.KinesisTap.AWS
                     _recordsFailedRecoverable += envelopes.Count;
                     if (LogThrottler.ShouldWrite(LogThrottler.CreateLogTypeId(this.GetType().FullName, "OnNextAsync", "Requeued", this.Id), TimeSpan.FromMinutes(5)))
                     {
-                        _logger?.LogWarning($"KinesisFirehoseSink client {this.Id} Service Unavailable. Request requeued. Attempts {_throttle.ConsecutiveErrorCount}");
+                        _logger?.LogWarning($"KinesisFirehoseSink {this.Id} requeued request after exception (attempt {_throttle.ConsecutiveErrorCount}): {ex.ToMinimized()}");
                     }
                 }
                 else
                 {
                     _nonrecoverableServiceErrors++;
                     _recordsFailedNonrecoverable += envelopes.Count;
-                    _logger?.LogError($"KinesisFirehoseSink client {this.Id} exception: {ex.ToMinimized()}");
+                    _logger?.LogError($"KinesisFirehoseSink {this.Id} client exception after {_throttle.ConsecutiveErrorCount} attempts: {ex.ToMinimized()}");
                 }
             }
             PublishMetrics(MetricsConstants.KINESIS_FIREHOSE_PREFIX);
@@ -245,17 +244,15 @@ namespace Amazon.KinesisTap.AWS
             return AWSSerializationUtility.FirehoseRecordListBinarySerializer;
         }
 
+        protected override bool IsRecoverableException(Exception ex)
+        {
+            return base.IsRecoverableException(ex) || ex is ServiceUnavailableException;
+        }
+
         private static void Combine(Record prevRecord, Record record)
         {
             prevRecord.Data.Position = prevRecord.Data.Length; //Set the position to the end for append
             prevRecord.Data.Write(record.Data.ToArray(), 0, (int)record.Data.Length);
-        }
-
-        private bool IsRecoverableException(Exception ex)
-        {
-            return ex is ServiceUnavailableException
-                || (ex is AmazonServiceException 
-                && ex?.InnerException is WebException);
         }
     }
 }
