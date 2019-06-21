@@ -73,6 +73,9 @@ You need Visual Studio 2017 Community, Professional or Enterprise on Windows to 
 
 ## Release Notes
 
+Release 1.1.168.1 (June 24, 2019)
+*   1.1 [Release Notes][release1.1]
+
 Release 1.0.0.115 (November 6, 2018)
 *	This is the first release.
 
@@ -94,4 +97,4 @@ Release 1.0.0.115 (November 6, 2018)
 [kinesis-firehose]: https://aws.amazon.com/kinesis/firehose/
 [nuget]: https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
 [opt-out]: https://docs.aws.amazon.com/kinesis-agent-windows/latest/userguide/telemetrics-configuration-option.html
-
+[release1.1]: release_1.1.md
