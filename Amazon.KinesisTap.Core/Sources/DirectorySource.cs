@@ -143,7 +143,6 @@ namespace Amazon.KinesisTap.Core
             Start();
         }
 
-
         public override void Stop()
         {
             if (_watcher != null)
