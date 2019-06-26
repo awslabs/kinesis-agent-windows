@@ -2,7 +2,7 @@
 
 ## MSI Installer
 
-We now have an [msi installer](msi.md).
+Now you can install Amazon Kinesis Agent for Windows with an msi installer. See [details](msi.md).
 
 ## Object and text decoration with Expressions
 
