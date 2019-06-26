@@ -32,12 +32,12 @@ The possible values of encoding are in name column of this [page][msdn-encoding]
 
 ## DirectorySource: the new ExtractionRegexOptions attribute.
 
-You can now use the ExtractionRegexOptions to simplify regular expression. For example, if you specify:
+You can now use the ExtractionRegexOptions to simplify regular expression. For example, the "." expression will match any character including \r\n if you specify:
 
 ```
 "ExtractionRegexOptions" = "Multiline"
 ```
-, the "." expression will match any character including \r\n. 
+
 
 The possible values of ExtractionRegexOptions are in this [page][msdn-regex-options]. The default is "None".
 
