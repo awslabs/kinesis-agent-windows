@@ -2,7 +2,7 @@
 
 ## MSI Installer
 
-We now have an msi installer.
+We now have an [msi installer](msi.md).
 
 ## Object and text decoration with Expressions
 
@@ -10,7 +10,7 @@ See [details](decoration_with_expressions.md).
 
 ## DirectorySource: the FileNameFilter attribute now accepts multiple filters separated by "|".
 
-If you have multiple filename patterns, this feature allows you to use a single DirectorySource, for example:
+If you have multiple log filename patterns, this feature allows you to use a single DirectorySource, for example:
 
 ```
 FileNameFilter: “*.log|*.txt”
@@ -22,7 +22,7 @@ System administrators sometimes compress log files before achiving them. This fe
 
 ## DirectorySource: the new Ecoding attribute.
 
-By default, Kinesis Agent can automatically detect the encoding from bytemark. However, the automatic encoding may not work correctly on some older uncode formats. For example, to stream Microsoft SQL Server log, you need to specify:
+By default, Kinesis Agent can automatically detect the encoding from bytemark. However, the automatic encoding may not work correctly on some older unicode formats. For example, to stream Microsoft SQL Server log, you need to specify:
 
 ```
 "Encoding": "utf-16"
@@ -43,11 +43,11 @@ The possible values of ExtractionRegexOptions are in this [page][msdn-regex-opti
 
 ## DirectorySource: you can now use the ExtractionPattern attribute with the Timestamp parser.
 
-Previously, only "Regex" parsers supports "ExtractionPattern".
+Previously, only "Regex" parsers supports "ExtractionPattern". Now you can use "ExtractionPattern" attribute with Timestamp parser which is simpler to confgure.
 
 ## WindowsPerformanceCounterSource: you can now use InstanceRegex attribute to select counter instances.
 
-Previously, the "Instances" attribute only allows wildcard characters. "InstanceRegex" accepts regular expression is more powerful and allow you to use in the scenario where the instance name contains the "\*" character, for example:
+Previously, the "Instances" attribute only allows wildcard characters. "InstanceRegex" accepts regular expression which is more powerful and allows you to use in the scenario where the instance name itself contains the "\*" character, for example:
 
 ```
     {
@@ -65,17 +65,17 @@ Previously, the "Instances" attribute only allows wildcard characters. "Instance
 
 ## KinesisFirehose sink: you can now use the CombineRecords attribute to combine multiple small records into one large record upto 5 KB.
 
-According to [Amazon Kinesis Data Firehose pricing][firehose-pricing], if a record is less than 5KB, it is rounded up to the nearest 5K for pricing. To combine multiple small records, specify:
+According to [Amazon Kinesis Data Firehose pricing][firehose-pricing], if a record is less than 5KB, it is rounded up to the nearest 5K for pricing. Combining records can save ingestion cost. To combine multiple small records, specify:
 
 ```
 "CombineRecords": "true"
 ```
 
-**Note that if you use Lambda to transform Firehose record, your Lambda needs to account for the combined record if you turn on this option.**
+**Note that if you use Lambda to transform Firehose record, your Lambda needs to account for the fact that combined records are separated by \n if you turn on this option.**
 
-## ProfileRefreshingAWSCredentialProvider
+## Use ProfileRefreshingAWSCredentialProvider to refresh AWS credentials
 
-If you use [AWS Systems Manager for Hybrid Environments][ssm-on-prem] to manage AWS credentials, SSM roates session credentials in c:\Windows\System32\config\systemprofile\\.aws\credentials. Because the AWS .net SDK does not pick up new credentials automatically, we provides the ProfileRefreshingAWSCredentialProvider plug-in to refresh credentials. You just need to configure the ProfileRefreshingAWSCredentialProvider plug-in and reference the plug-in using the "CredentialRef" attribute of any AWS Sink, for example:
+If you use [AWS Systems Manager for Hybrid Environments][ssm-on-prem] to manage AWS credentials, SSM rotates session credentials in c:\Windows\System32\config\systemprofile\\.aws\credentials. Because the AWS .net SDK does not pick up new credentials automatically, we provide the ProfileRefreshingAWSCredentialProvider plug-in to refresh credentials. You just need to configure the ProfileRefreshingAWSCredentialProvider plug-in and reference the plug-in using the "CredentialRef" attribute of any AWS Sink, for example:
 
 ```
 {
@@ -91,7 +91,7 @@ If you use [AWS Systems Manager for Hybrid Environments][ssm-on-prem] to manage 
     ],
     "Credentials": [
         {
-            "Id": "myProfileCredentials",
+            "Id": "ssmcred",
             "CredentialType": "ProfileRefreshingAWSCredentialProvider",
             "Profile": "default", //Optional, the default is "default"
             "FilePath": "path_to_credential_file", //Optional, the default is %USERPROFILE%/.aws/credentials
