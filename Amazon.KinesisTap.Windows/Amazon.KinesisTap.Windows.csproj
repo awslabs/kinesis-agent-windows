@@ -174,7 +174,6 @@
     <Compile Include="EventLogSource.cs" />
     <Compile Include="PerformanceCounterSourceConfigLoader.cs" />
     <Compile Include="ServiceDependency.cs" />
-    <Compile Include="WindowsNetworkStatus.cs" />
     <Compile Include="WindowsSourceFactory.cs" />
     <Compile Include="EventRecordEnvelope.cs" />
     <Compile Include="PerformanceCounterSink.cs" />
@@ -189,6 +188,10 @@
     <ProjectReference Include="..\Amazon.KinesisTap.Core\Amazon.KinesisTap.Core.csproj">
       <Project>{64117edf-e228-43cb-9425-9c3a7f2ebd99}</Project>
       <Name>Amazon.KinesisTap.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Amazon.KinesisTap.Shared\Amazon.KinesisTap.Shared.csproj">
+      <Project>{747d295e-ced5-4081-a78c-d801bb785ac8}</Project>
+      <Name>Amazon.KinesisTap.Shared</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

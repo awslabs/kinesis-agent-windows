@@ -92,7 +92,7 @@ namespace Amazon.KinesisTap.Core
                 throw new InvalidOperationException("Exceed capacity.");
             }
 
-            using (var outstream = File.OpenWrite(GetFilePath(_tail)))
+            using (var outstream = new FileStream(GetFilePath(_tail), FileMode.Create, FileAccess.Write, FileShare.None))
             {
                 _serializer.Serialize(outstream, item);
             }
@@ -129,7 +129,7 @@ namespace Amazon.KinesisTap.Core
 
         private void UpdateIndex()
         {
-            using (var outstream = File.OpenWrite(GetIndexFile()))
+            using (var outstream = new FileStream(GetIndexFile(), FileMode.Create, FileAccess.Write, FileShare.None))
             using (var sw = new StreamWriter(outstream))
             {
                 sw.Write($"{_head} {_tail}");

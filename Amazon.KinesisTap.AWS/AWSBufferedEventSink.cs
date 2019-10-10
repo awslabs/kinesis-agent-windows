@@ -33,11 +33,12 @@ namespace Amazon.KinesisTap.AWS
 {
     public abstract class AWSBufferedEventSink<TRecord> : BatchEventSink<TRecord>
     {
-        protected int _maxAttempts;
-        protected double _jittingFactor;
-        protected double _backoffFactor;
-        protected double _recoveryFactor;
-        protected double _minRateAdjustmentFactor;
+        protected readonly int _maxAttempts;
+        protected readonly double _jittingFactor;
+        protected readonly double _backoffFactor;
+        protected readonly double _recoveryFactor;
+        protected readonly double _minRateAdjustmentFactor;
+        protected readonly int _uploadNetworkPriority;
 
         //metrics
         protected long _recoverableServiceErrors;
@@ -81,6 +82,11 @@ namespace Amazon.KinesisTap.AWS
             {
                 _minRateAdjustmentFactor = ConfigConstants.DEFAULT_MIN_RATE_ADJUSTMENT_FACTOR;
             }
+
+            if (!int.TryParse(_config[ConfigConstants.UPLOAD_NETWORK_PRIORITY], out _uploadNetworkPriority))
+            {
+                _uploadNetworkPriority = ConfigConstants.DEFAULT_NETWORK_PRIORITY;
+            }
         }
 
         protected override void OnNextBatch(List<Envelope<TRecord>> records)
@@ -106,7 +112,7 @@ namespace Amazon.KinesisTap.AWS
             if (NetworkStatus.CurrentNetwork != null)
             {
                 int waitCount = 0;
-                while (!NetworkStatus.CurrentNetwork.IsAvailable())
+                while (!NetworkStatus.CanUpload(_uploadNetworkPriority))
                 {
                     if (waitCount % 30 == 0) //Reduce the log entries
                     {

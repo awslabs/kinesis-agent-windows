@@ -14,6 +14,7 @@
  */
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.NetworkInformation;
 using System.Text;
 
@@ -25,6 +26,36 @@ namespace Amazon.KinesisTap.Core
     /// </summary>
     public static class NetworkStatus
     {
+        private static List<INetworkStatus> _addtionalNetworkStatusProviders = new List<INetworkStatus>();
+
         public static INetworkStatus CurrentNetwork { get; internal set; }
+
+        public static bool IsAvailable()
+        {
+            if (!CurrentNetwork.IsAvailable()) return false;
+            return _addtionalNetworkStatusProviders.All(p => p.IsAvailable()); //All providers must indicate available
+        }
+
+        public static bool CanUpload(int priority)
+        {
+            if (!CurrentNetwork.CanUpload(priority)) return false;
+            return _addtionalNetworkStatusProviders.All(p => p.CanUpload(priority)); //All providers must indicate OK
+        }
+
+        public static bool CanDownload(int priority)
+        {
+            if (!CurrentNetwork.CanDownload(priority)) return false;
+            return _addtionalNetworkStatusProviders.All(p => p.CanDownload(priority)); //All providers must indicate OK
+        }
+
+        internal static void RegisterNetworkStatusProvider(INetworkStatus networkStatus)
+        {
+            _addtionalNetworkStatusProviders.Add(networkStatus);
+        }
+
+        internal static void ResetNetworkStatusProviders()
+        {
+            _addtionalNetworkStatusProviders.Clear();
+        }
     }
 }

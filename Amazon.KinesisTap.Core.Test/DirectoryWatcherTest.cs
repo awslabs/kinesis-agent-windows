@@ -143,6 +143,62 @@ namespace Amazon.KinesisTap.Core.Test
             });
         }
 
+        /// <summary>
+        /// xyz.log
+        /// xyz.log.1
+        /// xyz.log.2 ...
+        /// Latest has the highest number
+        /// </summary>
+        /// <returns></returns>
+        [Fact]
+        [Trait("Category", "Integration")]
+        public async Task RotatingFileNameWithLockTest()
+        {
+            string testName = "RotatingFileNameWithLockTest";
+            string logFileName = $"{testName}-{DateTime.UtcNow:yyyyMMddHHmmssfff}.log";
+            string filter = $"{logFileName}*";
+
+            using (var logger = new MemoryLogger(testName))
+            {
+                string filePath = Path.Combine(TestUtility.GetTestHome(), testName, logFileName);
+
+                await CreateAndRunWatcher(
+                    testName,
+                    filter,
+                    null,
+                    async (logRecords) =>
+                    {
+                        int accumulatedRecords = 0;
+                        WriteRandomRecords(filePath, out int records, out string lastLine1, GenerateSingleLineRecord);
+                        accumulatedRecords += records;
+                        string lastLine2 = null;
+                        using (var fs = RenameLogFile(filePath, true))
+                        {
+                            WriteRandomRecords(filePath, out records, out lastLine2, GenerateSingleLineRecord);
+                            accumulatedRecords += records;
+
+                            // Give it some time to fail before releasing the file lock.
+                            await Task.Delay(2000);
+                        }
+
+                        // Give it some time to succeed after releasing the file lock.
+                        await Task.Delay(3000);
+
+                        //Make sure that the last record of both batches are captured
+                        Assert.NotNull(logRecords.FirstOrDefault(l => lastLine1.Equals(l.GetMessage(null))));
+                        Assert.NotNull(logRecords.FirstOrDefault(l => lastLine2.Equals(l.GetMessage(null))));
+                        Assert.Equal(accumulatedRecords, logRecords.Count); //All records captured
+                    },
+                    new SingeLineRecordParser(),
+                    logger
+                );
+
+                // Ensure that the exception was encountered, so that we know the test handled it properly.
+                var exTest = $"System.IO.IOException: The process cannot access the file '{filePath}.00000001' because it is being used by another process.";
+                Assert.Contains(logger.Entries, i => i.StartsWith(exTest));
+            }
+        }
+
         [Fact]
         public async Task SingleLineRecordParserBlankLineTest()
         {
@@ -310,13 +366,34 @@ ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name, Transaction
             }
             File.Move(filePath, $"{filePath}.{fileNum:D8}");
         }
-    
+
+        private FileStream RenameLogFile(string filePath, bool withLock)
+        {
+            string directory = Path.GetDirectoryName(filePath);
+            string fileName = Path.GetFileName(filePath);
+            string[] files = Directory.GetFiles(directory, fileName + "*");
+            string maxFile = files.Max();
+            int fileNum = 1;
+            if (!maxFile.Equals(filePath))
+            {
+                fileNum = int.Parse(maxFile.Substring(filePath.Length + 1)) + 1;
+            }
+            var newname = $"{filePath}.{fileNum:D8}";
+            File.Move(filePath, newname);
+            return new FileStream(newname, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        }
+
         private async Task CreateAndRunWatcher(string testName, string filter, Func<List<IEnvelope>, Task> testBody)
         {
             await CreateAndRunWatcher(testName, filter, null, testBody, new SingeLineRecordParser());
         }
 
         private async Task CreateAndRunWatcher<TData>(string testName, string filter, IConfiguration config, Func<List<IEnvelope>, Task> testBody, IRecordParser<TData, LogContext> recordParser)
+        {
+            await this.CreateAndRunWatcher(testName, filter, config, testBody, recordParser, NullLogger.Instance);
+        }
+
+        private async Task CreateAndRunWatcher<TData>(string testName, string filter, IConfiguration config, Func<List<IEnvelope>, Task> testBody, IRecordParser<TData, LogContext> recordParser, ILogger logger)
         {
             //Create a distinct directory based on testName so that tests can run in parallel
             string testDir = Path.Combine(TestUtility.GetTestHome(), testName);
@@ -327,8 +404,9 @@ ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name, Transaction
             DeleteFiles(testDir, "*.*");
 
             ListEventSink logRecords = new ListEventSink();
+
             DirectorySource<TData, LogContext> watcher = new DirectorySource<TData, LogContext>
-                (testDir, filter, 1000, new PluginContext(config, NullLogger.Instance, null), recordParser);
+                (testDir, filter, 1000, new PluginContext(config, logger, null), recordParser);
             watcher.Subscribe(logRecords);
             watcher.Start();
 

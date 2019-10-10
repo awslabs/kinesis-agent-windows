@@ -12,8 +12,10 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 
 namespace Amazon.KinesisTap.Core
@@ -22,13 +24,13 @@ namespace Amazon.KinesisTap.Core
     {
         protected const string FIELDS = "#Fields: ";
 
-        public W3SVCLogParser() : base(" ", (data, context) => new W3SVCLogRecord(data, context))
+        public W3SVCLogParser(IPlugInContext plugInContext) : base(plugInContext, " ", (data, context) => new W3SVCLogRecord(data, context))
         {
         }
 
         protected override bool IsComment(string line)
         {
-            return line.StartsWith("#") || line.StartsWith("\x00", StringComparison.Ordinal);
+            return line.StartsWith("#");
         }
 
         protected override bool IsHeader(string line)
@@ -39,6 +41,22 @@ namespace Amazon.KinesisTap.Core
         protected override string[] GetFields(string fieldsLine)
         {
             return base.GetFields(fieldsLine.Substring(FIELDS.Length));
+        }
+
+        protected override bool ShouldStopReading(string line, StreamReader sr, DelimitedLogContext context)
+        {
+            //Sometimes the log writer may expand the log by writing a block of \x00
+            //In this case, we rewind the position and retry from the position again
+            if (line.StartsWith("\x00", StringComparison.Ordinal))
+            {
+                //Need to rewind the position
+                context.Position = sr.BaseStream.Position - line.Length;
+                return true;
+            }
+            else
+            {
+                return base.ShouldStopReading(line, sr, context);
+            }
         }
     }
 }

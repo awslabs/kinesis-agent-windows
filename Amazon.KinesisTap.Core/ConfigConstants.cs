@@ -69,7 +69,7 @@ namespace Amazon.KinesisTap.Core
 
         //Environment variables
         public const string KINESISTAP_PROGRAM_DATA = "KINESISTAP_PROGRAM_DATA";
-        public const string KINESISTAP_COFIG_PATH = "KINESISTAP_COFIG_PATH";
+        public const string KINESISTAP_CONFIG_PATH = "KINESISTAP_CONFIG_PATH";
 
         //None-Windows
         public const string KINESISTAP_CORE = "Amazon.KinesisTap.ConsoleHost.dll";
@@ -79,5 +79,10 @@ namespace Amazon.KinesisTap.Core
         //Telemetry Connector
         public const string REDIRECT_TO_SINK_ID = "RedirectToSinkId";
         public const string TELEMETRY_CONNECTOR = "_TELEMETRY_CONNECTOR";
+
+        //Network priority
+        public const string UPLOAD_NETWORK_PRIORITY = "UploadNetworkPriority";
+        public const string DOWNLOAD_NETWORK_PRIORITY = "DownloadNetworkPriority";
+        public const int DEFAULT_NETWORK_PRIORITY = 3;
     }
 }

@@ -218,8 +218,8 @@ namespace Amazon.KinesisTap.Core.Metrics
         private Regex ConvertToRegex(string filter)
         {
             filter = filter.Replace(".", "\\."); //escape .
-            filter = filter.Replace("?", "[_\\w]"); //Wild card  for a single character
-            filter = filter.Replace("*", "[_\\w]*"); //Wild card for 0 or more characters
+            filter = filter.Replace("?", "[^.]"); //Wild card  for a single character
+            filter = filter.Replace("*", "[^.]*"); //Wild card for 0 or more characters
             return new Regex($"^{filter}$");
         }
 

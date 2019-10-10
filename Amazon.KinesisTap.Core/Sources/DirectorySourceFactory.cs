@@ -103,7 +103,7 @@ namespace Amazon.KinesisTap.Core
                 case "w3svclogsource":
                     return CreateEventSource(
                         context,
-                        new W3SVCLogParser());
+                        new W3SVCLogParser(context));
                 default:
                     throw new ArgumentException($"Source {entry} not recognized.");
             }
@@ -176,7 +176,7 @@ namespace Amazon.KinesisTap.Core
             DelimitedLogRecord recordFactoryMethod(string[] data, DelimitedLogContext logContext) =>
                 new DelimitedLogRecord(data, logContext, delimitedLogTimestampExtractor.GetTimestamp);
 
-            var parser = new DelimitedLogParser(delimiter, recordFactoryMethod, headerPattern, recordPattern, commentPattern, headers, timeZoneKind);
+            var parser = new DelimitedLogParser(context, delimiter, recordFactoryMethod, headerPattern, recordPattern, commentPattern, headers, timeZoneKind);
             return parser;
         }
 

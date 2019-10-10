@@ -24,12 +24,36 @@ namespace Amazon.KinesisTap.Expression.Ast
 {
     public interface IExpressionEvaluationContext<T>
     {
+        /// <summary>
+        /// Evaluate global variables, from environment variable, EC2 instance data, etc
+        /// </summary>
+        /// <param name="variableName">Variable name</param>
+        /// <returns>Variable value</returns>
         string GetVariable(string variableName);
 
+        /// <summary>
+        /// Evaluate local or meta variables from record data
+        /// </summary>
+        /// <param name="variableName">Variable name</param>
+        /// <param name="data">Data record</param>
+        /// <returns></returns>
         object GetLocalVariable(string variableName, T data);
 
+        /// <summary>
+        /// Add additional data that may be useful for evaluation
+        /// </summary>
+        /// <param name="variableName">Variable name</param>
+        /// <param name="data">data</param>
+        void AddContextVariable(string variableName, object data);
+
+        /// <summary>
+        /// Return the FunctionBinder used by the context
+        /// </summary>
         FunctionBinder FunctionBinder { get; }
 
+        /// <summary>
+        /// Return the logger used by the context
+        /// </summary>
         ILogger Logger { get; }
     }
 }

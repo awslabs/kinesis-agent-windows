@@ -65,16 +65,28 @@ namespace Amazon.KinesisTap.Hosting
         {
             _typeLoader = typeLoader;
             _parameterStore = parameterStore;
-            ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
-            _config = configurationBuilder
-                .SetBasePath(Utility.GetKinesisTapConfigPath())
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .Build();
+
+            ILoggerFactory loggerFactory = CreateLoggerFactory();
+            try
+            {
+                ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
+                _config = configurationBuilder
+                    .SetBasePath(Utility.GetKinesisTapConfigPath())
+                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                    .Build();
+
+            }
+            catch(Exception ex)
+            {
+                var logger = loggerFactory.CreateLogger<LogManager>();
+                logger.LogError($"Unable to load apsettings.json. {ex.ToMinimized()}");
+                throw;
+            }
 
             ChangeToken.OnChange(() => _config.GetReloadToken(), OnConfigChanged);
 
             IServiceCollection serviceCollection = new ServiceCollection();
-            _serviceProvider = ConfigureServices(serviceCollection, _config);
+            _serviceProvider = ConfigureServices(serviceCollection, _config, loggerFactory);
             _updateTimer = new Timer(CheckUpdate, null, Timeout.Infinite, Timeout.Infinite);
             _configTimer = new Timer(CheckConfig, null, Timeout.Infinite, Timeout.Infinite);
         }
@@ -175,6 +187,8 @@ namespace Amazon.KinesisTap.Hosting
                     _logger?.LogError($"Error stopping plugin {plugin.GetType()}: {ex.ToMinimized()}");
                 }
             }
+
+            NetworkStatus.ResetNetworkStatusProviders();
             _logger?.LogInformation("Log manager stopped.");
         }
 
@@ -196,12 +210,18 @@ namespace Amazon.KinesisTap.Hosting
             _logger?.LogInformation("Config file changed.");
         }
 
-        private IServiceProvider ConfigureServices(IServiceCollection serviceCollection, IConfiguration config)
+        private IServiceProvider ConfigureServices(IServiceCollection serviceCollection, IConfiguration config, ILoggerFactory loggerFactory)
         {
-            ILoggerFactory loggerFactory = new LoggerFactory();
-            loggerFactory.AddNLog().ConfigureNLog(Path.Combine(Utility.GetKinesisTapConfigPath(), "NLog.xml"));
             serviceCollection.AddSingleton<ILoggerFactory>(loggerFactory);
             return serviceCollection.BuildServiceProvider();
+        }
+
+        private static ILoggerFactory CreateLoggerFactory()
+        {
+            ILoggerFactory loggerFactory = new LoggerFactory();
+            loggerFactory.AddNLog();
+            NLog.LogManager.LoadConfiguration(Path.Combine(Utility.GetKinesisTapConfigPath(), "NLog.xml"));
+            return loggerFactory;
         }
 
         private void LoadCredentialProviders()
@@ -764,6 +784,11 @@ namespace Amazon.KinesisTap.Hosting
                     plugin.Start();
                     _plugins.Add(plugin);
                     _logger?.LogInformation($"Plugin type {pluginType} started.");
+                    if (plugin is INetworkStatus networkStatusProvider)
+                    {
+                        NetworkStatus.RegisterNetworkStatusProvider(networkStatusProvider);
+                        _logger?.LogInformation($"Registered network status provider {plugin.Id}");
+                    }
                     return true;
                 }
                 catch (Exception ex)

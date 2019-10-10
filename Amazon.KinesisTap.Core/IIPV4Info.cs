@@ -14,24 +14,16 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
-using Amazon.KinesisTap.Core;
-using Shared = Amazon.KinesisTap.Shared;
-
-namespace Amazon.KinesisTap.Windows
+namespace Amazon.KinesisTap.Core
 {
     /// <summary>
-    /// Windows specific startup code
+    /// Interface for the provider of IPV4 address information
     /// </summary>
-    public class WindowsStartup
+    public interface IIPV4Info
     {
-        public static void Start()
-        {
-            Utility.ResolveEnvironmentVariable = WindowsUtility.ResolveEnvironmentVariable;
-            NetworkStatus.CurrentNetwork = new Shared.NetworkStatus();
-        }
+        string IpAddress { get; }
+        string SubnetMask { get; }
     }
 }

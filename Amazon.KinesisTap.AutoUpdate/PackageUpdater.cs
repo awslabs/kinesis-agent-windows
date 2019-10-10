@@ -36,6 +36,8 @@ namespace Amazon.KinesisTap.AutoUpdate
         const int DEFAULT_INTERVAL = 60;
         const string PACKAGE_VERSION = "PackageVersion";
 
+        protected readonly int _downloadNetworkPriority;
+
         /// <summary>
         /// The url for the PackageVersion.json file. The url could be https://, s3:// or file://
         /// </summary>
@@ -47,12 +49,23 @@ namespace Amazon.KinesisTap.AutoUpdate
             if (minuteInterval < 1) minuteInterval = 1; //Set minimum to 1 minutes
             this.Interval = TimeSpan.FromMinutes(minuteInterval);
             this.PackageVersion = Utility.ResolveVariables(_config[PACKAGE_VERSION], Utility.ResolveVariable);
+            if (!int.TryParse(_config[ConfigConstants.DOWNLOAD_NETWORK_PRIORITY], out _downloadNetworkPriority))
+            {
+                _downloadNetworkPriority = ConfigConstants.DEFAULT_NETWORK_PRIORITY;
+            }
         }
 
         protected override async Task OnTimer()
         {
             try
             {
+                //Skip if network not available
+                if (!NetworkStatus.CanDownload(_downloadNetworkPriority))
+                {
+                    _logger?.LogInformation($"Skip package download due to network not allowed to download.");
+                    return;
+                }
+
                 _logger?.LogDebug($"Running package updater. Downloading {this.PackageVersion}.");
                 PackageVersionInfo packageVersion = await GetPackageVersionInformation();
                 var desiredVersion = UpdateUtility.ParseVersion(packageVersion.Version);

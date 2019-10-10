@@ -239,6 +239,27 @@ namespace Amazon.KinesisTap.Core.Test
             Assert.Equal(data.ToString(Formatting.None), sink.Records[0]);
         }
 
+        /// <summary>
+        /// Customer requested that we make earlier attributes evaluated visible as a local variable to later attributes. This is the test.
+        /// </summary>
+        /// <param name="input"></param>
+        /// <param name="attribute"></param>
+        /// <param name="value"></param>
+        [Theory]
+        [InlineData("{ \"Message\": \"Info: MID 368937710 ICID 448324092 From: <bunny@acme.com>\" }", "Combined", "<bunny@acme.com>")]
+        [InlineData("{ \"Message\": \"Info: MID 118880431 ICID 198591155 RID 0 To: <tweety@acme.com>\" }", "Combined", "<tweety@acme.com>")]
+        public void TestObjectDecorationResolutionOrder(string input, string attribute, string value)
+        {
+            MemoryLogger logger = new MemoryLogger(null);
+            MockEventSource<JObject> mockEventSource = CreateEventsource<JObject>("InitialPositionUnspecified");
+            MockEventSink sink = CreateEventSink("ObjectDecorationExResolutionOrder", logger);
+            mockEventSource.Subscribe(sink);
+            DateTime timestamp = DateTime.UtcNow;
+            JObject data = JObject.Parse(input);
+            mockEventSource.MockEvent(data, timestamp);
+            Assert.Contains($"\"{attribute}\":\"{value}\"", sink.Records[0]);
+        }
+
         [Theory]
         [InlineData("ObjectDecorationExWithBadExpression")]
         [InlineData("ObjectDecorationExWithBadSyntax")]

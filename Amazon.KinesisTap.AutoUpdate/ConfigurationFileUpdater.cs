@@ -31,6 +31,8 @@ namespace Amazon.KinesisTap.AutoUpdate
     /// </summary>
     public class ConfigurationFileUpdater : TimerPlugin
     {
+        protected readonly int _downloadNetworkPriority;
+
         /// <summary>
         /// Source Url of the configuration file, such as an https://, s3:// or file:// url 
         /// </summary>
@@ -48,12 +50,23 @@ namespace Amazon.KinesisTap.AutoUpdate
             this.Interval = TimeSpan.FromMinutes(minuteInterval);
             this.Source = Utility.ResolveVariables(_config["Source"], Utility.ResolveVariable);
             this.Destination = _config["Destination"];
+            if (!int.TryParse(_config[ConfigConstants.DOWNLOAD_NETWORK_PRIORITY], out _downloadNetworkPriority))
+            {
+                _downloadNetworkPriority = ConfigConstants.DEFAULT_NETWORK_PRIORITY;
+            }
         }
 
         protected async override Task OnTimer()
         {
             try
             {
+                //Skip if network not available
+                if (!NetworkStatus.CanDownload(_downloadNetworkPriority))
+                {
+                    _logger?.LogInformation($"Skip configuration download due to network not allowed to download.");
+                    return;
+                }
+
                 _logger?.LogDebug($"Running config updater. Downloading {this.Source}.");
                 var configDownloader = UpdateUtility.CreateDownloaderFromUrl(this.Source, _context);
                 string newConfig = await configDownloader.ReadFileAsStringAsync(this.Source);

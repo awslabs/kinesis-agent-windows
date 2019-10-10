@@ -181,6 +181,11 @@
       "Format": "json"
     },
     {
+      "Id": "ObjectDecorationExResolutionOrder",
+      "ObjectDecorationEx": "From={regexp_extract($Message, 'From: (\\\\S+)', 1)};To={regexp_extract($Message, 'To: (\\\\S+)', 1)};Subject={regexp_extract($Message, 'Subject (.+)', 1)};Combined={coalesce($From, $To)}",
+      "Format": "json"
+    },
+    {
       "Id": "ObjectDecorationExWithBadExpression",
       "ObjectDecorationEx": "From={regexp_etract($Message, 'From: (\\\\S+)', 1)};To={regexp_extract($Message, 'To: (\\\\S+)', 1)};Subject={regexp_extract($Message, 'Subject (.+)', 1)}",
       "Format": "json"

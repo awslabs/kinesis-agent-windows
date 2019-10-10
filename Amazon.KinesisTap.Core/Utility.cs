@@ -279,7 +279,7 @@ namespace Amazon.KinesisTap.Core
 
         public static string GetKinesisTapConfigPath()
         {
-            string kinesisTapConfigPath = Environment.GetEnvironmentVariable(ConfigConstants.KINESISTAP_COFIG_PATH);
+            string kinesisTapConfigPath = Environment.GetEnvironmentVariable(ConfigConstants.KINESISTAP_CONFIG_PATH);
             if (string.IsNullOrWhiteSpace(kinesisTapConfigPath))
             {
                 kinesisTapConfigPath = AppContext.BaseDirectory;

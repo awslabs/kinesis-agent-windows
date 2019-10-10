@@ -25,7 +25,7 @@ namespace Amazon.KinesisTap.Core
 {
     public abstract class TimerPlugin : GenericPlugin
     {
-        Timer _timer;
+        protected Timer _timer;
 
         //Timestamp between plug-in invocation
         public TimeSpan Interval { get; protected set; }
@@ -59,7 +59,7 @@ namespace Amazon.KinesisTap.Core
             _timer.Change((int)Interval.TotalMilliseconds, (int)Interval.TotalMilliseconds);
         }
 
-        private void OnTimerInternal(object stateInfo)
+        protected void OnTimerInternal(object stateInfo)
         {
             DisableTimer();
             try

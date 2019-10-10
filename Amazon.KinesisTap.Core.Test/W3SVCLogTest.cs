@@ -26,7 +26,7 @@ namespace Amazon.KinesisTap.Core.Test
         [Fact]
         public void TestW3SVCLogRecord()
         {
-            var parser = new W3SVCLogParser();
+            var parser = new W3SVCLogParser(null);
             string log = @"#Software: Microsoft Internet Information Services 10.0
 #Version: 1.0
 #Date: 2017-05-31 06:00:30

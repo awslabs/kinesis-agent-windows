@@ -44,5 +44,25 @@ namespace Amazon.KinesisTap.Core
         public abstract void Start();
 
         public abstract void Stop();
+
+        protected int GetSettingIntWithDefault(string key, int defaultValue)
+        {
+            string stringValue = _config[key];
+            if (!string.IsNullOrWhiteSpace(stringValue))
+            {
+                if (int.TryParse(stringValue, out int intValue))
+                {
+                    return intValue;
+                }
+                else
+                {
+                    throw new ConfigurationException($"{key} must be an integer");
+                }
+            }
+            else
+            {
+                return defaultValue;
+            }
+        }
     }
 }

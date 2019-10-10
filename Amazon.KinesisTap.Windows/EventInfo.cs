@@ -36,5 +36,8 @@ namespace Amazon.KinesisTap.Windows
         public string Keywords { get; set; }
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public List<object> EventData { get; set; }
+        //Used to store XML returned from EventRecord.ToXml() method
+        [JsonIgnore]
+        public string Xml { get; set; }
     }
 }

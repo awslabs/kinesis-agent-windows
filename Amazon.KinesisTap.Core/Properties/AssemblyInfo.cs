@@ -18,3 +18,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Amazon.KinesisTap.AWS.Test")]
 [assembly: InternalsVisibleTo("Amazon.KinesisTap.Core.Test")]
 [assembly: InternalsVisibleTo("Amazon.KinesisTap.Hosting")]
+[assembly: InternalsVisibleTo("amazon-kinesistap")]
+[assembly: InternalsVisibleTo("Amazon.KinesisTap.DungeonMaster.Test")]

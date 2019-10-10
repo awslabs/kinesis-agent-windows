@@ -28,6 +28,7 @@ namespace Amazon.KinesisTap.Expression.Ast
         protected readonly Func<string, T, object> _localEvaluator;
         protected readonly FunctionBinder _functionBinder;
         protected readonly ILogger _logger;
+        protected readonly Dictionary<string, object> _contextVariables = new Dictionary<string, object>();
 
         public ExpressionEvaluationContext(Func<string, string> globalEvaluator, 
             Func<string, T, object> localEvaluator,
@@ -42,12 +43,19 @@ namespace Amazon.KinesisTap.Expression.Ast
 
         public object GetLocalVariable(string variableName, T data)
         {
+            if (_contextVariables.TryGetValue(variableName, out object value)) return value;
+
             return _localEvaluator(variableName, data);
         }
 
         public string GetVariable(string variableName)
         {
             return _globalEvaluator(variableName);
+        }
+
+        public void AddContextVariable(string variableName, object data)
+        {
+            _contextVariables[variableName] = data;
         }
 
         public FunctionBinder FunctionBinder => _functionBinder;

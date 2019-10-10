@@ -143,6 +143,7 @@ namespace Amazon.KinesisTap.Core
             Start();
         }
 
+
         public override void Stop()
         {
             if (_watcher != null)
@@ -227,7 +228,7 @@ namespace Amazon.KinesisTap.Core
                     }
                     if (InitialPosition != InitialPositionEnum.EOS)
                     {
-                        using (var fs = File.OpenWrite(GetBookmarkFilePath()))
+                        using (var fs = new FileStream(GetBookmarkFilePath(), FileMode.Create, FileAccess.Write, FileShare.None))
                         using (var sw = new StreamWriter(fs))
                         {
                             foreach (var logFile in _logFiles.Values)
@@ -311,12 +312,15 @@ namespace Amazon.KinesisTap.Core
                 {
                     _logFiles.Add(e.Name, CreateLogSourceInfo(e.FullPath, 0));
                 }
-                AddToBuffer(e.Name);
-                _logger?.LogInformation("File: {0} renamed to {1}", e.OldFullPath, e.FullPath);
             }
             catch(Exception ex)
             {
                 _logger?.LogError(ex.ToMinimized());
+            }
+            finally
+            {
+                AddToBuffer(e.Name);
+                _logger?.LogInformation("File: {0} renamed to {1}", e.OldFullPath, e.FullPath);
             }
         }
 
@@ -424,12 +428,11 @@ namespace Amazon.KinesisTap.Core
                                 _recordSubject.OnNext(record);
                                 recordsRead++;
                             }
+                            //Need to grab the position before disposing the reader because disposing the reader will dispose the stream
+                            bytesRead = sr.BaseStream.Position - sourceInfo.Position;
+                            sourceInfo.Position = sr.BaseStream.Position;
                             if (!_started) break;
                         }
-
-                        //Need to grab the position before disposing the reader because disposing the reader will dispose the stream
-                        bytesRead = fs.Position - sourceInfo.Position;
-                        sourceInfo.Position = fs.Position;
                         sourceInfo.ConsecutiveIOExceptionCount = 0;
                     }
                 }
@@ -652,12 +655,35 @@ namespace Amazon.KinesisTap.Core
             }
         }
 
-        private static TContext CreateLogSourceInfo(string filePath, long position)
+        private TContext CreateLogSourceInfo(string filePath, long position)
         {
-            var context = new TContext() { FilePath = filePath, Position = position };
+            var context = new TContext { FilePath = filePath, Position = position };
             if (position > 0)
             {
-                context.LineNumber = GetLineCount(filePath, position);
+                for (int attempt = 1; attempt <= 10; attempt++)
+                {
+                    try
+                    {
+                        context.LineNumber = GetLineCount(filePath, position);
+                        break;
+                    }
+                    catch (IOException ex)
+                    {
+                        // Rethrow immediately if max attempts has been reached
+                        if (attempt == 10) throw;
+
+                        // Check if the error was caused by a file lock. If so, attempt retry.
+                        if (ex.Message.Contains("it is being used by another process"))
+                        {
+                            _logger?.LogWarning("{0} (attempt {1})", ex.Message, attempt);
+                            Thread.Sleep(TimeSpan.FromSeconds(attempt));
+                            continue;
+                        }
+
+                        // If the error wasn't relating to a file lock, rethrow.
+                        throw;
+                    }
+                }
             }
             return context;
         }

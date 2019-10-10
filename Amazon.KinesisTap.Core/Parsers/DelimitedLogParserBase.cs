@@ -12,6 +12,7 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -22,14 +23,23 @@ namespace Amazon.KinesisTap.Core
 {
     public abstract class DelimitedLogParserBase<TData> : IRecordParser<TData, DelimitedLogContext> where TData : DelimitedLogRecordBase
     {
-        protected string _delimiter;
-        protected Func<string[], DelimitedLogContext, TData> _recordFactoryMethod;
-        protected DateTimeKind _timeZoneKind;
+        protected readonly IPlugInContext _plugInContext;
+        protected readonly string _delimiter;
+        protected readonly Func<string[], DelimitedLogContext, TData> _recordFactoryMethod;
+        protected readonly DateTimeKind _timeZoneKind;
 
         protected DelimitedLogParserBase(
             string delimiter,
             Func<string[], DelimitedLogContext, TData> recordFactoryMethod
-        ) : this(delimiter, recordFactoryMethod, DateTimeKind.Utc)
+        ) : this(null, delimiter, recordFactoryMethod, DateTimeKind.Utc)
+        {
+        }
+
+        protected DelimitedLogParserBase(
+            IPlugInContext plugInContext,
+            string delimiter,
+            Func<string[], DelimitedLogContext, TData> recordFactoryMethod
+        ) : this(plugInContext, delimiter, recordFactoryMethod, DateTimeKind.Utc)
         {
         }
 
@@ -37,8 +47,18 @@ namespace Amazon.KinesisTap.Core
             string delimiter,
             Func<string[], DelimitedLogContext, TData> recordFactoryMethod,
             DateTimeKind timeZoneKind
+        ) : this(null, delimiter, recordFactoryMethod, timeZoneKind)
+        {
+        }
+
+        protected DelimitedLogParserBase(
+            IPlugInContext plugInContext,
+            string delimiter,
+            Func<string[], DelimitedLogContext, TData> recordFactoryMethod,
+            DateTimeKind timeZoneKind
         )
         {
+            _plugInContext = plugInContext;
             _delimiter = delimiter;
             _recordFactoryMethod = recordFactoryMethod;
             _timeZoneKind = timeZoneKind;
@@ -66,6 +86,8 @@ namespace Amazon.KinesisTap.Core
             while (!sr.EndOfStream)
             {
                 string line = sr.ReadLine();
+                if (ShouldStopReading(line, sr, context)) break;
+
                 context.LineNumber++;
                 if (IsHeader(line))
                 {
@@ -88,13 +110,27 @@ namespace Amazon.KinesisTap.Core
                         data = SplitData(line);
                     }
                     TData record = _recordFactoryMethod(data, context);
-                    yield return new LogEnvelope<TData>(
-                        record,
-                        ToUniversalTime(record.TimeStamp),
-                        line,
-                        context.FilePath,
-                        context.Position,
-                        context.LineNumber);
+                    //If we failed to get the timestamp, we log the error and continue reading the log
+                    DateTime? timestamp = null;
+                    try
+                    {
+                        timestamp = record.TimeStamp;
+                    }
+                    catch(Exception ex)
+                    {
+                        _plugInContext?.Logger?.LogError($"Failed to get time stamp in {context.FilePath}, {context.LineNumber}: {ex.ToMinimized()}");
+                        _plugInContext?.Logger?.LogError(line);
+                    }
+                    if (timestamp.HasValue)
+                    {
+                        yield return new LogEnvelope<TData>(
+                            record,
+                            ToUniversalTime(timestamp.Value),
+                            line,
+                            context.FilePath,
+                            context.Position,
+                            context.LineNumber);
+                    }
                 }
             }
         }
@@ -106,10 +142,14 @@ namespace Amazon.KinesisTap.Core
             return line.Split(new[] { _delimiter }, StringSplitOptions.None);
         }
 
-
         protected abstract bool IsComment(string line);
 
         protected abstract bool IsHeader(string line);
+
+        protected virtual bool ShouldStopReading(string line, StreamReader sr, DelimitedLogContext context)
+        {
+            return false;
+        }
 
         protected virtual void AnalyzeMapping(DelimitedLogContext context) { }
 

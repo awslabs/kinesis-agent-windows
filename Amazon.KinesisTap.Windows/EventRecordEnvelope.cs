@@ -39,6 +39,16 @@ namespace Amazon.KinesisTap.Windows
             return $"[{_data.LogName}] [{_data.LevelDisplayName}] [{_data.EventId}] [{_data.ProviderName}] [{ _data.MachineName}] [{_data.Description}]";
         }
 
+        public override string GetMessage(string format)
+        {
+            if ("xml2".Equals(format, StringComparison.CurrentCultureIgnoreCase))
+            {
+                return _data.Xml;
+            }
+
+            return base.GetMessage(format);
+        }
+
         private static EventInfo ConvertEventRecordToEventInfo(EventRecord record, bool includeEventData)
         {
             var eventInfo = new EventInfo()
@@ -53,6 +63,7 @@ namespace Amazon.KinesisTap.Windows
                 Index = record.RecordId,
                 UserName = record.UserId?.Value,
                 Keywords = GetKeywords(record),
+                Xml = record.ToXml(),
             };
 
             if (includeEventData)

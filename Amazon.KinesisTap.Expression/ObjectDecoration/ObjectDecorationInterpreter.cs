@@ -59,6 +59,7 @@ namespace Amazon.KinesisTap.Expression.ObjectDecoration
                 var kv = (KeyValuePair<string, string>)Visit(keyValuePairNode, data);
                 if (!string.IsNullOrWhiteSpace(kv.Value)) //Suppress white spaces
                 {
+                    _evaluationContext.AddContextVariable($"${kv.Key}", kv.Value); //Add to the evaluation context as local variable
                     attributes.Add(kv);
                 }
             }

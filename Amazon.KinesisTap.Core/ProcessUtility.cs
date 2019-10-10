@@ -23,16 +23,25 @@ namespace Amazon.KinesisTap.Core
 {
     public static class ProcessUtility
     {
-        public static string ExecuteProcess(string filepath, string arguments)
+        public static string ExecuteProcess(string filepath, string arguments, string input)
         {
             Process process = new Process();
             process.StartInfo.FileName = filepath;
             process.StartInfo.Arguments = arguments;
             process.StartInfo.CreateNoWindow = true;
             process.StartInfo.UseShellExecute = false;
+            if (!string.IsNullOrWhiteSpace(input))
+            {
+                process.StartInfo.RedirectStandardInput = true;
+            }
             process.StartInfo.RedirectStandardOutput = true;
             process.StartInfo.RedirectStandardError = true;
             process.Start();
+            if (!string.IsNullOrWhiteSpace(input))
+            {
+                process.StandardInput.WriteLine(input);
+                process.StandardInput.Flush();
+            }
             string output = process.StandardOutput.ReadToEnd();
             string error = process.StandardError.ReadToEnd();
             process.WaitForExit();

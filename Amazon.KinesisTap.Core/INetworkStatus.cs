@@ -23,6 +23,22 @@ namespace Amazon.KinesisTap.Core
    /// </summary>
     public interface INetworkStatus
     {
+        /// <summary>
+        /// Indicate whether the network is available
+        /// </summary>
+        /// <returns>Whether the network is available</returns>
         bool IsAvailable();
+        /// <summary>
+        /// Indicate whether can upload
+        /// </summary>
+        /// <param name="priority">Indicate the designed priority. Smaller number is higher.</param>
+        /// <returns>Whether the program can upload</returns>
+        bool CanUpload(int priority);
+        /// <summary>
+        /// Indicate whether can download
+        /// </summary>
+        /// <param name="priority">Indicate the designed priority. Smaller number is higher.</param>
+        /// <returns>Whether the program can download</returns>
+        bool CanDownload(int priority);
     }
 }

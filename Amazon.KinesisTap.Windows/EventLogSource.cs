@@ -28,6 +28,7 @@ using System.Reactive.Subjects;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Amazon.KinesisTap.Windows
@@ -45,6 +46,11 @@ namespace Amazon.KinesisTap.Windows
         private readonly bool _includeEventData;
         private bool _isStartFromReset = false;
         private readonly string[] _customFilters;
+        private readonly object _bookmarkLock = new object(); //Ensure only one thread is accessing the memory structure at a time
+
+        private const int WRITING = 1;
+        private const int NOT_WRITING = 0;
+        private int _writingBookmark = NOT_WRITING; 
 
         public EventLogSource(string logName, string query, IPlugInContext context) : base(new ServiceDependency("EventLog"), context)
         {
@@ -182,7 +188,7 @@ namespace Amazon.KinesisTap.Windows
                     Task.Run(() => _watcher.Enabled = false).Wait(1000);
                     _watcher.Dispose();
                     _watcher = null;
-                    SaveBookmark();
+                    StartSavingBookmark();
                     _logger?.LogInformation($"EventLogSource id {this.Id} logging {_logName} EventLog with query {_query} stopped.");
                 }
                 catch (AggregateException ae)
@@ -277,9 +283,21 @@ namespace Amazon.KinesisTap.Windows
                     {
                         Directory.CreateDirectory(bookmarkDir);
                     }
-
-                    string json = JsonConvert.SerializeObject(_eventBookmark);
-                    File.WriteAllText(GetBookmarkFilePath(), json);
+                    long recordIdWritten = -1;
+                    long recordIdToWrite = _prevRecordId ?? 0;
+                    EventBookmark bookmark = null;
+                    while (recordIdWritten != recordIdToWrite) //Keep updating if there is something to write
+                    {
+                        lock (_bookmarkLock)
+                        {
+                            bookmark = _eventBookmark;
+                        }
+                        string json = JsonConvert.SerializeObject(bookmark);
+                        File.WriteAllText(GetBookmarkFilePath(), json);
+                        recordIdWritten = recordIdToWrite;
+                        Thread.Sleep(200);  //Yield to reduce CPU usage
+                        recordIdToWrite = _prevRecordId ?? 0; //Read the new ID to write
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -362,11 +380,36 @@ namespace Amazon.KinesisTap.Windows
             {
                 _prevRecordId = eventRecord.RecordId;
                 SendEventRecord(eventRecord);
-                _eventBookmark = eventRecord.Bookmark;
+                lock (_bookmarkLock)
+                {
+                    _eventBookmark = eventRecord.Bookmark;
+                }
+                StartSavingBookmark();
             }
             else
             {
                 _logger?.LogInformation($"EventLogSource id {this.Id} skipped duplicated log: {eventRecord.ToXml()}.");
+            }
+        }
+
+        private void StartSavingBookmark()
+        {
+            if (Interlocked.Exchange(ref _writingBookmark, WRITING) == NOT_WRITING)
+            {
+                //Kick off a different thread to save bookmark so that the original thread can continue processing
+                Task.Run((Action)SaveBookmark)
+                    .ContinueWith((t) =>
+                    {
+                        Interlocked.Exchange(ref _writingBookmark, NOT_WRITING);
+                        if (t.IsFaulted && t.Exception is AggregateException aex)
+                        {
+                            aex.Handle(ex =>
+                            {
+                                _logger?.LogError($"EventLogSource saving bookmark Exception {ex}");
+                                return true;
+                            });
+                        }
+                    });
             }
         }
 

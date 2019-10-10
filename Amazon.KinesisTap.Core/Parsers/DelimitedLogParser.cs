@@ -28,6 +28,7 @@ namespace Amazon.KinesisTap.Core
         protected string _headers;
 
         public DelimitedLogParser(
+            IPlugInContext plugInContext,
             string delimiter,
             Func<string[], DelimitedLogContext, DelimitedLogRecord> recordFactoryMethod,
             string headerPattern,
@@ -35,7 +36,7 @@ namespace Amazon.KinesisTap.Core
             string commentPattern,
             string headers,
             DateTimeKind timeZoneKind
-        ) : base (delimiter, recordFactoryMethod, timeZoneKind)
+        ) : base (plugInContext, delimiter, recordFactoryMethod, timeZoneKind)
         {
             if (!string.IsNullOrWhiteSpace(headerPattern)) _headerRegex = new Regex(headerPattern);
             if (!string.IsNullOrWhiteSpace(recordPattern)) _recordRegex = new Regex(recordPattern);

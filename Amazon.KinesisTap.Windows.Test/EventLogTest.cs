@@ -19,6 +19,7 @@ using System.Reactive;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 
 using Microsoft.Extensions.Configuration;
 using Xunit;
@@ -196,6 +197,23 @@ namespace Amazon.KinesisTap.Windows.Test
             GenerateAndCaptureEvents(records, config);
 
             Assert.True(((EventRecordEnvelope)records[0]).Data.EventData.Count > 0);
+        }
+
+
+        [Fact]
+        public void TestEventXml2()
+        {
+            ListEventSink records = new ListEventSink();
+            var config = TestUtility.GetConfig("Sources", "ApplicationLogWithEventData");
+
+            GenerateAndCaptureEvents(records, config);
+            string xml = ((EventRecordEnvelope)records[0]).GetMessage("xml2");
+            var xDocument = XDocument.Parse(xml);
+            var xRoot = xDocument.Root;
+            Assert.Equal("Event", xRoot.Name.LocalName);
+            XNamespace ns = xRoot.GetDefaultNamespace();
+            Assert.NotNull(xRoot.Element(ns + "System"));
+            Assert.NotNull(xRoot.Element(ns + "EventData"));
         }
 
         [Fact]
