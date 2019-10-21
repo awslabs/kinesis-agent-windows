@@ -6,7 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="AsyncFriendlyStackTrace" Version="1.6.0" />
-    <PackageReference Include="AWSSDK.S3" Version="3.3.24" />
+    <PackageReference Include="AWSSDK.S3" Version="3.3.104.36" />
   </ItemGroup>
 
   <ItemGroup>

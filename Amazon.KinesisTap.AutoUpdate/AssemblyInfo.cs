@@ -12,19 +12,6 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
+using System.Runtime.CompilerServices;
 
-namespace Amazon.KinesisTap.AutoUpdate
-{
-    /// <summary>
-    /// This is the model class for PackageVersion.json file
-    /// </summary>
-    public class PackageVersionInfo
-    {
-        public string Name { get; set; } = "KinesisTap";
-        public string Version { get; set; }
-        public string PackageUrl { get; set; }
-    }
-}
+[assembly: InternalsVisibleTo("Amazon.KinesisTap.AutoUpdate.Test")]

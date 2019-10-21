@@ -265,8 +265,11 @@ namespace Amazon.KinesisTap.Core
                 switch (e.ChangeType)
                 {
                     case WatcherChangeTypes.Deleted:
-                        RemoveFromBuffer(fileName);
-                        _logFiles.Remove(fileName);
+                        if (!File.Exists(e.FullPath)) //macOS sometimes fires this event when a file is created so we need this extra check.
+                        {
+                            RemoveFromBuffer(fileName);
+                            _logFiles.Remove(fileName);
+                        }
                         break;
                     case WatcherChangeTypes.Created:
                         if (!_logFiles.ContainsKey(fileName))

@@ -30,7 +30,7 @@ namespace Amazon.KinesisTap.Core.Test.Components
         public void TestBuffer()
         {
             ManualResetEvent sinkWaitHandle = new ManualResetEvent(false);
-            Buffer<int> buffer = new Buffer<int>(10, l =>
+            Buffer<int> buffer = new Buffer<int>(10, null, l =>
             {
                 sinkWaitHandle.WaitOne();
             });

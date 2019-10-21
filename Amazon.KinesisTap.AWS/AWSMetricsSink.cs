@@ -39,7 +39,7 @@ namespace Amazon.KinesisTap.AWS
         protected long _latency;
 
         private Queue<TRequest> _requestQueue = new Queue<TRequest>();
-        private readonly object _syncObject = new object();
+        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 
         public AWSMetricsSink(int defaultInterval, IPlugInContext context) : base(defaultInterval, context)
         {
@@ -131,7 +131,7 @@ namespace Amazon.KinesisTap.AWS
         protected async Task FlushQueueAsync()
         {
             //Only one thread to flush at a time
-            if (Monitor.TryEnter(_syncObject))
+            if (_semaphore.Wait(0))
             {
                 try
                 {
@@ -157,7 +157,7 @@ namespace Amazon.KinesisTap.AWS
                 }
                 finally
                 {
-                    Monitor.Exit(_syncObject);
+                    _semaphore.Release();
                 }
             }
         }

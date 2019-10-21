@@ -81,7 +81,7 @@ namespace Amazon.KinesisTap.Core
                 if (maxBatches == 0) maxBatches = 100;
                 lowerPriorityQueue = new InMemoryQueue<List<Envelope<TRecord>>>(maxBatches);
             }
-            _buffer = new HiLowBuffer<List<Envelope<TRecord>>>(1, OnNextBatch, lowerPriorityQueue);
+            _buffer = new HiLowBuffer<List<Envelope<TRecord>>>(1, _context.Logger, OnNextBatch, lowerPriorityQueue);
             _batch = new Batch<Envelope<TRecord>>(TimeSpan.FromSeconds(_interval),
                     new long[] { _count, _maxBatchSize },
                     new Func<Envelope<TRecord>, long>[]

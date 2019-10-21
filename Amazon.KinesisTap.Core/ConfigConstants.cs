@@ -70,6 +70,8 @@ namespace Amazon.KinesisTap.Core
         //Environment variables
         public const string KINESISTAP_PROGRAM_DATA = "KINESISTAP_PROGRAM_DATA";
         public const string KINESISTAP_CONFIG_PATH = "KINESISTAP_CONFIG_PATH";
+        public const string COMPUTER_NAME = "COMPUTERNAME";
+        public const string USER_NAME = "USERNAME";
 
         //None-Windows
         public const string KINESISTAP_CORE = "Amazon.KinesisTap.ConsoleHost.dll";

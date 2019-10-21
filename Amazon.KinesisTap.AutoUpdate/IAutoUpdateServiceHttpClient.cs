@@ -13,18 +13,19 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Text;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Amazon.KinesisTap.AutoUpdate
 {
-    /// <summary>
-    /// This is the model class for PackageVersion.json file
-    /// </summary>
-    public class PackageVersionInfo
+    public interface IAutoUpdateServiceHttpClient : IDisposable
     {
-        public string Name { get; set; } = "KinesisTap";
-        public string Version { get; set; }
-        public string PackageUrl { get; set; }
+        /// <summary>
+        /// Send HttpRequestMessage using httpclient
+        /// </summary>
+        /// <param name="request">HttpRequestMessage</param>
+        /// <param name="ct">cancellation token</param>
+        Task<string> SendRequest(HttpRequestMessage request, CancellationToken ct);
     }
 }

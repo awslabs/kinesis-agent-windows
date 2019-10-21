@@ -14,6 +14,7 @@
  */
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.ServiceProcess;
@@ -133,7 +134,7 @@ namespace KinesisTapMsiCustomAction
         }
 
         /// <summary>
-        /// Upgrade from Powershell installed KinesisTap. Detect if the KinesisTap is installed via Powershell, if it is, stop the service and remove powershell registers.
+        /// Upgrade from Powershell installed KinesisTap. Detect if the KinesisTap is installed via Powershell, if it is, remove powershell registers.
         /// </summary>
         /// <param name="session"></param>
         /// <returns></returns>
@@ -158,24 +159,6 @@ namespace KinesisTapMsiCustomAction
                     if (valueData.Contains("uninstall.ps1"))
                     {
                         session.Log($@"KinesisTap found is PowerShell installed.");
-                        ServiceController kinesistapService = ServiceController.GetServices()
-                            .FirstOrDefault(s => s.ServiceName == serviceName);
-
-                        if (kinesistapService == null)
-                        {
-                            session.Log("KinesisTap service is not installed.");
-                        }
-                        else
-                        {
-                            session.Log("KinesisTap service is installed.");
-
-                            // Stop KinesisTap service if it is running
-                            if (kinesistapService.CanStop)
-                            {
-                                session.Log("KinesisTap service is running. Terminating...");
-                                kinesistapService.Stop();
-                            }
-                        }
                         session.Log($@"Deleting registry 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{serviceName}'.");
                         key.Close();
                         registryKeyHKLM.DeleteSubKeyTree(keyPath);
@@ -194,6 +177,85 @@ namespace KinesisTapMsiCustomAction
 
             session.Log("Finish upgrading Powershell installed KinesisTap");
             return ActionResult.Success;
+        }
+
+        /// <summary>
+        /// Ensure KinesisTap service is stopped. If not, kill the process
+        /// </summary>
+        /// <param name="session"></param>
+        /// <returns></returns>
+        [CustomAction]
+        public static ActionResult EnsureKinesisTapNotRunning(Session session)
+        {
+            session.Log("Begin ensuring KinesisTap Service is stopped");
+            //Need to run InstallAppSettings.SetProperty custom action first to set the value
+            string serviceName = session.CustomActionData["SERVICENAME"];
+
+            try
+            {
+                EnsureKinesisTapServiceStopped(session, serviceName);
+
+                EnsureKinesisTapProcessNotRunning(session, serviceName);
+            }
+            catch (Exception ex)
+            {
+                session.Log($"EnsureKinesisTapServiceStopped exception: {ex.Message}");
+            }
+
+            session.Log("Finish ensuring KinesisTap Service is stopped");
+
+            return ActionResult.Success;
+
+        }
+
+        private static void EnsureKinesisTapProcessNotRunning(Session session, string serviceName)
+        {
+            Process[] processes = Process.GetProcessesByName(serviceName);
+            if (processes.Length == 0)
+            {
+                session.Log($"{serviceName} process is not running.");
+            }
+            else
+            {
+                session.Log($"{serviceName} process is running. Killing process.");
+                foreach (var process in processes)
+                {
+                    try
+                    {
+                        process.Kill();
+                    }
+                    catch (Exception ex)
+                    {
+                        session.Log($"Failed to kill the process {process.MainModule}: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+        private static void EnsureKinesisTapServiceStopped(Session session, string serviceName)
+        {
+            ServiceController sc = ServiceController.GetServices().FirstOrDefault(s => s.ServiceName == serviceName);
+            if (sc == null)
+            {
+                session.Log($"{serviceName} service is not installed.");
+            }
+            else
+            {
+                session.Log($"{serviceName} service is installed. Stopping service.");
+                try
+                {
+                    if (sc.Status != ServiceControllerStatus.Stopped && sc.Status != ServiceControllerStatus.StopPending)
+                    {
+                        sc.Stop();
+                        sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(10)); //Give service 10 seconds to shut down but not forever
+                    }
+                }
+                catch (Exception ex)
+                {
+                    session.Log($"EnsureKinesisTapServiceStopped stopping service exception: {ex.Message}");
+                }
+
+            }
         }
     }
 }

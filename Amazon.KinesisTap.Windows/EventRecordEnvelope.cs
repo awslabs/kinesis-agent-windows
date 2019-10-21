@@ -23,6 +23,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 using Amazon.KinesisTap.Core;
+using Newtonsoft.Json.Linq;
 
 namespace Amazon.KinesisTap.Windows
 {
@@ -45,8 +46,29 @@ namespace Amazon.KinesisTap.Windows
             {
                 return _data.Xml;
             }
+            else if ("sushi".Equals(format, StringComparison.CurrentCultureIgnoreCase))
+            {
+                return FormatSushiMessage();
+            }
 
             return base.GetMessage(format);
+        }
+
+        private string FormatSushiMessage()
+        {
+            JObject json =
+                new JObject(
+                    //Note that EventID is depreciated. See https://w.amazon.com/bin/view/Sushi/WindowsAgent
+                    new JProperty("Id", _data.EventId),
+                    new JProperty("EventCode", _data.EventId),
+                    new JProperty("MachineName", _data.MachineName),
+                    new JProperty("ProviderName", _data.ProviderName),
+                    new JProperty("RecordId", _data.Index),
+                    new JProperty("TimeCreated", _data.TimeCreated),
+                    new JProperty("UserId", _data.UserName ?? "N\\A"),
+                    new JProperty("Message", _data.Description));
+
+            return json.ToString();
         }
 
         private static EventInfo ConvertEventRecordToEventInfo(EventRecord record, bool includeEventData)

@@ -28,7 +28,14 @@ namespace Amazon.KinesisTap.Core
 {
     public static class Utility
     {
+        //Cache the OS platform information
         public static readonly bool IsWindow = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+        public static readonly bool IsMacOs = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+        public static readonly bool IsLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+        public static readonly string Platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Windows" :
+            RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "Linux" :
+            RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "macOS" : "Unknown";
+
         public static Func<string, string> ResolveEnvironmentVariable = Environment.GetEnvironmentVariable; //Can override this function for different OS
 
         private static string _computerName;

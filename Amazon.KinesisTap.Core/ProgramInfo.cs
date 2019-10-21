@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace Amazon.KinesisTap.Core
 {
@@ -76,12 +77,24 @@ namespace Amazon.KinesisTap.Core
         /// <returns></returns>
         public static double GetMemoryUsage()
         {
-            return _process.PrivateMemorySize64 / 1024D / 1024;
+            if (Utility.IsWindow)
+            {
+                return _process.PrivateMemorySize64 / 1024D / 1024;
+            }
+            else
+            {
+                //On non-windows platform, we report WorkingSet64 due to this bug: https://github.com/dotnet/corefx/issues/23449
+                //This over-estimates memory so we need to fix once Microsoft fixed .net SDK
+                return _process.WorkingSet64 / 1024D / 1024;
+            }
         }
 
         public static double GetCpuUsage()
         {
             double processorTime = _process.TotalProcessorTime.TotalMilliseconds;
+            //There is a bug in .net SDK for Mac but Microsoft will fix only in 3.0: https://github.com/dotnet/corefx/issues/37614
+            //Need to delete this line when moving to .net core 3.0
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) processorTime /= 100.0;
             DateTime sampleTime = DateTime.Now;
             double processTimeUsed;
             double timeLapsed;

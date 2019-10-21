@@ -94,7 +94,7 @@
       Id="InstallNLog.SetProperty"
       Property="InstallNLog"
       Value="INSTALLFOLDER=[INSTALLFOLDER]" />
-    <!-- .net custom action that install NLog.xml. Update the binding policy during upgrade. -->
+    <!-- .net custom action that install NLog.xml.-->
     <CustomAction
       Id="InstallNLog"
       BinaryKey="KinesisTapMsiCustomAction"
@@ -105,17 +105,30 @@
       Id="UpgradePowershellInstalledKinesisTap.SetProperty"
       Property="UpgradePowershellInstalledKinesisTap"
       Value="SERVICENAME=$(var.ServiceName)" />
-    <!-- .net custom action that upgrade from Powershell installed KinesisTap. Update the binding policy during upgrade. -->
+    <!-- .net custom action that upgrade from Powershell installed KinesisTap.-->
     <CustomAction
       Id="UpgradePowershellInstalledKinesisTap"
       BinaryKey="KinesisTapMsiCustomAction"
       DllEntry="UpgradePowershellInstalledKinesisTap"
       Impersonate="no"
       Execute="deferred" />
-    
+    <CustomAction
+      Id="EnsureKinesisTapNotRunning.SetProperty"
+      Property="EnsureKinesisTapNotRunning"
+      Value="SERVICENAME=$(var.ServiceName)" />
+    <!-- .net custom action that upgrade from Powershell installed KinesisTap. -->
+    <CustomAction
+      Id="EnsureKinesisTapNotRunning"
+      BinaryKey="KinesisTapMsiCustomAction"
+      DllEntry="EnsureKinesisTapNotRunning"
+      Impersonate="no"
+      Execute="deferred" />
+
     <!-- Schedule custom actions in the installation pipeline. -->
     <InstallExecuteSequence>
       <!-- Run the following custom action only on install or upgrade. -->
+      <Custom Action='EnsureKinesisTapNotRunning.SetProperty' After='CostFinalize'>NOT REMOVE</Custom>
+      <Custom Action='EnsureKinesisTapNotRunning' After='StopServices'>NOT REMOVE</Custom>
       <Custom Action='UpgradePowershellInstalledKinesisTap.SetProperty' After='CostFinalize'>NOT REMOVE</Custom>
       <Custom Action='UpgradePowershellInstalledKinesisTap' After='InstallFiles'>NOT REMOVE</Custom>
       <Custom Action='InstallAppSettings.SetProperty' After='CostFinalize'>NOT REMOVE</Custom>

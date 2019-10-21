@@ -30,7 +30,7 @@ namespace Amazon.KinesisTap.Core.Test.Components
         {
             List<int> output = new List<int>();
             ManualResetEvent sinkWaitHandle = new ManualResetEvent(false);
-            HiLowBuffer<int> buffer = new HiLowBuffer<int>(1, l =>
+            HiLowBuffer<int> buffer = new HiLowBuffer<int>(1, null, l =>
             {
                 sinkWaitHandle.WaitOne();
                 output.Add(l);
@@ -69,7 +69,7 @@ namespace Amazon.KinesisTap.Core.Test.Components
                 100,
                 directory,
                 integerSerializer);
-            HiLowBuffer<int> buffer = new HiLowBuffer<int>(1, l =>
+            HiLowBuffer<int> buffer = new HiLowBuffer<int>(1, null, l =>
             {
                 sinkWaitHandle.WaitOne();
                 output.Add(l);

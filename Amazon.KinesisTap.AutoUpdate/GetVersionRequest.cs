@@ -16,27 +16,16 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Amazon.KinesisTap.Core
+namespace Amazon.KinesisTap.AutoUpdate
 {
-    public class FactoryCatalog<T> : IFactoryCatalog<T>
+    public class GetVersionRequest
     {
-        protected IDictionary<string, IFactory<T>> _catalog = new Dictionary<string, IFactory<T>>(StringComparer.OrdinalIgnoreCase);
+        public string ProductKey { get; set; }
 
-        public IFactory<T> GetFactory(string entry)
-        {
-            if (!string.IsNullOrWhiteSpace(entry) && _catalog.TryGetValue(entry, out var factory))
-            {
-                return factory;
-            }
-            else
-            {
-                return null;
-            }
-        }
+        public string AgentId { get; set; }
 
-        public void RegisterFactory(string entry, IFactory<T> factory)
-        {
-            _catalog[entry] = factory;
-        }
+        public string Ring { get; set; }
+
+        public string Version { get; set; }
     }
 }

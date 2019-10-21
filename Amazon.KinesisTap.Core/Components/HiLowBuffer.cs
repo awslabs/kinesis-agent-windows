@@ -17,6 +17,8 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 
+using Microsoft.Extensions.Logging;
+
 namespace Amazon.KinesisTap.Core
 {
     /// <summary>
@@ -28,10 +30,11 @@ namespace Amazon.KinesisTap.Core
         private ISimpleQueue<T> _lowPriorityQueue;
 
         public HiLowBuffer(
-            int sizeHint, 
+            int sizeHint,
+            ILogger logger,
             Action<T> onNext,
             ISimpleQueue<T> lowPriorityQueue)
-            : base(sizeHint, onNext)
+            : base(sizeHint, logger, onNext)
         {
             _lowPriorityQueue = lowPriorityQueue;
         }
