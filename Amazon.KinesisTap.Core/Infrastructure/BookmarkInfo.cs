@@ -12,16 +12,21 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
-
 namespace Amazon.KinesisTap.Core
 {
-    public interface ILogEnvelope : IEnvelope
+    using System;
+    using System.Threading;
+
+    public class BookmarkInfo
     {
-        string FilePath { get; }
-        string FileName { get; }
-        long LineNumber { get; }
+        public string Name { get; set; }
+
+        public int Id { get; set; }
+
+        public long Position { get; set; }
+
+        public Action<long> UpdateAction { get; set; }
+
+        public SemaphoreSlim Semaphore { get; private set; } = new SemaphoreSlim(1, 1);
     }
 }

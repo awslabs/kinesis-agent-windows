@@ -12,35 +12,27 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
-
 namespace Amazon.KinesisTap.Core
 {
+    using System;
+    using System.IO;
+
     public class LogEnvelope<TData> : Envelope<TData>, ILogEnvelope
     {
         protected string _rawRecord;
-        protected string _filePath;
-        protected long _position;
-        protected long _lineNumber;
 
-        public LogEnvelope(TData data, DateTime timestamp, string rawRecord, string filePath, long position, long lineNumber) : base(data, timestamp)
+        public LogEnvelope(TData data, DateTime timestamp, string rawRecord, string filePath, long position, long lineNumber, int? bookmarkId = null) : base(data, timestamp, bookmarkId, position)
         {
             _rawRecord = rawRecord;
-            _filePath = filePath;
-            _position = position;
-            _lineNumber = lineNumber;
+            this.LineNumber = lineNumber;
+            this.FilePath = filePath;
         }
 
-        public string FilePath => _filePath;
+        public string FilePath { get; set; }
 
-        public string FileName => Path.GetFileName(_filePath);
+        public long LineNumber { get; set; }
 
-        public long Position => _position;
-
-        public long LineNumber => _lineNumber;
+        public string FileName => Path.GetFileName(this.FilePath);
 
         public override string ToString()
         {

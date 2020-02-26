@@ -51,6 +51,8 @@ namespace Amazon.KinesisTap.AWS
         protected long _latency;
         protected long _clientLatency;
 
+        protected bool? _hasBookmarkableSource;
+
         public AWSBufferedEventSink(
             IPlugInContext context,
             int defaultInterval, 
@@ -196,6 +198,41 @@ namespace Amazon.KinesisTap.AWS
             return (ex is AmazonServiceException
                 && ex?.InnerException is WebException)
                 || ex is NotAuthorizedException;
+        }
+
+        /// <summary>
+        /// Saves bookmarks given a list of <see cref="Envelope{T}"/> records.
+        /// It will group and order the records so that if they contain references to multiple bookmarks,
+        /// all of those bookmarks will be updated with the maximum "Position" value of all records in the set.
+        /// </summary>
+        /// <typeparam name="T">Any object</typeparam>
+        /// <param name="envelopes">A list of <see cref="Envelope{T}"/> objects that will be scanned for bookmark information.</param>
+        protected void SaveBookmarks<T>(List<Envelope<T>> envelopes)
+        {
+            // Ordering records is computationally expensive, so we only want to do it if bookmarking is enabled.
+            // It's much cheaper to check a boolean property than to order the records and check if they have a bookmarkId.
+            // Unfortunately, we don't know if the source is bookmarkable until we get some records, so we have to set this up
+            // as a nullable property and set it's value on the first incoming batch of records.
+            if (!this._hasBookmarkableSource.HasValue)
+                this._hasBookmarkableSource = envelopes.Any(i => i.BookmarkId.HasValue && i.BookmarkId.Value > 0);
+
+            // If this is not a bookmarkable source, return immediately.
+            if (!this._hasBookmarkableSource.Value) return;
+
+            // The events may not be in order, and we might have records from multiple sources, so we need to do a grouping.
+            var bookmarks = envelopes
+                .GroupBy(i => i.BookmarkId)
+                .Select(i => new { BookmarkId = i.Key ?? 0, Position = i.Max(j => j.Position) });
+
+            // Start each new task asynchronously so that it doesn't block the sink.
+            // We'll pass the sink's logger to the BookmarkManager so that the log entries can be
+            // traced back to the sink that triggered the Update callback.
+            foreach (var bm in bookmarks)
+            {
+                // If the bookmarkId is 0 then bookmarking isn't enabled on the source, so we'll drop it.
+                if (bm.BookmarkId == 0) continue;
+                Task.Run(() => BookmarkManager.SaveBookmark(bm.BookmarkId, bm.Position, this._logger));
+            }
         }
     }
 }

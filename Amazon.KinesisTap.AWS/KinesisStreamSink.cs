@@ -133,6 +133,8 @@ namespace Amazon.KinesisTap.AWS
                 _latency = Utility.GetElapsedMilliseconds() - elapsedMilliseconds;
                 _recordsSuccess += records.Count;
                 _logger?.LogDebug($"KinesisStreamSink {this.Id} successfully sent {records.Count} records {batchBytes} bytes.");
+
+                this.SaveBookmarks(records);
             }
             catch (Exception ex)
             {

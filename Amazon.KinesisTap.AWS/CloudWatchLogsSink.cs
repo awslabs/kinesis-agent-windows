@@ -170,6 +170,9 @@ namespace Amazon.KinesisTap.AWS
                             _recordsSuccess += records.Count;
                             _logger?.LogDebug($"CloudWatchLogsSink client {this.Id} successfully sent {records.Count} records {batchBytes} bytes.");
                         }
+
+                        this.SaveBookmarks(records);
+
                         break;
                     }
                     catch (ResourceNotFoundException)
@@ -205,7 +208,7 @@ namespace Amazon.KinesisTap.AWS
                                 {
                                     _sequenceToken = null;
                                 }
-                                if (_sequenceToken != null && invalidSequenceTokenCount < 2)
+                                else if (_sequenceToken != null && invalidSequenceTokenCount < 2)
                                 {
                                     continue; //Immediately try so that the sequence token does not become invalid again
                                 }

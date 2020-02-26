@@ -12,10 +12,6 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
-
 namespace Amazon.KinesisTap.Core
 {
     /// <summary>
@@ -25,19 +21,25 @@ namespace Amazon.KinesisTap.Core
     public interface ISimpleQueue<T>
     {
         /// <summary>
-        /// Expect InvalidOperationException when exceeding capacity
+        /// Tries to add an item from the queue, returns true if successful and false if not.
         /// </summary>
-        /// <param name="item"></param>
-        void Enqueue(T item);
+        /// <param name="item">The item to add to the queue.</param>
+        bool TryEnqueue(T item);
 
         /// <summary>
-        /// Expect InvalidOperationException when queue is empty
+        /// Tries to remove an item from the queue, returns true if successful and false if not.
         /// </summary>
-        /// <returns></returns>
-        T Dequeue();
+        /// <param name="item">The item removed from the queue.</param>
+        bool TryDequeue(out T item);
 
+        /// <summary>
+        /// Gets the number of items currently in the queue.
+        /// </summary>
         int Count { get; }
 
+        /// <summary>
+        /// Gets the capacity of the queue.
+        /// </summary>
         int Capacity { get; }
     }
 }

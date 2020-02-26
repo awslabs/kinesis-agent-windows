@@ -18,6 +18,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 using Amazon.KinesisTap.Core;
+using Amazon.KinesisTap.Core.EMF;
 
 namespace Amazon.KinesisTap.Core.Pipes
 {
@@ -25,10 +26,12 @@ namespace Amazon.KinesisTap.Core.Pipes
     public class PipeFactory : IFactory<IPipe>
     {
         public const string REGEX_FILTER_PIPE = "regexfilterpipe";
+        public const string EMF_PIPE = "emfpipe";
 
         public void RegisterFactory(IFactoryCatalog<IPipe> catalog)
         {
             catalog.RegisterFactory(REGEX_FILTER_PIPE, this);
+            catalog.RegisterFactory(EMF_PIPE, this);
         }
 
         public IPipe CreateInstance(string entry, IPlugInContext context)
@@ -36,14 +39,18 @@ namespace Amazon.KinesisTap.Core.Pipes
             IConfiguration config = context.Configuration;
             ILogger logger = context.Logger;
 
+            Type sourceType = (Type)context.ContextData[PluginContext.SOURCE_TYPE];
+            Type sinkType = (Type)context.ContextData[PluginContext.SINK_TYPE];
+            Type sourceDataType = sourceType.GenericTypeArguments[0];
+
             switch (entry.ToLower())
             {
                 case REGEX_FILTER_PIPE:
-                    Type sourceType = (Type)context.ContextData[PluginContext.SOURCE_TYPE];
-                    Type sinkType = (Type)context.ContextData[PluginContext.SINK_TYPE];
-                    Type sourceDataType = sourceType.GenericTypeArguments[0];
                     Type regexFilterPipeType = typeof(RegexFilterPipe<>).MakeGenericType(sourceDataType);
                     return (IPipe)Activator.CreateInstance(regexFilterPipeType, context);
+                case EMF_PIPE:
+                    Type emfPipeType = typeof(EMFPipe<>).MakeGenericType(sourceDataType);
+                    return (IPipe)Activator.CreateInstance(emfPipeType, context);
                 default:
                     throw new ArgumentException($"Source {entry} not recognized.");
             }

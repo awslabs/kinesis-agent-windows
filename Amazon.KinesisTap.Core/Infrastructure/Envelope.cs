@@ -45,9 +45,21 @@ namespace Amazon.KinesisTap.Core
             _timeStamp = timestamp;
         }
 
+        public Envelope(T data, DateTime timestamp, int? bookmarkId, long position)
+        {
+            _data = data;
+            _timeStamp = timestamp;
+            this.Position = position;
+            this.BookmarkId = bookmarkId;
+        }
+
         public virtual DateTime Timestamp => _timeStamp;
 
         public T Data => _data;
+
+        public long Position { get; set; }
+
+        public int? BookmarkId { get; set; }
 
         public virtual string GetMessage(string format)
         {

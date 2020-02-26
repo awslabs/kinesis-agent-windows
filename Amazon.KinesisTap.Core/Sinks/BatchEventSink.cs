@@ -12,16 +12,10 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
-using System.Text;
-using System.Threading;
 
 namespace Amazon.KinesisTap.Core
 {
@@ -71,10 +65,8 @@ namespace Amazon.KinesisTap.Core
                 if (maxBatches == 0) maxBatches = 10000;
                 string queuePath = _config[ConfigConstants.QUEUE_PATH];
                 if (string.IsNullOrWhiteSpace(queuePath))
-                {
                     queuePath = Path.Combine(Utility.GetKinesisTapProgramDataPath(), ConfigConstants.QUEUE, this.Id);
-                }
-                lowerPriorityQueue = new FilePersistentQueue<List<Envelope<TRecord>>>(maxBatches, queuePath, this.GetSerializer());
+                lowerPriorityQueue = new FilePersistentQueue<List<Envelope<TRecord>>>(maxBatches, queuePath, this.GetSerializer(), this._logger);
             }
             else //in memory
             {
@@ -101,7 +93,7 @@ namespace Amazon.KinesisTap.Core
                 TRecord record = CreateRecord(value);
                 if (record != null)
                 {
-                    _batch.Add(new Envelope<TRecord>(record, value.Timestamp));
+                    _batch.Add(new Envelope<TRecord>(record, value.Timestamp, value.BookmarkId, value.Position));
                 }
             }
             catch (Exception ex)

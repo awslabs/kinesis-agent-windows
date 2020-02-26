@@ -77,7 +77,7 @@ namespace Amazon.KinesisTap.Core
         /// <param name="source">The source to be configured</param>
         public static void LoadCommonSourceConfig(IConfiguration config, EventSource<T> source)
         {
-            InitialPositionEnum initialPosition = InitialPositionEnum.EOS;
+            InitialPositionEnum initialPosition = InitialPositionEnum.Bookmark;
             string initialPositionConfig = config["InitialPosition"];
             if (!string.IsNullOrEmpty(initialPositionConfig))
             {

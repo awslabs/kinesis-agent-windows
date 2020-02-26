@@ -22,7 +22,7 @@ namespace Amazon.KinesisTap.Core.Test
         [Fact]
         public void TestInitialPositionUnspecified()
         {
-            RunInitialPositionTest("InitialPositionUnspecified", InitialPositionEnum.EOS);
+            RunInitialPositionTest("InitialPositionUnspecified", InitialPositionEnum.Bookmark);
         }
 
         [Fact]

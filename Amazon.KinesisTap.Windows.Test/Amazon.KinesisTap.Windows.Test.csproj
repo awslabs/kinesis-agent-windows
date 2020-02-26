@@ -187,6 +187,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="EventLogBookmarkBufferedSinkTest.cs" />
     <Compile Include="EventLogTest.cs" />
     <Compile Include="PerformanceCounterSourceTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -200,6 +201,10 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Amazon.KinesisTap.AWS\Amazon.KinesisTap.AWS.csproj">
+      <Project>{e0708a8e-149c-4968-9313-de3779721045}</Project>
+      <Name>Amazon.KinesisTap.AWS</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Amazon.KinesisTap.Core\Amazon.KinesisTap.Core.csproj">
       <Project>{64117edf-e228-43cb-9425-9c3a7f2ebd99}</Project>
       <Name>Amazon.KinesisTap.Core</Name>

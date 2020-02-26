@@ -31,6 +31,8 @@ namespace Amazon.KinesisTap.AWS
 {
     public static class AWSUtilities
     {
+        private static string _userAgent;
+
         public static string EvaluateAWSVariable(string variable)
         {
             if (!variable.StartsWith("{") || !variable.EndsWith("}"))
@@ -85,9 +87,30 @@ namespace Amazon.KinesisTap.AWS
         public static TAWSClient CreateAWSClient<TAWSClient>(IPlugInContext context) where TAWSClient : AmazonServiceClient
         {
             (AWSCredentials credential, RegionEndpoint region) = GetAWSCredentialsRegion(context);
-            TAWSClient awsClient;
-            awsClient = CreateAWSClient<TAWSClient>(credential, region);
-            awsClient.BeforeRequestEvent += AwsClient_BeforeRequestEvent;
+            var awsClient = CreateAWSClient<TAWSClient>(credential, region);
+            if (context.Configuration["SinkType"]?.ToLower() == AWSEventSinkFactory.CLOUD_WATCH_LOG_EMF)
+            {
+                awsClient.BeforeRequestEvent += (sender, args) =>
+                {
+                    if (args is WebServiceRequestEventArgs wsArgs)
+                    {
+                        SetCommonRequestHeaders(wsArgs);
+
+                        // Add the header required for EMF parsing in CloudWatch Logs
+                        wsArgs.Headers["x-amzn-logs-format"] = "Structured";
+                    }
+                };
+            }
+            else
+            {
+                awsClient.BeforeRequestEvent += (sender, args) =>
+                {
+                    if (args is WebServiceRequestEventArgs wsArgs)
+                    {
+                        SetCommonRequestHeaders(wsArgs);
+                    }
+                };
+            }
             return awsClient;
         }
 
@@ -229,16 +252,12 @@ namespace Amazon.KinesisTap.AWS
             }
         }
 
-        private static string _userAgent;
-
-        private static void AwsClient_BeforeRequestEvent(object sender, RequestEventArgs args)
+        private static void SetCommonRequestHeaders(WebServiceRequestEventArgs wsArgs)
         {
-            WebServiceRequestEventArgs wsArgs = args as WebServiceRequestEventArgs;
-            if (wsArgs != null)
-            {
-                string currentUserAgent = wsArgs.Headers[AWSSDKUtils.UserAgentHeader];
-                wsArgs.Headers[AWSSDKUtils.UserAgentHeader] = UserAgent;
-            }
+            wsArgs.Headers[AWSSDKUtils.UserAgentHeader] = UserAgent;
+
+            // Keep connections alive rather than establishing a new TLS session each time
+            // wsArgs.Headers["Connection"] = "KeepAlive";
         }
     }
 }

@@ -39,7 +39,7 @@ namespace Amazon.KinesisTap.AutoUpdate
         const int DEFAULT_INTERVAL = 60;
         const string PACKAGE_VERSION = "PackageVersion";
         const string PRODUCT_KEY = "ProductKey";
-        const string RING = "Ring";
+        const string DEPLOYMENT_STAGE = "DeploymentStage";
         const string EXT_NUPKG = ".nupkg";
         const string EXT_RPM = ".rpm";
         const string EXT_MSI = ".msi";
@@ -48,7 +48,7 @@ namespace Amazon.KinesisTap.AutoUpdate
         protected readonly int _downloadNetworkPriority;
 
         private readonly string productKey;
-        private readonly string ring;
+        private readonly string deploymentStage;
         private readonly RegionEndpoint region;
         private readonly AWSCredentials credential;
         private readonly IAutoUpdateServiceHttpClient httpClient;
@@ -68,14 +68,14 @@ namespace Amazon.KinesisTap.AutoUpdate
             this.PackageVersion = Utility.ResolveVariables(_config[PACKAGE_VERSION], Utility.ResolveVariable);
             (this.credential, this.region) = AWSUtilities.GetAWSCredentialsRegion(context);
             this.productKey = _config[PRODUCT_KEY];
-            this.ring = _config[RING];
+            this.deploymentStage = _config[DEPLOYMENT_STAGE];
 
             if (this.PackageVersion.Contains("execute-api")) // check if using AutoUpdate service
             {
-                if (this.credential == null || this.region == null || string.IsNullOrWhiteSpace(this.productKey) || string.IsNullOrWhiteSpace(this.ring))
+                if (this.credential == null || string.IsNullOrWhiteSpace(this.productKey) || string.IsNullOrWhiteSpace(this.deploymentStage))
                 {
-                    _logger.LogError("AccessKey, SecretKey, Region, ProductKey and Ring can't be empty.");
-                    throw new Exception("AccessKey, SecretKey, Region, ProductKey and Ring can't be empty.");
+                    _logger.LogError("credential, productKey and deploymentStage can't be empty.");
+                    throw new Exception("credential, productKey and deploymentStage can't be empty.");
                 }
             }
 
@@ -127,7 +127,7 @@ namespace Amazon.KinesisTap.AutoUpdate
                 {
                     AgentId = Utility.HostName, // use fqdn as unique agent id
                     ProductKey = this.productKey,
-                    Ring = this.ring,
+                    DeploymentStage = this.deploymentStage,
                     Version = this.GetInstalledVersion().ToString()
                 };
                 packageVersionString = await autoUpdateServiceClient.GetVersionAsync(this.PackageVersion, request, this.region, this.credential);

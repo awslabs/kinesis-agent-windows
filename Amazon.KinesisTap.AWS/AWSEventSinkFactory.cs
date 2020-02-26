@@ -13,29 +13,27 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
 using System.Net.Http;
-using System.Text;
 
-using Amazon.KinesisFirehose;
-using Amazon.Kinesis;
+using Amazon.CloudWatch;
 using Amazon.CloudWatchLogs;
+using Amazon.Kinesis;
+using Amazon.KinesisFirehose;
+using Amazon.KinesisTap.AWS.Telemetrics;
+using Amazon.KinesisTap.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Amazon.CloudWatch;
-
-using Amazon.KinesisTap.Core;
-using Amazon.KinesisTap.AWS.Telemetrics;
-
 
 namespace Amazon.KinesisTap.AWS
 {
     public class AWSEventSinkFactory : IFactory<IEventSink>
     {
+        public const string CLOUD_WATCH_LOG_EMF = "cloudwatchlogsemf";
         private const string CLOUD_WATCH_LOG = "cloudwatchlogs";
         private const string CLOUD_WATCH = "cloudwatch";
         private const string KINESIS_FIREHOSE = "kinesisfirehose";
         private const string KINESIS_STREAM = "kinesisstream";
+        private const string FILE_SYSTEM = "filesystem";
         private const string TELEMETRICS = "telemetrics";
 
         public IEventSink CreateInstance(string sinkType, IPlugInContext context)
@@ -46,6 +44,7 @@ namespace Amazon.KinesisTap.AWS
             switch (sinkType.ToLower())
             {
                 case CLOUD_WATCH_LOG:
+                case CLOUD_WATCH_LOG_EMF:
                     return new CloudWatchLogsSink(context, AWSUtilities.CreateAWSClient<AmazonCloudWatchLogsClient>(context));
                 case KINESIS_FIREHOSE:
                     var firehoseSink = new KinesisFirehoseSink(context, AWSUtilities.CreateAWSClient<AmazonKinesisFirehoseClient>(context));
@@ -78,6 +77,8 @@ namespace Amazon.KinesisTap.AWS
                         context.ContextData[ConfigConstants.TELEMETRY_CONNECTOR] = telemetricsClient; //Make telemetricsClient available to caller
                     }
                     return new TelemetricsSink(TELEMETRICS_DEFAULT_INTERVAL, context, telemetricsClient);
+                case FILE_SYSTEM:
+                    return new FileSystemEventSink(context);
                 default:
                     throw new NotImplementedException($"Sink type {sinkType} is not implemented by AWSEventSinkFactory.");
             }
@@ -86,10 +87,12 @@ namespace Amazon.KinesisTap.AWS
         public void RegisterFactory(IFactoryCatalog<IEventSink> catalog)
         {
             catalog.RegisterFactory(CLOUD_WATCH_LOG, this);
+            catalog.RegisterFactory(CLOUD_WATCH_LOG_EMF, this);
             catalog.RegisterFactory(KINESIS_FIREHOSE, this);
             catalog.RegisterFactory(KINESIS_STREAM, this);
             catalog.RegisterFactory(CLOUD_WATCH, this);
             catalog.RegisterFactory(TELEMETRICS, this);
+            catalog.RegisterFactory(FILE_SYSTEM, this);
         }
     }
 }

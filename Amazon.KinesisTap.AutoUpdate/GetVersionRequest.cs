@@ -24,7 +24,7 @@ namespace Amazon.KinesisTap.AutoUpdate
 
         public string AgentId { get; set; }
 
-        public string Ring { get; set; }
+        public string DeploymentStage { get; set; }
 
         public string Version { get; set; }
     }

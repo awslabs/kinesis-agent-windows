@@ -423,6 +423,16 @@ namespace Amazon.KinesisTap.Core
             return epoch.AddMilliseconds(epochTime);
         }
 
+        public static long ToEpochSeconds(DateTime utcTime)
+        {
+            return Convert.ToInt64((utcTime - epoch).TotalSeconds);
+        }
+
+        public static long ToEpochMilliseconds(DateTime utcTime)
+        {
+            return Convert.ToInt64((utcTime - epoch).TotalMilliseconds);
+        }
+
         /// <summary>
         /// Strip quotes from a string if it is quoted
         /// </summary>

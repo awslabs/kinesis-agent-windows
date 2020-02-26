@@ -12,16 +12,17 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Amazon.KinesisTap.Core
+namespace Amazon.KinesisTap.Core.EMF
 {
-    public interface ILogEnvelope : IEnvelope
+    using Newtonsoft.Json;
+
+    public class MetricValue
     {
-        string FilePath { get; }
-        string FileName { get; }
-        long LineNumber { get; }
+        public string Name { get; set; }
+
+        public string Unit { get; set; }
+
+        [JsonIgnore]
+        public long? Value { get; set; }
     }
 }

@@ -175,8 +175,7 @@ namespace Amazon.KinesisTap.AWS
                     records = CombineRecords(records);
                 }
 
-                PutRecordBatchResponse response = await _firehoseClient.PutRecordBatchAsync(_deliveryStreamName,
-                    records);
+                PutRecordBatchResponse response = await _firehoseClient.PutRecordBatchAsync(_deliveryStreamName, records);
                 _latency = Utility.GetElapsedMilliseconds() - elapsedMilliseconds;
                 if (response.FailedPutCount > 0 && response.RequestResponses != null)
                 {
@@ -213,6 +212,8 @@ namespace Amazon.KinesisTap.AWS
                     _throttle.SetSuccess();
                     _recordsSuccess += envelopes.Count;
                     _logger?.LogDebug($"KinesisFirehoseSink {this.Id} successfully sent {envelopes.Count} records {batchBytes} bytes.");
+
+                    this.SaveBookmarks(envelopes);
                 }
             }
             catch (Exception ex)

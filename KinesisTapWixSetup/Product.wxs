@@ -170,13 +170,13 @@
           Description="AWS Windows Log and Metrics Agent."
           Start="auto"
           ErrorControl="normal">
-          <ServiceConfig DelayedAutoStart="1" OnInstall="yes" OnReinstall="yes" />
           <util:ServiceConfig xmlns:util="http://schemas.microsoft.com/wix/UtilExtension"
             FirstFailureActionType="restart"
             SecondFailureActionType="restart"
             ThirdFailureActionType="restart"
             ResetPeriodInDays="1"
             RestartServiceDelayInSeconds="20" />
+          <ServiceConfig DelayedAutoStart="yes" OnInstall="yes" OnReinstall ="yes" />
         </ServiceInstall>
         
         <!-- Tell WiX to start the Service -->

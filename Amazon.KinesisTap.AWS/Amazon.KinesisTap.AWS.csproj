@@ -6,13 +6,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="AWSSDK.CloudWatch" Version="3.3.102.39" />
-    <PackageReference Include="AWSSDK.CloudWatchLogs" Version="3.3.101.32" />
-    <PackageReference Include="AWSSDK.CognitoIdentity" Version="3.3.100.84" />
-    <PackageReference Include="AWSSDK.EC2" Version="3.3.133.1" />
-    <PackageReference Include="AWSSDK.Kinesis" Version="3.3.100.84" />
-    <PackageReference Include="AWSSDK.KinesisFirehose" Version="3.3.102.2" />
-    <PackageReference Include="AWSSDK.SecurityToken" Version="3.3.102.33" />
+    <PackageReference Include="AWSSDK.CloudWatch" Version="3.3.104.11" />
+    <PackageReference Include="AWSSDK.CloudWatchLogs" Version="3.3.101.64" />
+    <PackageReference Include="AWSSDK.CognitoIdentity" Version="3.3.101.18" />
+    <PackageReference Include="AWSSDK.EC2" Version="3.3.145" />
+    <PackageReference Include="AWSSDK.Kinesis" Version="3.3.100.115" />
+    <PackageReference Include="AWSSDK.KinesisFirehose" Version="3.3.103.14" />
+    <PackageReference Include="AWSSDK.SecurityToken" Version="3.3.104.12" />
   </ItemGroup>
 
   <ItemGroup>

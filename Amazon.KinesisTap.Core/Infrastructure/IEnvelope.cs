@@ -12,12 +12,10 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
-
 namespace Amazon.KinesisTap.Core
 {
+    using System;
+
     //Wrap around the underlying data to provide additional meta data
     public interface IEnvelope
     {
@@ -39,6 +37,16 @@ namespace Amazon.KinesisTap.Core
         /// <param name="variable"></param>
         /// <returns></returns>
         object ResolveMetaVariable(string variable);
+
+        /// <summary>
+        /// Gets or sets the bookmark position of the record.
+        /// </summary>
+        long Position { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Id of the bookmark object registered in the <see cref="BookmarkManager"/>.
+        /// </summary>
+        int? BookmarkId { get; set; }
     }
 
     public interface IEnvelope<out TData> : IEnvelope

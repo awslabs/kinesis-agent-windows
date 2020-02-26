@@ -1,4 +1,4 @@
-# Amazon Kinesis Agent for Microsoft Windows
+﻿# Amazon Kinesis Agent for Microsoft Windows
 
 The **Amazon Kinesis Agent for Microsoft Windows** is a configurable and extensible agent. It runs on Windows systems, either on-premises or in the AWS Cloud. Kinesis Agent efficiently and reliably gathers, parses, transforms, and streams logs, events, and metrics to various AWS services, including [Amazon Kinesis Data Streams][kinesis-stream], [Amazon Kinesis Data Firehose][kinesis-firehose], [Amazon CloudWatch][cloudwatch], and [Amazon CloudWatch Logs][cloudwatch-logs].
 
@@ -73,6 +73,9 @@ You need Visual Studio 2017 Community, Professional or Enterprise on Windows to 
 
 ## Release Notes
 
+Release 1.1.212.1 (February 26, 2020)
+*   1.2 [Release Notes][release1.2]
+
 Release 1.1.168.1 (June 24, 2019)
 *   1.1 [Release Notes][release1.1]
 
@@ -98,3 +101,4 @@ Release 1.0.0.115 (November 6, 2018)
 [nuget]: https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
 [opt-out]: https://docs.aws.amazon.com/kinesis-agent-windows/latest/userguide/telemetrics-configuration-option.html
 [release1.1]: release_1.1.md
+[release1.2]: release_1.2.md

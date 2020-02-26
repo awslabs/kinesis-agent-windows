@@ -4,6 +4,9 @@ phases:
   install:
     commands:
       - nuget install xunit.runner.console -OutputDirectory packages -Version 2.2.0
+      - .\SetupContainer.ps1
+      - dotnet --list-sdks
+      - dotnet --list-runtimes
   pre_build:
     commands:
       - mkdir c:\temp

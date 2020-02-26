@@ -38,6 +38,14 @@
       "InitialPosition": "Unknown"
     },
     {
+      "Id": "IncludeSubdirectories",
+      "SourceType": "DirectorySource",
+      "Directory": "C:\\temp\\IncludeSubdirectoriesTest",
+      "IncludeSubdirectories": "true",
+      "FileNameFilter": "*.*",
+      "RecordParser": "SingleLine"
+    },
+    {
       "Id": "DHCPLog",
       "SourceType": "DirectorySource",
       "Directory": "C:\\temp",
@@ -225,6 +233,40 @@
       "Id": "TestPipe",
       "Type": "RegexFilterPipe",
       "FilterPattern": "^24,*"
+    },
+    {
+      "Id": "IISEMFTestPipe",
+      "Type": "EMFPipe",
+      "MetricDefinition": {
+        "Namespace": "IISNamespace",
+        "Dimensions": [
+          [ "sc-status" ],
+          [ "s-computername", "sc-status" ]
+        ],
+        "Metrics": [
+          {
+            "Name": "time-taken",
+            "Unit": "Milliseconds"
+          }
+        ]
+      }
+    },
+    {
+      "Id": "PSEMFTestPipe",
+      "Type": "EMFPipe",
+      "MetricDefinition": {
+        "Namespace": "PSNamespace",
+        "Dimensions": [
+          [ "ComputerName", "Name", "Status" ]
+        ],
+        "Metrics": [
+          {
+            "Name": "ServiceStatus",
+            "Unit": "None",
+            "Value": 1
+          }
+        ]
+      }
     }
   ]
 }

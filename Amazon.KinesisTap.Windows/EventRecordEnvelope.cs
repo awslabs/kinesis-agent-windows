@@ -12,25 +12,22 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Diagnostics.Eventing.Reader;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-
-using Amazon.KinesisTap.Core;
-using Newtonsoft.Json.Linq;
-
 namespace Amazon.KinesisTap.Windows
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics.Eventing.Reader;
+    using System.Linq;
+    using Amazon.KinesisTap.Core;
+    using Microsoft.Extensions.Logging;
+    using Newtonsoft.Json.Linq;
+
     public class EventRecordEnvelope : Envelope<EventInfo>
     {
-        public EventRecordEnvelope(EventRecord record, bool includeEventData, IPlugInContext context) : base(ConvertEventRecordToEventInfo(record, includeEventData))
+        public EventRecordEnvelope(EventRecord record, bool includeEventData, int bookmarkId) : base(ConvertEventRecordToEventInfo(record, includeEventData))
         {
+            this.BookmarkId = bookmarkId;
+            this.Position = record.RecordId ?? 0;
         }
 
         public override DateTime Timestamp => _data.TimeCreated ?? _timeStamp;

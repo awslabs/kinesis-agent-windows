@@ -12,38 +12,42 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
-
 namespace Amazon.KinesisTap.Core
 {
+    using System.Collections.Concurrent;
+
+    /// <summary>
+    /// An in-memory implementation of the <see cref="ISimpleQueue{T}"/> interface.
+    /// This class is built on a <see cref="ConcurrentQueue{T}"/> and is thread-safe.
+    /// </summary>
+    /// <typeparam name="T">The type of item stored in the queue.</typeparam>
     public class InMemoryQueue<T> : ISimpleQueue<T>
     {
-        private readonly int _capacity;
-        private Queue<T> _queue;
+        private readonly ConcurrentQueue<T> queue = new ConcurrentQueue<T>();
 
         public InMemoryQueue(int capacity)
         {
-            _capacity = capacity;
-            _queue = new Queue<T>();
+            this.Capacity = capacity;
         }
 
-        public int Count => _queue.Count;
+        /// <inheritdoc />
+        public int Count => this.queue.Count;
 
-        public int Capacity => _capacity;
+        /// <inheritdoc />
+        public int Capacity { get; }
 
-        public T Dequeue()
+        /// <inheritdoc />
+        public bool TryDequeue(out T item)
         {
-            return _queue.Dequeue();
+            return this.queue.TryDequeue(out item);
         }
 
-        public void Enqueue(T item)
+        /// <inheritdoc />
+        public bool TryEnqueue(T item)
         {
-            if (Count >= Capacity)
-                throw new InvalidOperationException("Exceed capacity.");
-
-            _queue.Enqueue(item);
+            if (this.Count >= this.Capacity) return false;
+            this.queue.Enqueue(item);
+            return true;
         }
     }
 }

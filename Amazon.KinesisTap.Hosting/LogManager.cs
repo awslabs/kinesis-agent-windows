@@ -52,6 +52,7 @@ namespace Amazon.KinesisTap.Hosting
         private readonly IList<IDisposable> _subscriptions = new List<IDisposable>();
         private readonly IList<IGenericPlugin> _plugins = new List<IGenericPlugin>();
         private readonly IConfigurationRoot _config;
+        private readonly ILoggerFactory _loggerFactory;
         private ILogger _logger;
         private KinesisTapMetricsSource _metrics;
 
@@ -66,7 +67,7 @@ namespace Amazon.KinesisTap.Hosting
             _typeLoader = typeLoader;
             _parameterStore = parameterStore;
 
-            ILoggerFactory loggerFactory = CreateLoggerFactory();
+            _loggerFactory = CreateLoggerFactory();
             try
             {
                 ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
@@ -78,7 +79,7 @@ namespace Amazon.KinesisTap.Hosting
             }
             catch(Exception ex)
             {
-                var logger = loggerFactory.CreateLogger<LogManager>();
+                var logger = _loggerFactory.CreateLogger<LogManager>();
                 logger.LogError($"Unable to load apsettings.json. {ex.ToMinimized()}");
                 throw;
             }
@@ -86,7 +87,7 @@ namespace Amazon.KinesisTap.Hosting
             ChangeToken.OnChange(() => _config.GetReloadToken(), OnConfigChanged);
 
             IServiceCollection serviceCollection = new ServiceCollection();
-            _serviceProvider = ConfigureServices(serviceCollection, _config, loggerFactory);
+            _serviceProvider = ConfigureServices(serviceCollection, _loggerFactory);
             _updateTimer = new Timer(CheckUpdate, null, Timeout.Infinite, Timeout.Infinite);
             _configTimer = new Timer(CheckConfig, null, Timeout.Infinite, Timeout.Infinite);
         }
@@ -210,7 +211,7 @@ namespace Amazon.KinesisTap.Hosting
             _logger?.LogInformation("Config file changed.");
         }
 
-        private IServiceProvider ConfigureServices(IServiceCollection serviceCollection, IConfiguration config, ILoggerFactory loggerFactory)
+        private IServiceProvider ConfigureServices(IServiceCollection serviceCollection, ILoggerFactory loggerFactory)
         {
             serviceCollection.AddSingleton<ILoggerFactory>(loggerFactory);
             return serviceCollection.BuildServiceProvider();
@@ -743,7 +744,12 @@ namespace Amazon.KinesisTap.Hosting
 
         private IPlugInContext CreatePlugInContext(IConfiguration config)
         {
-            var plugInContext = new PluginContext(config, _logger, _metrics, _credentialProviders, _parameterStore);
+            // Previously, all sources, sinks, pipes and plugins all used the same instance of a logger (the LogManager logger).
+            // This is confusing when reading the logs because it means that all log entries appear to come from the same class.
+            // This new logic will check the config for an "Id" property and if found, will create a new logger with that Id as the name.
+            // If there is no "Id" property specified, it will use the default logger (i.e. the LogManager logger instance).
+            // This means that every line in the log will contain the Id of the source/sink/pipe/plugin that it originated from.
+            var plugInContext = new PluginContext(config, string.IsNullOrWhiteSpace(config["Id"]) ? _logger : _loggerFactory.CreateLogger(config["Id"]), _metrics, _credentialProviders, _parameterStore);
             plugInContext.ContextData[PluginContext.PARSER_FACTORIES] = new ReadOnlyFactoryCatalog<IRecordParser>(_recordParserCatalog); //allow plug-ins access a list of parsers
             return plugInContext;
         }
