@@ -23,6 +23,7 @@ Configuration example:
       "IncludeSubdirectories": true,
       "IncludeDirectoryFilter": "cpu\cpu-1;cpu\cpu-2;load;memory",
       "TimeZoneKind": "UTC",
+      "RecordParser": "Timestamp",
       "SkipLines": 0
     }
   ],
@@ -61,6 +62,7 @@ Configuration example:
       "FileNameFilter": "*",
       "BookmarkOnBufferFlush": true,
       "TimeZoneKind": "UTC",
+      "RecordParser": "Timestamp",
       "SkipLines": 0
     }
   ],
@@ -99,6 +101,7 @@ To configure Bookmark, you can change the value of "InitialPosition":
       "FileNameFilter": "*.log",
       "RecordParser": "SysLog",
       "TimeZoneKind": "UTC",
+      "RecordParser": "Timestamp",
       "InitialPosition": "EOS"
     }
   ],
