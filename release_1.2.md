@@ -47,7 +47,7 @@ Configuration example:
 
 ## BookmarkOnBufferFlush
 
-Previously, bookmark is saved by source regularly without getting confirmation of upload, which would cause event lose during a system restart. "BookmarkOnBufferFlush" will make sure bookmark is updated only when a sink successfully ships an event off to AWS. However, you will only be able to subscribe a single sink to a source. If you are shipping logs to multiple destinations and guarantee no loss of events, you will need to duplicate your sources. It is feature-flagged by virtue of a setting in the source named "BookmarkOnBufferFlush", with a value of "true".
+Previously, bookmark is saved by source regularly without getting confirmation of upload, which would cause event lose during a system restart. "BookmarkOnBufferFlush" will make sure bookmark is updated only when a sink successfully ships an event off to AWS. However, you will only be able to subscribe a single sink to a source. If you are shipping logs to multiple destinations and guarantee no loss of events, you will need to duplicate your sources. This setting can be added in any bookmarkable source. It is feature-flagged by virtue of a setting in the source named "BookmarkOnBufferFlush", with a value of "true".
 
 Configuration example:
 
@@ -87,15 +87,42 @@ Configuration example:
 
 Previously by default, KinesisTap only sends future events. Now we make “Bookmark” the default for the InitialPosition. In the bookmark mode, we save bookmark files for each source in the %ProgramData%\Amazon\KinesisTap directory. If you already have it configured, it will still use your configuration. 
 
-To configure Bookmark
+To configure Bookmark, you can change the value of "InitialPosition":
 
 ```
-"InitialPosition": "EOS"
+{
+  "Sources": [
+    {
+      "Id": "SyslogDirectorySource",
+      "SourceType": "DirectorySource",
+      "Directory": "C:\\LogSource\\",
+      "FileNameFilter": "*.log",
+      "RecordParser": "SysLog",
+      "TimeZoneKind": "UTC",
+      "InitialPosition": "EOS"
+    }
+  ],
+  "Sinks": [
+    {
+      "Id": "KinesisStreamSink",
+      "SinkType": "KinesisStream",
+      "StreamName": "SyslogKinesisDataStream",
+      "Region": "us-east-1"
+    }
+  ],
+  "Pipes": [
+    {
+      "Id": "SyslogDS2KSSink",
+      "SourceRef": "SyslogDirectorySource",
+      "SinkRef": "KinesisStreamSink"
+    }
+  ]
+}
 ```
 
 ## Delayed Start
 
-KinesisTap will start shortly after all other services designated as Automatic have been started. It will start 1-2 minutes after the computer boots, which would resolve issues like KinesisTap starts before system Environment variables are set during a system reboot.
+KinesisTap will start shortly after all other services designated as Automatic have been started. This will resolve issues like KinesisTap starts before system Environment variables are set during a system reboot.
 
 
 [firehose-pricing]: https://aws.amazon.com/kinesis/data-firehose/pricing/
