@@ -170,7 +170,7 @@ if (Test-Path -Path $birdwatcherOutputDir)
 
 New-Item -ItemType Directory -Path $birdwatcherReleaseDir -Force
 
-Copy-Item -Path $msiFile -Destination "$(Join-Path -Path $birdwatcherReleaseDir -ChildPath 'KinesisTap.msi')"
+Copy-Item -Path $msiFile -Destination "$(Join-Path -Path $birdwatcherReleaseDir -ChildPath $serviceName'.msi')"
 Copy-Item -Path "$(Join-Path -Path $chocolateyTemplateDir 'tools\chocolateyinstall.ps1')" -Destination "$(Join-Path -Path $birdwatcherReleaseDir -ChildPath 'install.ps1')" 
 Copy-Item -Path "$(Join-Path -Path $chocolateyTemplateDir 'tools\chocolateyuninstall.ps1')" -Destination "$(Join-Path -Path $birdwatcherReleaseDir -ChildPath 'uninstall.ps1')"
 
