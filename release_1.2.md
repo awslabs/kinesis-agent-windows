@@ -1,4 +1,4 @@
-# Amazon Kinesis Agent for Windows 1.2 release notes
+# Amazon Kinesis Agent for Windows 1.1.212.1 release notes
 
 ## Updated all references to the AWS SDK's to use the latest versions
 
