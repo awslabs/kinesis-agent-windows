@@ -12,71 +12,104 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Diagnostics;
-using System.Linq;
-using System.ServiceProcess;
-using System.Text;
-using System.Threading.Tasks;
-
-using Amazon.KinesisTap.Hosting;
-using Amazon.KinesisTap.Windows;
-
 namespace Amazon.KinesisTap
 {
+    using System;
+    using System.Diagnostics;
+    using System.Reflection;
+    using System.ServiceProcess;
+
     public partial class KinesisTapService : ServiceBase
     {
-        private LogManager _logManger;
+        const int SERVICE_ACCEPT_PRESHUTDOWN = 0x100;
+        const int SERVICE_CONTROL_PRESHUTDOWN = 0xf;
+
+        private readonly KinesisTapServiceManager serviceManager;
+        private readonly object shutdownLock = new object();
+        private bool isShuttingDown;
 
         public KinesisTapService()
         {
-        }
+            this.serviceManager = new KinesisTapServiceManager();
 
-        protected override void OnStart(string[] args)
-        {
+            // Try to enable pre-shutdown notifications to give KT an early start on shutdown.
+            // By enabling this, as soon as a shutdown is triggered in the OS, KT will be notified.
+            // https://docs.microsoft.com/en-us/windows/win32/services/service-control-handler-function
             try
             {
-                _logManger = new LogManager(new NetTypeLoader(), new RegistryParameterStore());
-                //Create a separate thread so that the service can start faster
-                //logManager.Start will catch all none fatal errors and log them
-                //Fatal errors will be captured by CurrentDomain_UnhandledException in Program.cs 
-                //and logged to Windows Event Log
-                Task.Run(() => _logManger.Start());
+                // Unfortunately there's no convenience property for enabling pre-shutdown notifications, so we have to do it via reflection.
+                // http://www.sivachandran.in/2012/03/handling-pre-shutdown-notification-in-c.html
+                var acceptedCommandsFieldInfo = typeof(ServiceBase).GetField("acceptedCommands", BindingFlags.Instance | BindingFlags.NonPublic);
+                if (acceptedCommandsFieldInfo != null)
+                {
+                    int value = (int)acceptedCommandsFieldInfo.GetValue(this);
+                    acceptedCommandsFieldInfo.SetValue(this, value | SERVICE_ACCEPT_PRESHUTDOWN);
+                }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                LogError(ex);
-                throw;
+                // If this fails, we'll just log an error and ignore.
+                // Since we're setting internal field properties, Windows may change this at any time.
+                this.EventLog.WriteEntry($"An error occurred trying to configure the Service to accept pre-shutdown notifications: {ex}", EventLogEntryType.Information);
             }
+
+            // Enable the ability to subscribe to shutdown events.
+            // This instructs the Service Control Manager to call the "OnShutdown" method when the OS is shutting down.
+            // When this is called, it only has 5 seconds to stop.
+            // This is enabled as a backup in case the pre-shutdown notification is missed.
+            this.CanShutdown = true;
         }
 
+        /// <inheritdoc />
+        protected override void OnStart(string[] args)
+        {
+            this.serviceManager.Start();
+        }
+
+        /// <inheritdoc />
         protected override void OnStop()
         {
-            Task.Run(() =>
-           {
-               _logManger?.Stop();
-           }).Wait(5000); //Wait for 5 seconds for the service to shut down so that we don't wait indefinitely
-        }
-
-        private void LogError(Exception ex)
-        {
-            string logSource = this.ServiceName;
-            if (!EventLog.SourceExists(logSource))
+            lock (this.shutdownLock)
             {
-                EventLog.CreateEventSource(logSource, "Application");
+                if (this.isShuttingDown) return;
+                this.isShuttingDown = true;
             }
-            EventLog.WriteEntry(logSource, ex.ToString(), EventLogEntryType.Error);
+
+            this.serviceManager.Stop();
+            base.OnStop();
         }
 
-        private void InitializeComponent()
+        /// <inheritdoc />
+        protected override void OnShutdown()
         {
-            // 
-            // Amazon.KinesisTapService
-            // 
-            this.ServiceName = "AWSKinesisTap";
+            lock (this.shutdownLock)
+            {
+                if (this.isShuttingDown) return;
+                this.isShuttingDown = true;
+            }
+
+            this.EventLog.WriteEntry("Received a shutdown command from the OS, service will stop.", EventLogEntryType.Information);
+            this.serviceManager.Stop();
+        }
+
+        /// <inheritdoc />
+        protected override void OnCustomCommand(int command)
+        {
+            if (command == SERVICE_CONTROL_PRESHUTDOWN)
+            {
+                lock (this.shutdownLock)
+                {
+                    if (this.isShuttingDown) return;
+                    this.isShuttingDown = true;
+                }
+
+                this.EventLog.WriteEntry("Received a pre-shutdown notification from the OS, service will stop.", EventLogEntryType.Information);
+                this.serviceManager.Stop();
+            }
+            else
+            {
+                base.OnCustomCommand(command);
+            }
         }
     }
 }

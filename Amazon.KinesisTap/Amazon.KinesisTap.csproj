@@ -295,6 +295,7 @@
     <Compile Include="frmMain.Designer.cs">
       <DependentUpon>frmMain.cs</DependentUpon>
     </Compile>
+    <Compile Include="KinesisTapServiceManager.cs" />
     <Compile Include="NetTypeLoader.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="ProjectInstaller.cs">

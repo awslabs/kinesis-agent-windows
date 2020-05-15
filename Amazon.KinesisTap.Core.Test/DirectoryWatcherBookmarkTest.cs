@@ -476,8 +476,8 @@ namespace Amazon.KinesisTap.Core.Test
             string filepath = Path.Combine(BookmarkDirectory, subdirectory ?? string.Empty, $"log_{suffix}.{extension}");
             using (var sw = File.AppendText(filepath))
             {
-                DateTime timestamp = DateTime.Now;
-                   
+                DateTime timestamp = DateTime.UtcNow;
+
                 for (int i = 0; i < records; i++)
                 {
                     sw.WriteLine($"{timestamp.AddMilliseconds(i).ToString(RECORD_TIME_STAMP_FORMAT)} {suffix} {i}");

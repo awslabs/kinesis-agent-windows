@@ -44,12 +44,7 @@ namespace Amazon.KinesisTap.Core
                     string recordParser = (config["RecordParser"] ?? string.Empty).ToLower();
                     string timetampFormat = config["TimestampFormat"];
                     string timestampField = config["TimestampField"];
-                    DateTimeKind timeZoneKind = DateTimeKind.Utc; //Default
-                    string timeZoneKindConfig = Utility.ProperCase(config["TimeZoneKind"]);
-                    if (!string.IsNullOrWhiteSpace(timeZoneKindConfig))
-                    {
-                        timeZoneKind = (DateTimeKind)Enum.Parse(typeof(DateTimeKind), timeZoneKindConfig);
-                    }
+                    DateTimeKind timeZoneKind = Utility.ParseTimeZoneKind(config["TimeZoneKind"]);
                     string removeUnmatchedConfig = config["RemoveUnmatched"];
                     bool removeUnmatched = false;
                     if (!string.IsNullOrWhiteSpace(removeUnmatchedConfig))

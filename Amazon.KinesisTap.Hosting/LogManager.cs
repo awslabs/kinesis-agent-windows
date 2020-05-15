@@ -18,8 +18,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Primitives;
@@ -38,7 +38,6 @@ namespace Amazon.KinesisTap.Hosting
 
         private readonly ITypeLoader _typeLoader;
         private readonly IParameterStore _parameterStore;
-        private readonly IServiceProvider _serviceProvider;
         private readonly IFactoryCatalog<ISource> _sourceFactoryCatalog = new FactoryCatalog<ISource>();
         private readonly IFactoryCatalog<IEventSink> _sinkFactoryCatalog = new FactoryCatalog<IEventSink>();
         private readonly IFactoryCatalog<ICredentialProvider> _credentialProviderFactoryCatalog = new FactoryCatalog<ICredentialProvider>();
@@ -53,7 +52,7 @@ namespace Amazon.KinesisTap.Hosting
         private readonly IList<IGenericPlugin> _plugins = new List<IGenericPlugin>();
         private readonly IConfigurationRoot _config;
         private readonly ILoggerFactory _loggerFactory;
-        private ILogger _logger;
+        private readonly ILogger _logger;
         private KinesisTapMetricsSource _metrics;
 
         private int _updateFrequency;
@@ -68,6 +67,7 @@ namespace Amazon.KinesisTap.Hosting
             _parameterStore = parameterStore;
 
             _loggerFactory = CreateLoggerFactory();
+            _logger = _loggerFactory.CreateLogger<LogManager>();
             try
             {
                 ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
@@ -79,15 +79,12 @@ namespace Amazon.KinesisTap.Hosting
             }
             catch(Exception ex)
             {
-                var logger = _loggerFactory.CreateLogger<LogManager>();
-                logger.LogError($"Unable to load apsettings.json. {ex.ToMinimized()}");
+                _logger.LogError($"Unable to load apsettings.json. {ex.ToMinimized()}");
                 throw;
             }
 
             ChangeToken.OnChange(() => _config.GetReloadToken(), OnConfigChanged);
 
-            IServiceCollection serviceCollection = new ServiceCollection();
-            _serviceProvider = ConfigureServices(serviceCollection, _loggerFactory);
             _updateTimer = new Timer(CheckUpdate, null, Timeout.Infinite, Timeout.Infinite);
             _configTimer = new Timer(CheckConfig, null, Timeout.Infinite, Timeout.Infinite);
         }
@@ -95,12 +92,14 @@ namespace Amazon.KinesisTap.Hosting
         #region public methods
         public void Start()
         {
+            // Clear some of the dictionaries in case there were lingering objects not cleaned up during stop.
+            _sources.Clear();
+            _sinks.Clear();
+            _subscriptions.Clear();
+
             _configLoadTime = DateTime.Now;
 
             StackTraceMinimizerExceptionExtensions.DoCompressStackTrace = true;
-
-            ILoggerFactory loggerFactory = _serviceProvider.GetService<ILoggerFactory>();
-            _logger = loggerFactory.CreateLogger<LogManager>();
 
             _metrics = new KinesisTapMetricsSource(CreatePlugInContext(_config.GetSection("Metrics")));
 
@@ -133,72 +132,106 @@ namespace Amazon.KinesisTap.Hosting
 
         public void Stop()
         {
+            this.Stop(false);
+        }
+
+        public void Stop(bool serviceStopping)
+        {
             _configTimer.Change(Timeout.Infinite, Timeout.Infinite);
             _updateTimer.Change(Timeout.Infinite, Timeout.Infinite);
 
+            var sourceStopTasks = new List<Task>();
             foreach (ISource source in _sources.Values)
             {
-                try
+                sourceStopTasks.Add(Task.Run(() =>
                 {
-                    source.Stop();
-                    IDisposable disposableSource = source as IDisposable;
-                    disposableSource?.Dispose();
-                }
-                catch(Exception ex)
-                {
-                    _logger?.LogError($"Error stopping source {source.Id}: {ex.ToMinimized()}");
-                }
+                    try
+                    {
+                        source.Stop();
+                        if (source is IDisposable disposableSource)
+                            disposableSource.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error stopping source {source.Id}: {ex.ToMinimized()}");
+                    }
+                }));
             }
-            _sources.Clear();
 
+            if (!serviceStopping)
+            {
+                // Wait for items to stop, then move on if even if they haven't within the time limit.
+                if (Task.WaitAll(sourceStopTasks.ToArray(), TimeSpan.FromSeconds(300)))
+                    _logger.LogDebug("All sources stopped gracefully.");
+                _sources.Clear();
+            }
+
+            var subscriptionStopTasks = new List<Task>();
             foreach(var subscription in _subscriptions)
             {
-                try
+                subscriptionStopTasks.Add(Task.Run(() =>
                 {
-                    subscription?.Dispose();
-                }
-                catch(Exception ex)
-                {
-                    _logger?.LogError($"Error stopping subscription: {ex.ToMinimized()}");
-                }
+                    try
+                    {
+                        subscription?.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error stopping subscription: {ex.ToMinimized()}");
+                    }
+                }));
             }
-            _subscriptions.Clear();
 
-            foreach(ISink sink in _sinks.Values)
+            if (!serviceStopping)
             {
-                try
-                {
-                    sink.Stop();
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogError($"Error stopping sink {sink.Id}: {ex.ToMinimized()}");
-                }
+                // Wait for items to stop, then move on if even if they haven't within the time limit.
+                if (Task.WaitAll(subscriptionStopTasks.ToArray(), TimeSpan.FromSeconds(300)))
+                    _logger.LogDebug("All subscriptions stopped gracefully.");
+                _subscriptions.Clear();
             }
+
+            // Since the sinks need a longer time to flush, we'll stop all the plugins at the same time.
+            var sinksAndPluginStopTasks = new List<Task>();
+            foreach (ISink sink in _sinks.Values)
+            {
+                sinksAndPluginStopTasks.Add(Task.Run(() =>
+                {
+                    try
+                    {
+                        sink.Stop();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error stopping sink {sink.Id}: {ex.ToMinimized()}");
+                    }
+                }));
+            }
+            
+            foreach (var plugin in _plugins)
+            {
+                sinksAndPluginStopTasks.Add(Task.Run(() =>
+                {
+                    try
+                    {
+                        plugin.Stop();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error stopping plugin {plugin.GetType()}: {ex.ToMinimized()}");
+                    }
+                }));
+            }
+
+            // If the sinks don't flush in time, the class that invoked the Stop method
+            // will be logging an event, so we don't need to do so here. We want to give them
+            // as long as possible to shut down, so we'll set a super high value, which will cover
+            // the use case of both a timeLimited and a non-timeLimited Stop operation.
+            if (Task.WaitAll(sinksAndPluginStopTasks.ToArray(), TimeSpan.FromSeconds(600)))
+                _logger.LogDebug("All sinks stopped gracefully.");
             _sinks.Clear();
 
-            foreach(var plugin in _plugins)
-            {
-                try
-                {
-                    plugin.Stop();
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogError($"Error stopping plugin {plugin.GetType()}: {ex.ToMinimized()}");
-                }
-            }
-
             NetworkStatus.ResetNetworkStatusProviders();
-            _logger?.LogInformation("Log manager stopped.");
-        }
-
-        public void Pause()
-        {
-        }
-
-        public void Resume()
-        {
+            _logger.LogInformation("Log manager stopped.");
         }
 
         public int ConfigInterval { get; set; } = 10000; //default to 10 seconds
@@ -208,13 +241,7 @@ namespace Amazon.KinesisTap.Hosting
         private void OnConfigChanged()
         {
             _configUpdateTime = DateTime.Now;
-            _logger?.LogInformation("Config file changed.");
-        }
-
-        private IServiceProvider ConfigureServices(IServiceCollection serviceCollection, ILoggerFactory loggerFactory)
-        {
-            serviceCollection.AddSingleton<ILoggerFactory>(loggerFactory);
-            return serviceCollection.BuildServiceProvider();
+            _logger.LogInformation("Config file changed.");
         }
 
         private static ILoggerFactory CreateLoggerFactory()
@@ -248,13 +275,13 @@ namespace Amazon.KinesisTap.Hosting
                     catch (Exception ex)
                     {
                         credentialFailed++;
-                        _logger?.LogError($"Unable to load event sink {id} exception {ex.ToMinimized()}");
+                        _logger.LogError($"Unable to load event sink {id} exception {ex.ToMinimized()}");
                     }
                 }
                 else
                 {
                     credentialFailed++;
-                    _logger?.LogError("Credential Type {0} is not recognized.", credentialType);
+                    _logger.LogError("Credential Type {0} is not recognized.", credentialType);
                 }
             }
             _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
@@ -330,23 +357,23 @@ namespace Amazon.KinesisTap.Hosting
                     {
                         factory.RegisterFactory(catalog);
                         loaded++;
-                        _logger?.LogInformation("Registered factory {0}.", factory);
+                        _logger.LogInformation("Registered factory {0}.", factory);
                     }
                     catch (Exception ex)
                     {
                         failed++;
-                        _logger?.LogError("Failed to register factory {0}: {1}.", factory, ex.ToMinimized());
+                        _logger.LogError("Failed to register factory {0}: {1}.", factory, ex.ToMinimized());
                     }
                 }
             }
             catch (Exception ex)
             {
                 failed++;
-                _logger?.LogError("Error discovering IFactory<{0}>: {1}.", typeof(T), ex.ToMinimized());
+                _logger.LogError("Error discovering IFactory<{0}>: {1}.", typeof(T), ex.ToMinimized());
                 // If the problem discovering the factory is a missing type then provide more details to make debugging easier.
                 if (ex is System.Reflection.ReflectionTypeLoadException)
                 {
-                    _logger?.LogError("Loader exceptions: {0}",
+                    _logger.LogError("Loader exceptions: {0}",
                         string.Join(", ",
                         ((System.Reflection.ReflectionTypeLoadException)ex).LoaderExceptions.Select(exception => exception.ToMinimized()).ToArray()));
                 }
@@ -378,12 +405,12 @@ namespace Amazon.KinesisTap.Hosting
                     catch (Exception ex)
                     {
                         sourcesFailed++;
-                        _logger?.LogError("Unable to load event source {0} exception {1}", id, ex.ToMinimized());
+                        _logger.LogError("Unable to load event source {0} exception {1}", id, ex.ToMinimized());
                     }
                 }
                 else
                 {
-                    _logger?.LogError("Source Type {0} is not recognized.", sourceType);
+                    _logger.LogError("Source Type {0} is not recognized.", sourceType);
                 }
             }
             return (sourcesLoaded, sourcesFailed);
@@ -403,7 +430,7 @@ namespace Amazon.KinesisTap.Hosting
                 {
                     sourceLoaded--;
                     sourcesFailed++;
-                    _logger?.LogError("Unable to load event source {0} exception {1}", source.Id, ex.ToMinimized());
+                    _logger.LogError("Unable to load event source {0} exception {1}", source.Id, ex.ToMinimized());
                 }
             }
             _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
@@ -441,13 +468,13 @@ namespace Amazon.KinesisTap.Hosting
                     catch (Exception ex)
                     {
                         sinksFailed++;
-                        _logger?.LogError($"Unable to load event sink {id} exception {ex}");
+                        _logger.LogError($"Unable to load event sink {id} exception {ex}");
                     }
                 }
                 else
                 {
                     sinksFailed++;
-                    _logger?.LogError("Sink Type {0} is not recognized.", sinkType);
+                    _logger.LogError("Sink Type {0} is not recognized.", sinkType);
                 }
             }
             _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
@@ -503,7 +530,7 @@ namespace Amazon.KinesisTap.Hosting
             {
                 if (!_sinks.TryGetValue(redirectToSinkId, out ISink sink))
                 {
-                    _logger?.LogError($"Sink {redirectToSinkId} not found for telemetry.");
+                    _logger.LogError($"Sink {redirectToSinkId} not found for telemetry.");
                     return false;
                 }
                 else
@@ -514,7 +541,7 @@ namespace Amazon.KinesisTap.Hosting
             }
             catch (Exception ex)
             {
-                _logger?.LogError($"Unable to connect telemetry to Sink {redirectToSinkId} failed: {ex.ToMinimized()}");
+                _logger.LogError($"Unable to connect telemetry to Sink {redirectToSinkId} failed: {ex.ToMinimized()}");
                 return true;
             }
         }
@@ -529,13 +556,13 @@ namespace Amazon.KinesisTap.Hosting
             {
                 if (string.IsNullOrEmpty(sinkRef))
                 {
-                    _logger?.LogError($"SinkRef is required for pipe id {id}");
+                    _logger.LogError($"SinkRef is required for pipe id {id}");
                     return false;
                 }
 
                 if (!_sinks.TryGetValue(sinkRef, out ISink sink))
                 {
-                    _logger?.LogError($"SinkRef {sinkRef} not found for pipe id {id}");
+                    _logger.LogError($"SinkRef {sinkRef} not found for pipe id {id}");
                     return false;
                 }
 
@@ -543,8 +570,8 @@ namespace Amazon.KinesisTap.Hosting
                 {
                     if (!_sources.TryGetValue(sourceRef, out ISource source))
                     {
-                        _logger?.LogError($"Unable to connect source {sourceRef} to sink {sinkRef}.");
-                        _logger?.LogError($"SourceRef {sourceRef} not found for pipe id {id}");
+                        _logger.LogError($"Unable to connect source {sourceRef} to sink {sinkRef}.");
+                        _logger.LogError($"SourceRef {sourceRef} not found for pipe id {id}");
                         return false;
                     }
 
@@ -565,17 +592,17 @@ namespace Amazon.KinesisTap.Hosting
                     }
                     else
                     {
-                        _logger?.LogError($"Unable to connect SourceRef {sourceRef} to SinkRef {sinkRef} for pipe id {id}");
+                        _logger.LogError($"Unable to connect SourceRef {sourceRef} to SinkRef {sinkRef} for pipe id {id}");
                         return false;
                     }
                 }
 
-                _logger?.LogInformation($"Connected source {sourceRef} to sink {sinkRef}");
+                _logger.LogInformation($"Connected source {sourceRef} to sink {sinkRef}");
                 return true;
             }
             catch(Exception ex)
             {
-                _logger?.LogError($"Unable to connect source {sourceRef} to sink {sinkRef}. Error: {ex.ToMinimized()}");
+                _logger.LogError($"Unable to connect source {sourceRef} to sink {sinkRef}. Error: {ex.ToMinimized()}");
                 return false;
             }
         }
@@ -598,13 +625,13 @@ namespace Amazon.KinesisTap.Hosting
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogError($"Unable to load event pipe {id} exception {ex.ToMinimized()}");
+                    _logger.LogError($"Unable to load event pipe {id} exception {ex.ToMinimized()}");
                     return false;
                 }
             }
             else
             {
-                _logger?.LogError("Pipe Type {0} is not recognized.", pipeType);
+                _logger.LogError("Pipe Type {0} is not recognized.", pipeType);
                 return false;
             }
         }
@@ -627,14 +654,14 @@ namespace Amazon.KinesisTap.Hosting
 
             try
             {
-                _logger?.LogInformation("Running self-updater");
+                _logger.LogInformation("Running self-updater");
                 ProcessStartInfo startInfo = new ProcessStartInfo("choco", "upgrade KinesisTap -y");
                 startInfo.CreateNoWindow = true;
                 Process.Start(startInfo);
             }
             catch(Exception ex)
             {
-                _logger?.LogError($"KinesisTap update error: {ex.ToMinimized()}");
+                _logger.LogError($"KinesisTap update error: {ex.ToMinimized()}");
             }
 
             _updateTimer.Change(_updateFrequency * 60000, _updateFrequency * 60000);
@@ -668,7 +695,7 @@ namespace Amazon.KinesisTap.Hosting
             }
             catch (Exception ex)
             {
-                _logger?.LogError($"Reload exception: {ex.ToMinimized()}");
+                _logger.LogError($"Reload exception: {ex.ToMinimized()}");
                 configReloadFail++;
             }
             _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
@@ -710,8 +737,8 @@ namespace Amazon.KinesisTap.Hosting
             }
             catch (Exception ex)
             {
-                _logger?.LogError($"Unable to load telemetrics. Error: {ex.Message}"); //Only send a brief error message at Error level
-                _logger?.LogDebug($"{ex.ToMinimized()}"); //Send the detailed message if the user has Debug level on.
+                _logger.LogError($"Unable to load telemetrics. Error: {ex.Message}"); //Only send a brief error message at Error level
+                _logger.LogDebug($"{ex.ToMinimized()}"); //Send the detailed message if the user has Debug level on.
             }
         }
 
@@ -732,7 +759,7 @@ namespace Amazon.KinesisTap.Hosting
             }
             catch (Exception ex)
             {
-                _logger?.LogError($"Unable to load performance counter. Error: {ex.ToMinimized()}");
+                _logger.LogError($"Unable to load performance counter. Error: {ex.ToMinimized()}");
             }
         }
 
@@ -789,23 +816,23 @@ namespace Amazon.KinesisTap.Hosting
                     IGenericPlugin plugin = factory.CreateInstance(pluginType, CreatePlugInContext(pluginSection));
                     plugin.Start();
                     _plugins.Add(plugin);
-                    _logger?.LogInformation($"Plugin type {pluginType} started.");
+                    _logger.LogInformation($"Plugin type {pluginType} started.");
                     if (plugin is INetworkStatus networkStatusProvider)
                     {
                         NetworkStatus.RegisterNetworkStatusProvider(networkStatusProvider);
-                        _logger?.LogInformation($"Registered network status provider {plugin.Id}");
+                        _logger.LogInformation($"Registered network status provider {plugin.Id}");
                     }
                     return true;
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogError($"Unable to load plugin type {pluginType} exception {ex.ToMinimized()}");
+                    _logger.LogError($"Unable to load plugin type {pluginType} exception {ex.ToMinimized()}");
                     return false;
                 }
             }
             else
             {
-                _logger?.LogError("Plugin Type {0} is not recognized.", pluginType);
+                _logger.LogError("Plugin Type {0} is not recognized.", pluginType);
                 return false;
             }
         }

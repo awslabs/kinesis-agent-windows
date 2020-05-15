@@ -29,30 +29,27 @@ namespace Amazon.KinesisTap.AWS
     /// </summary>
     public class FileSystemEventSink : AWSBufferedEventSink<InputLogEvent>
     {
-        private readonly string format;
         private readonly SemaphoreSlim fileLock = new SemaphoreSlim(1, 1);
         private bool isStopped;
 
         public FileSystemEventSink(IPlugInContext context)
             : this(
                   context,
-                  int.TryParse(context.Configuration["Interval"], out int interval) ? interval : 1,
-                  int.TryParse(context.Configuration["RecordCount"], out int recordCount) ? recordCount : 5,
-                  long.TryParse(context.Configuration["MaxBatchSize"], out long maxBatchSize) ? maxBatchSize : 5)
+                  int.TryParse(context.Configuration[ConfigConstants.REQUESTS_PER_SECOND], out int rps) ? rps : 5,
+                  int.TryParse(context.Configuration[ConfigConstants.INTERVAL], out int interval) ? interval : 1,
+                  int.TryParse(context.Configuration[ConfigConstants.RECORD_COUNT], out int recordCount) ? recordCount : 5,
+                  long.TryParse(context.Configuration[ConfigConstants.MAX_BATCH_SIZE], out long maxBatchSize) ? maxBatchSize : 5)
         {
         }
 
-        public FileSystemEventSink(IPlugInContext context, int defaultInterval, int defaultRecordCount, long maxBatchSize)
+        public FileSystemEventSink(IPlugInContext context, int requestRate, int defaultInterval, int defaultRecordCount, long maxBatchSize)
             : base(context, defaultInterval, defaultRecordCount, maxBatchSize)
         {
             // If the user hasn't specified a FilePath, generate one based on the Id of the sink, or the name if it doesn't have a value.
             this.FilePath = this._context.Configuration["FilePath"] ?? Path.Combine(Path.GetTempPath(), (this.Id ?? nameof(FileSystemEventSink)) + ".txt");
 
-            // Get the format from the configuration, or use the default "json"
-            this.format = this._context.Configuration["Format"] ?? "json";
-
             this.Throttle = new AdaptiveThrottle(
-                new TokenBucket(1, 5), //5 requests per second
+                new TokenBucket(1, requestRate),
                 _backoffFactor,
                 _recoveryFactor,
                 _minRateAdjustmentFactor);
@@ -136,7 +133,14 @@ namespace Amazon.KinesisTap.AWS
                 using (var sw = new StreamWriter(new FileStream(this.FilePath, FileMode.Append, FileAccess.Write, FileShare.Read)))
                 {
                     foreach (var record in records)
-                        sw.WriteLine(record.GetMessage(this.format));
+                    {
+                        // Envelope.GetMessage() doesn't handle plain text very well, so we handle it here
+                        var recordLine = string.IsNullOrWhiteSpace(_format)
+                            ? $"[{record.Data.Timestamp:o}] {record.Data.Message}"
+                            : record.GetMessage(_format);
+                        await sw.WriteLineAsync(recordLine);
+                    }
+
                     await sw.FlushAsync();
                 }
 

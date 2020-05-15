@@ -64,7 +64,7 @@ namespace Amazon.KinesisTap.Core.Test
 
         public static string GetTestHome()
         {
-            return Utility.IsWindow ? WINDOWS_TEST_HOME : Path.Combine(Environment.GetEnvironmentVariable("HOME"), "temp", "kinesistap");
+            return Utility.IsWindows ? WINDOWS_TEST_HOME : Path.Combine(Environment.GetEnvironmentVariable("HOME"), "temp", "kinesistap");
         }
     }
 }

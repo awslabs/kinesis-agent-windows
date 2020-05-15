@@ -20,8 +20,11 @@ namespace Amazon.KinesisTap.Windows.Test
     using System.IO;
     using System.Linq;
     using System.Threading;
+    using Amazon.KinesisTap.AWS;
     using Amazon.KinesisTap.Core;
+    using Amazon.KinesisTap.Core.Test;
     using Microsoft.Extensions.Configuration;
+    using Microsoft.Extensions.Logging.Abstractions;
     using Xunit;
 
     /// <summary>
@@ -171,6 +174,67 @@ namespace Amazon.KinesisTap.Windows.Test
                     // Since we didn't commit the bookmark in this theory, no records should be returned.
                     Assert.Empty(records);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Tests that when EventLogSource stops, the connected sink is able to flush the bookmark immediately,
+        /// so that buffered events in the sink are not duplicated next time the source starts.
+        /// </summary>
+        [Fact]
+        public void TestBookmarkFlushedAfterSourceStops()
+        {
+            var localSinkPath = Path.Combine(TestUtility.GetTestHome(), $"{nameof(TestBookmarkFlushedAfterSourceStops)}-{Guid.NewGuid()}");
+            var localSinkconfig = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string> { ["FilePath"] = localSinkPath, ["Id"] = "LocalSink" })
+                .Build();
+            var localSink = new FileSystemEventSink(new PluginContext(localSinkconfig, NullLogger.Instance, null, null, null), 5, 1, 5, 5);
+
+            var sourceId = nameof(TestBookmarkFlushedAfterSourceStops);
+            var eventId = (int)(DateTime.Now.Ticks % ushort.MaxValue);
+            var msg = $"{nameof(TestBookmarkFlushedAfterSourceStops)} message";
+            var bookmarkFilePath = Path.Combine(Utility.GetKinesisTapProgramDataPath(), ConfigConstants.BOOKMARKS, $"{sourceId}.bm");
+
+            using (var source = CreateSource(sourceId, eventId))
+            {
+                source.Subscribe(localSink);
+                source.Id = sourceId;
+                source.InitialPosition = InitialPositionEnum.Bookmark;
+                source.Start();
+                localSink.Start();
+
+                // generate an event
+                EventLog.WriteEntry(LogSource, msg, EventLogEntryType.Information, eventId);
+                Thread.Sleep(1000);
+
+                // assert sure that the event exists in the sink and the first bookmark is always flushed
+                Assert.True(File.Exists(localSinkPath));
+                Assert.True(File.Exists(bookmarkFilePath));
+
+                var bookmarkFileWriteTime = File.GetLastWriteTime(bookmarkFilePath);
+
+                // we now create a situation where the sink has records in the buffer while the source stops
+                // we do so by acquiring a lock on the local sink file
+                var sinkFileStream = File.OpenWrite(localSinkPath);
+                // generate an event
+                EventLog.WriteEntry(LogSource, msg, EventLogEntryType.Information, eventId);
+                Thread.Sleep(1000);
+
+                // stop the source
+                source.Stop();
+                // now release the file lock
+                sinkFileStream.Close();
+                Thread.Sleep(3000);
+
+                // assert that the bookmark file is updated.
+                Assert.True(File.GetLastWriteTime(bookmarkFilePath) > bookmarkFileWriteTime);
+                source.Start();
+                Thread.Sleep(1000);
+
+                // assert that the sink contains exactly 2 records, meaning no duplicate event is streamed
+                Assert.Equal(2, File.ReadAllLines(localSinkPath).Length);
+
+                File.Delete(localSinkPath);
             }
         }
 

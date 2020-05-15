@@ -77,7 +77,7 @@ namespace Amazon.KinesisTap.Core
         /// <returns></returns>
         public static double GetMemoryUsage()
         {
-            if (Utility.IsWindow)
+            if (Utility.IsWindows)
             {
                 return _process.PrivateMemorySize64 / 1024D / 1024;
             }

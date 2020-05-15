@@ -41,6 +41,9 @@ namespace Amazon.KinesisTap.Core
         public const string BYTES_PER_SECOND = "BytesPerSecond";
         public const string INTERVAL = "Interval";
         public const string EPOCH = "epoch";
+        public const string REQUESTS_PER_SECOND = "RequestsPerSecond";
+        public const string RECORD_COUNT = "RecordCount";
+        public const string MAX_BATCH_SIZE = "MaxBatchSize";
 
 
         public const string QUEUE_TYPE = "QueueType";
@@ -70,7 +73,7 @@ namespace Amazon.KinesisTap.Core
         //Environment variables
         public const string KINESISTAP_PROGRAM_DATA = "KINESISTAP_PROGRAM_DATA";
         public const string KINESISTAP_CONFIG_PATH = "KINESISTAP_CONFIG_PATH";
-        public const string COMPUTER_NAME = "COMPUTERNAME";
+        public const string COMPUTER_NAME = "computername";
         public const string USER_NAME = "USERNAME";
 
         //None-Windows

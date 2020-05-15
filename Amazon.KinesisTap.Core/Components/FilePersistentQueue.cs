@@ -31,7 +31,7 @@ namespace Amazon.KinesisTap.Core
         private readonly string indexFilePath;
         private readonly object fileLock = new object();
 
-        const int MAX_CAPACITY = 1000000000; 
+        const int MAX_CAPACITY = 1000000000;
 
         public FilePersistentQueue(int capacity, string directory, ISerializer<T> serializer, ILogger logger = null)
         {
@@ -97,7 +97,7 @@ namespace Amazon.KinesisTap.Core
                     this.Head++;
                     this.UpdateIndex();
                 }
-            }            
+            }
 
             item = default(T);
             return false;
@@ -132,7 +132,7 @@ namespace Amazon.KinesisTap.Core
             // The file names contain the incrementing index value, so we'll parse the
             // name portion into an int and sort the array based on that value.
             var files = Directory.GetFiles(this.QueueDirectory)
-                .Select(i => new { Path = i, Index = int.TryParse(i.Split('\\').Last(), out int ind) ? ind : -2 })
+                .Select(i => new { Path = i, Index = int.TryParse(i.Split(Path.DirectorySeparatorChar).Last(), out int ind) ? ind : -2 })
                 .Where(i => i.Index > -1) // This is faster than >= 0.
                 .OrderByDescending(i => i.Index)
                 .ToList();
@@ -161,7 +161,7 @@ namespace Amazon.KinesisTap.Core
                 else
                     break;
             }
-            
+
             this.logger?.LogInformation("Index file at path '{0}' was rebuilt. Using 'Head' position '{1}' and 'Tail' position '{2}'.", this.indexFilePath, this.Head, this.Tail);
 
             // Save the discovered index values to the file.

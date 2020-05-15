@@ -33,10 +33,7 @@ namespace Amazon.KinesisTap.Windows
     {
         private const string BookmarkFormatString = "{{\"BookmarkText\":\"<BookmarkList>\r\n<Bookmark Channel='{0}' RecordId='{1}' IsCurrent='true'/>\r\n</BookmarkList>\"}}";
         private const string RecordIdRegex = "RecordId='(\\d+)'";
-        private const int NOT_WRITING = 0;
-        private const int WRITING = 1;
         private readonly string bookmarkDirectory;
-        private readonly object bookmarkFileLock = new object();
         private readonly object bookmarkLock = new object();
         private readonly bool bookmarkOnBufferFlush;
         private readonly string[] customFilters;
@@ -52,7 +49,22 @@ namespace Amazon.KinesisTap.Windows
         private long lastSavedBookmark;
         private long? prevRecordId;
         private EventLogWatcher watcher;
-        private int writingBookmark;
+
+        /// <summary>
+        /// Synchronize access to bookmark-related data structures, including:
+        /// <see cref="lastSavedBookmark"/>, <see cref="bookmarkFlushInterval\"/>, <see cref="lastBookmarkFlushedTimestamp"/> and the bookmark file.
+        /// </summary>
+        private readonly SemaphoreSlim bookmarkSemaphore = new SemaphoreSlim(1, 1);
+
+        /// <summary>
+        /// Period between bookmark flushes to file system.
+        /// </summary>
+        private TimeSpan bookmarkFlushInterval;
+
+        /// <summary>
+        /// A timestamp of when the bookmark was last flushed to file system.
+        /// </summary>
+        private DateTime lastBookmarkFlushedTimestamp = DateTime.MinValue;
 
         public EventLogSource(string logName, string query, IPlugInContext context) : base(new ServiceDependency("EventLog"), context)
         {
@@ -91,16 +103,21 @@ namespace Amazon.KinesisTap.Windows
             long position = 0;
             if (File.Exists(this.bookmarkPath))
             {
+                this.bookmarkSemaphore.Wait();
+                bookmarkFlushInterval = TimeSpan.FromSeconds(20);
                 try
                 {
                     var json = File.ReadAllText(this.bookmarkPath);
                     this.eventBookmark = JsonConvert.DeserializeObject<EventBookmark>(json);
-
                     position = GetEventIdFromBookmark(json);
                 }
                 catch (Exception ex)
                 {
                     this._logger?.LogError($"Eventlog Source {this.Id} unable to load bookmark: {ex.ToMinimized()}");
+                }
+                finally
+                {
+                    this.bookmarkSemaphore.Release();
                 }
             }
             else
@@ -110,7 +127,11 @@ namespace Amazon.KinesisTap.Windows
                 this.eventBookmark = null;
             }
 
-            this.bookmarkId = BookmarkManager.RegisterBookmark(this.Id, position, (pos) => this.SaveBookmark(pos)).Id;
+            if (bookmarkOnBufferFlush)
+            {
+                // Only register a bookmark in the BookmarkManager if BookmarkOnBufferFlush is enabled.
+                this.bookmarkId = BookmarkManager.RegisterBookmark(this.Id, position, (pos) => this.SaveBookmarkInternal(pos, false)).Id;
+            }
         }
 
         /// <summary>
@@ -147,26 +168,72 @@ namespace Amazon.KinesisTap.Windows
 
         public void SaveBookmark()
         {
-            this.SaveBookmark(this.prevRecordId ?? 0);
+            // this is called when the source stops, so bookmarks need to be flushed.
+            this.SaveBookmarkInternal(this.prevRecordId ?? 0, true);
         }
 
-        public void SaveBookmark(long position)
+        /// <summary>
+        /// Set 'bookmarkFlushInterval' to zero, allowing 'SaveBookmarkInternal' to always flush to disk.
+        /// </summary>
+        private void AllowBookmarkFlush()
+        {
+            try
+            {
+                bookmarkSemaphore.Wait();
+                bookmarkFlushInterval = TimeSpan.Zero;
+            }
+            finally
+            {
+                bookmarkSemaphore.Release();
+            }
+        }
+
+        /// <summary>
+        /// Stores the bookmark data with an option of forcing a write to the file system.
+        /// </summary>
+        /// <param name="position">The new bookmark position.</param>
+        /// <param name="forceFlush">Force the bookmark to be saved to the file system.</param>
+        private void SaveBookmarkInternal(long position, bool forceFlush)
         {
             if (this.InitialPosition == InitialPositionEnum.EOS) return;
 
             try
             {
-                lock (this.bookmarkFileLock)
+                // first, we store the updated bookmark value in 'lastSavedBookmark' if position > lastSavedBookmark
+                var originalBookmark = Utility.InterlockedExchangeIfGreaterThan(ref this.lastSavedBookmark, position, position);
+                if (originalBookmark >= this.lastSavedBookmark && !forceFlush)
                 {
-                    if (this.lastSavedBookmark >= position) return;
-                    var json = string.Format(BookmarkFormatString, this.logName, position);
+                    // 'lastSavedBookmark' is not updated and we're not required to flush
+                    return;
+                }
+
+                // Try to enter the critical section to flush the bookmark and 'lastBookmarkFlushedTimestamp'
+                // If flush is required, wait indefinitely.
+                // Otherwise only wait for 2 seconds before abandoning the update attempt.
+                // This should never happen, but if it does, it's not a problem
+                // because there's likely another Task, started later, waiting
+                // to get the Semaphore as well.
+                if (!this.bookmarkSemaphore.Wait(forceFlush ? Timeout.Infinite : 2000)) return;
+
+                // if flush is required or the last flushed happened long enough ago, store the bookmark to file
+                if (forceFlush || (DateTime.Now - lastBookmarkFlushedTimestamp > bookmarkFlushInterval))
+                {
+                    // if another thread is saving bookmark concurrently, 'lastSavedBookmark' might already changed
+                    // we make sure we're flushing the 'latest' saved bookmark
+                    var flushedPosition = Interlocked.Read(ref this.lastSavedBookmark);
+                    _logger?.LogDebug("Flushing bookmark location {0}", flushedPosition);
+                    var json = string.Format(BookmarkFormatString, this.logName, flushedPosition);
                     File.WriteAllText(this.bookmarkPath, json);
-                    this.lastSavedBookmark = position;
+                    lastBookmarkFlushedTimestamp = DateTime.Now;
                 }
             }
             catch (Exception ex)
             {
                 this._logger?.LogError($"Eventlog Source {this.Id} unable to save bookmark: {ex.ToMinimized()}");
+            }
+            finally
+            {
+                this.bookmarkSemaphore.Release();
             }
         }
 
@@ -237,9 +304,25 @@ namespace Amazon.KinesisTap.Windows
                 this.watcher.Dispose();
                 this.watcher = null;
 
-                // Only save the bookmark if bookmarking on buffer flush is disabled.
                 if (!this.bookmarkOnBufferFlush)
-                    this.StartSavingBookmark();
+                {
+                    // Only save the bookmark if bookmarking on buffer flush is disabled.
+                    // SaveBookmark is a synchronous call, and will block until the file is updated.
+                    // Previously it was calling StartSavingBookmark, an async call, and was causing
+                    // a race condition during configuration reloads for accessing the file.
+                    // This ensures that the Start method can't be called on the source while it's
+                    // still updating a bookmark.
+                    _logger?.LogDebug("Source stopping, flushing bookmark");
+                    this.SaveBookmark();
+                }
+                else
+                {
+                    // If bookmark-on-flush is enabled, we need to signal the source to try to flush the bookmark after the sink has streamed the events.
+                    // Otherwise, next time the source starts up (e.g. after a Windows restart),
+                    // the bookmark might be out-dated and KT might stream duplicate events. 
+                    _logger?.LogDebug("Source stopping, allowing bookmarks to be flushed");
+                    AllowBookmarkFlush();
+                }
 
                 this._logger?.LogInformation($"EventLogSource id {this.Id} logging {this.logName} EventLog with query {this.query} stopped.");
             }
@@ -355,7 +438,10 @@ namespace Amazon.KinesisTap.Windows
                     this.eventBookmark = eventRecord.Bookmark;
 
                 if (!this.bookmarkOnBufferFlush)
-                    this.StartSavingBookmark();
+                {
+                    // if bookmark-on-flush is not enabled, store the bookmark right away but do not force a flush
+                    this.SaveBookmarkInternal(prevRecordId ?? 0, false);
+                }
             }
             else
             {
@@ -375,7 +461,7 @@ namespace Amazon.KinesisTap.Windows
             if (this.InitialPosition == InitialPositionEnum.Timestamp
                 && this.InitialPositionTimestamp.HasValue
                 && eventRecord.TimeCreated.HasValue
-                && this.InitialPositionTimestamp.Value > eventRecord.TimeCreated.Value)
+                && this.InitialPositionTimestamp.Value > eventRecord.TimeCreated.Value.ToUniversalTime())
             {
                 return; //Don't send if timetamp initial position is in the future
             }
@@ -400,27 +486,6 @@ namespace Amazon.KinesisTap.Windows
             this.recordSubject.OnNext(envelope);
             this._metrics?.PublishCounter(this.Id, MetricsConstants.CATEGORY_SOURCE, CounterTypeEnum.Increment,
                 MetricsConstants.EVENTLOG_SOURCE_EVENTS_READ, 1, MetricUnit.Count);
-        }
-
-        private void StartSavingBookmark()
-        {
-            if (Interlocked.Exchange(ref this.writingBookmark, WRITING) == NOT_WRITING)
-            {
-                //Kick off a different thread to save bookmark so that the original thread can continue processing
-                Task.Run((Action)SaveBookmark)
-                    .ContinueWith((t) =>
-                    {
-                        Interlocked.Exchange(ref this.writingBookmark, NOT_WRITING);
-                        if (t.IsFaulted && t.Exception is AggregateException aex)
-                        {
-                            aex.Handle(ex =>
-                            {
-                                this._logger?.LogError($"EventLogSource saving bookmark Exception {ex}");
-                                return true;
-                            });
-                        }
-                    });
-            }
         }
     }
 }

@@ -28,7 +28,7 @@ namespace Amazon.KinesisTap.Core.Test
 {
     public class DirectoryWatcherTest
     {
-#region public members
+        #region public members
         [Fact]
         public void StartStopTest()
         {
@@ -36,10 +36,10 @@ namespace Amazon.KinesisTap.Core.Test
             using (MemoryLogger logger = new MemoryLogger("memory"))
             {
                 DirectorySource<string, LogContext> watcher = new DirectorySource<string, LogContext>(
-                    TestUtility.GetTestHome(), 
-                    filter, 
+                    TestUtility.GetTestHome(),
+                    filter,
                     1000,
-                    new PluginContext(null, logger, null), 
+                    new PluginContext(null, logger, null),
                     new SingeLineRecordParser());
                 watcher.Start();
                 Assert.Equal($"DirectorySource id {null} watching directory {TestUtility.GetTestHome()} with filter {filter} started.", logger.LastEntry);
@@ -234,7 +234,7 @@ namespace Amazon.KinesisTap.Core.Test
             };
 
             var config = TestUtility.GetConfig("Sources", "IncludeSubdirectories");
-            config["IncludeDirectoryFilter"] = @"CPU;CPU\CPU-1";
+            config["IncludeDirectoryFilter"] = $@"CPU;CPU{Path.DirectorySeparatorChar}CPU-1";
             await CreateAndRunWatcher(testName, filter, config, async (logRecords) =>
             {
                 var filePath1 = Path.Combine(TestUtility.GetTestHome(), testName, subDir1, "test");
@@ -439,7 +439,7 @@ namespace Amazon.KinesisTap.Core.Test
 
             var config = TestUtility.GetConfig("Sources", "DHCPLog");
 
-            await CreateAndRunWatcher(testName, filter, config, async(logRecords) =>
+            await CreateAndRunWatcher(testName, filter, config, async (logRecords) =>
             {
                 string log = @"		Microsoft DHCP Service Activity Log
 
@@ -484,7 +484,7 @@ ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name, Transaction
             }, new SingeLineRecordParser());
         }
 
-        [Fact] 
+        [Fact]
         public async Task TimeStampedRecordTest()
         {
             string testName = "TimeStampedRecordTest";
@@ -660,7 +660,7 @@ ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name, Transaction
             return Path.Combine(TestUtility.GetTestHome(), testName, file); ;
         }
 
-        private void AddRecords<T> (List<T> logRecords, IList<T> newRecord)
+        private void AddRecords<T>(List<T> logRecords, IList<T> newRecord)
         {
             logRecords.AddRange(newRecord);
         }
@@ -690,7 +690,7 @@ ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name, Transaction
 
         private static void DeleteFiles(string directory, string fileSpec)
         {
-            foreach(string f in Directory.EnumerateFiles(directory, fileSpec))
+            foreach (string f in Directory.EnumerateFiles(directory, fileSpec))
             {
                 File.Delete(f);
             }

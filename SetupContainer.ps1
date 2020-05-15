@@ -18,7 +18,13 @@ Write-Host 'Installing .NET 46 targeting pack'
 $proc = Start-Process -FilePath "$installDir\NDP46-TargetingPack-KB3045566-ENU.exe" -ArgumentList "/install /quiet /norestart /log $installLog" -PassThru -NoNewWindow
 $proc.WaitForExit()
 Write-Host "Finished installing .NET 46 targeting pack with exit code '$($proc.ExitCode)'"
-Get-Content -Path $installLog
+
+if (Test-Path $installLog -PathType leaf) {
+    Get-Content -Path $installLog
+}
+else {
+    Write-Warning "Cannot find .NET framework install log $installLog, skipping"
+}
 
 Write-Host 'Enumerating installed targeting packs'
 Get-ChildItem -Path 'C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework'

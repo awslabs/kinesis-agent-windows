@@ -39,7 +39,7 @@ namespace Amazon.KinesisTap.Core.Test
         [InlineData("TextDecorationEx")]
         public void TestTextDecoration(string sinkId)
         {
-            string id = sinkId + (Utility.IsWindow ? string.Empty : TestUtility.LINUX);
+            string id = sinkId + (Utility.IsWindows ? string.Empty : TestUtility.LINUX);
             MemoryLogger logger = new MemoryLogger(null);
             MockEventSource<string> mockEventSource = CreateEventsource<string>("InitialPositionUnspecified");
             MockEventSink sink = CreateEventSink(id, logger);
@@ -56,7 +56,7 @@ namespace Amazon.KinesisTap.Core.Test
         [InlineData("TextDecorationExWithFileName")]
         public void TextDecorationWithFileName(string sinkId)
         {
-            string id = sinkId + (Utility.IsWindow ? string.Empty : TestUtility.LINUX);
+            string id = sinkId + (Utility.IsWindows ? string.Empty : TestUtility.LINUX);
             MemoryLogger logger = new MemoryLogger(null);
             MockEventSource<string> mockEventSource = CreateEventsource<string>("InitialPositionUnspecified");
             MockEventSink sink = CreateEventSink(id, logger);
@@ -186,7 +186,7 @@ namespace Amazon.KinesisTap.Core.Test
         [InlineData("ObjectDecorationEx")]
         public void TestObjectDecoration(string sinkId)
         {
-            string id = sinkId + (Utility.IsWindow ? string.Empty : TestUtility.LINUX);
+            string id = sinkId + (Utility.IsWindows ? string.Empty : TestUtility.LINUX);
             MemoryLogger logger = new MemoryLogger(null);
             MockEventSource<IDictionary<string, string>> mockEventSource = CreateEventsource<IDictionary<string, string>>("InitialPositionUnspecified");
             MockEventSink sink = CreateEventSink(id, logger);
@@ -205,7 +205,7 @@ namespace Amazon.KinesisTap.Core.Test
         [InlineData("ObjectDecorationExWithFileName")]
         public void TestObjectDecorationWithFileName(string sinkId)
         {
-            string id = sinkId + (Utility.IsWindow ? string.Empty : TestUtility.LINUX);
+            string id = sinkId + (Utility.IsWindows ? string.Empty : TestUtility.LINUX);
             MemoryLogger logger = new MemoryLogger(null);
             MockEventSource<IDictionary<string, string>> mockEventSource = CreateEventsource<IDictionary<string, string>>("InitialPositionUnspecified");
             MockEventSink sink = CreateEventSink(id, logger);
@@ -288,7 +288,7 @@ namespace Amazon.KinesisTap.Core.Test
         {
             get
             {
-                return Utility.IsWindow ? Utility.ComputerName : Utility.HostName;
+                return Utility.IsWindows ? Utility.ComputerName : Utility.HostName;
             }
         }
     }

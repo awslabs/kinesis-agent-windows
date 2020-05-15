@@ -42,7 +42,7 @@ namespace Amazon.KinesisTap.AWS
             }
 
             (string prefix, string variableNoPrefix) = Utility.SplitPrefix(variable.Substring(1, variable.Length - 2), ':');
-            switch(variableNoPrefix.ToLower())
+            switch (variableNoPrefix.ToLower())
             {
                 case "instance_id":
                     return EC2InstanceMetadata.InstanceId;
@@ -54,7 +54,7 @@ namespace Amazon.KinesisTap.AWS
                         if (!variableNoPrefix.StartsWith("/")) variableNoPrefix = "/" + variableNoPrefix;
                         return EC2InstanceMetadata.GetData(variableNoPrefix);
                     }
-                    else if("ec2tag".Equals(prefix, StringComparison.CurrentCultureIgnoreCase))
+                    else if ("ec2tag".Equals(prefix, StringComparison.CurrentCultureIgnoreCase))
                     {
                         return EC2Utility.GetTagValue(variableNoPrefix);
                     }
@@ -114,6 +114,25 @@ namespace Amazon.KinesisTap.AWS
             return awsClient;
         }
 
+        public static string ResolveConfigVariable(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return value;
+            }
+            return Utility.ResolveVariables(value, ConfigVariableEvaluator);
+        }
+
+        private static string ConfigVariableEvaluator(string variable)
+        {
+            var evaluated = Utility.ResolveVariable(variable);
+            if (string.IsNullOrEmpty(evaluated))
+            {
+                return evaluated;
+            }
+            return AWSUtilities.EvaluateAWSVariable(evaluated);
+        }
+
         /// <summary>
         /// Generate AWS Client using credential and region
         /// </summary>
@@ -143,9 +162,9 @@ namespace Amazon.KinesisTap.AWS
             string credentialRef = config[ConfigConstants.CREDENTIAL_REF];
             string accessKey = config[ConfigConstants.ACCESS_KEY];
             string secretKey = config[ConfigConstants.SECRET_KEY];
-            string region = config[ConfigConstants.REGION];
+            string region = ResolveConfigVariable(config[ConfigConstants.REGION]);
             string profileName = config[ConfigConstants.PROFILE_NAME];
-            string roleArn = config[ConfigConstants.ROLE_ARN];
+            string roleArn = ResolveConfigVariable(config[ConfigConstants.ROLE_ARN]);
             AWSCredentials credential = null;
             RegionEndpoint regionEndPoint = null;
 

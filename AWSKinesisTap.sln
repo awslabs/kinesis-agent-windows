@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26730.3
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30104.148
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Amazon.KinesisTap", "Amazon.KinesisTap\Amazon.KinesisTap.csproj", "{1CE3DDD0-7FDC-4EDF-86F0-C9592FC9E895}"
 EndProject
@@ -54,6 +54,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.ParserExamples", "Amazon.KinesisTap.ParserExamples\Amazon.KinesisTap.ParserExamples.csproj", "{8734C519-4D5F-4893-9EB0-CD90B42CF776}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.Shared", "Amazon.KinesisTap.Shared\Amazon.KinesisTap.Shared.csproj", "{C1E87070-5A6C-4C29-9E99-61A74E89DF99}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.ServiceTests", "Amazon.KinesisTap.ServiceTests\Amazon.KinesisTap.ServiceTests.csproj", "{69AF892B-0697-46C9-B9B3-32D132B4DABE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -313,6 +315,18 @@ Global
 		{C1E87070-5A6C-4C29-9E99-61A74E89DF99}.Release|x64.Build.0 = Release|Any CPU
 		{C1E87070-5A6C-4C29-9E99-61A74E89DF99}.Release|x86.ActiveCfg = Release|Any CPU
 		{C1E87070-5A6C-4C29-9E99-61A74E89DF99}.Release|x86.Build.0 = Release|Any CPU
+		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Debug|x64.Build.0 = Debug|Any CPU
+		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Debug|x86.Build.0 = Debug|Any CPU
+		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Release|x64.ActiveCfg = Release|Any CPU
+		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Release|x64.Build.0 = Release|Any CPU
+		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Release|x86.ActiveCfg = Release|Any CPU
+		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -339,6 +353,7 @@ Global
 		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9} = {9D24016C-126C-4CE5-8F2E-4D76B2EF24D4}
 		{8734C519-4D5F-4893-9EB0-CD90B42CF776} = {D3F846C4-AEEC-440B-B4B9-A34EFBF1BB8E}
 		{C1E87070-5A6C-4C29-9E99-61A74E89DF99} = {6CE3DFA4-D689-476E-832D-9CCA261CA1AB}
+		{69AF892B-0697-46C9-B9B3-32D132B4DABE} = {59AF3E35-C33A-4A3B-9E1B-BAA76439D006}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F17B29AD-BF48-46EE-8A30-6CE143282C1D}

@@ -13,6 +13,6 @@ if ($null -ne (Get-Service -Name $serviceName -ErrorAction Ignore))
 {
     Write-Verbose 'KinesisTap has been installed. Uninstalling KinesisTap...'
     $toolsDir = "$(Split-Path -Parent $MyInvocation.MyCommand.Definition)"
-    $fileLocation = Join-Path -Path $toolsDir -ChildPath "$serviceName.msi"
+    $fileLocation = Join-Path -Path $toolsDir -ChildPath "KinesisTap.msi"
     msiexec /x $fileLocation /q
 }
