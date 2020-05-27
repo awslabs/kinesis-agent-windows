@@ -12,10 +12,6 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
-
 namespace Amazon.KinesisTap.Core
 {
     public static class ConfigConstants
@@ -45,6 +41,12 @@ namespace Amazon.KinesisTap.Core
         public const string RECORD_COUNT = "RecordCount";
         public const string MAX_BATCH_SIZE = "MaxBatchSize";
 
+        // Proxy and alternate endpoint support
+        public const string PROXY_HOST = "ProxyHost";
+        public const string PROXY_PORT = "ProxyPort";
+        public const string SERVICE_URL = "ServiceURL";
+        public const string USE_STS_REGIONAL_ENDPOINTS = "UseSTSRegionalEndpoints";
+        public const string STS_REGIONAL_ENDPOINTS_ENV_VARIABLE = "AWS_STS_REGIONAL_ENDPOINTS";
 
         public const string QUEUE_TYPE = "QueueType";
         public const string QUEUE_TYPE_MEMORY = "memory";

@@ -12,23 +12,18 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Text;
-
-using Amazon.CloudWatchLogs.Model;
-using Amazon.Runtime;
-using Amazon.Runtime.CredentialManagement;
-using Amazon.Util;
-using Microsoft.Extensions.Configuration;
-
-using Amazon.KinesisTap.Core;
-
 namespace Amazon.KinesisTap.AWS
 {
+    using System;
+    using System.IO;
+    using System.Runtime.InteropServices;
+    using Amazon.CloudWatchLogs.Model;
+    using Amazon.KinesisTap.Core;
+    using Amazon.Runtime;
+    using Amazon.Runtime.CredentialManagement;
+    using Amazon.Util;
+    using Microsoft.Extensions.Configuration;
+
     public static class AWSUtilities
     {
         private static string _userAgent;
@@ -87,8 +82,47 @@ namespace Amazon.KinesisTap.AWS
         public static TAWSClient CreateAWSClient<TAWSClient>(IPlugInContext context) where TAWSClient : AmazonServiceClient
         {
             (AWSCredentials credential, RegionEndpoint region) = GetAWSCredentialsRegion(context);
-            var awsClient = CreateAWSClient<TAWSClient>(credential, region);
-            if (context.Configuration["SinkType"]?.ToLower() == AWSEventSinkFactory.CLOUD_WATCH_LOG_EMF)
+            ClientConfig clientConfig;
+            switch (typeof(TAWSClient).Name)
+            {
+                case nameof(CloudWatch.AmazonCloudWatchClient):
+                    clientConfig = new CloudWatch.AmazonCloudWatchConfig();
+                    break;
+                case nameof(CloudWatchLogs.AmazonCloudWatchLogsClient):
+                    clientConfig = new CloudWatchLogs.AmazonCloudWatchLogsConfig();
+                    break;
+                case nameof(Kinesis.AmazonKinesisClient):
+                    clientConfig = new Kinesis.AmazonKinesisConfig();
+                    break;
+                case nameof(KinesisFirehose.AmazonKinesisFirehoseClient):
+                    clientConfig = new KinesisFirehose.AmazonKinesisFirehoseConfig();
+                    break;
+                case nameof(SecurityToken.AmazonSecurityTokenServiceClient):
+                    clientConfig = new SecurityToken.AmazonSecurityTokenServiceConfig();
+                    break;
+                default:
+                    throw new Exception($"Unknown Amazon Service client '{typeof(TAWSClient).Name}'");
+            }
+
+            clientConfig.RegionEndpoint = region ?? FallbackRegionFactory.GetRegionEndpoint();
+            if (!string.IsNullOrWhiteSpace(context.Configuration[ConfigConstants.PROXY_HOST]))
+            {
+                clientConfig.ProxyHost = context.Configuration[ConfigConstants.PROXY_HOST];
+                if (!string.IsNullOrWhiteSpace(context.Configuration[ConfigConstants.PROXY_PORT]) && ushort.TryParse(context.Configuration[ConfigConstants.PROXY_PORT], out ushort proxyPort))
+                    clientConfig.ProxyPort = proxyPort;
+                else
+                    proxyPort = 80;
+            }
+
+            if (!string.IsNullOrWhiteSpace(context.Configuration[ConfigConstants.SERVICE_URL]))
+            {
+                clientConfig.AuthenticationRegion = clientConfig.RegionEndpoint.SystemName;
+                clientConfig.ServiceURL = context.Configuration[ConfigConstants.SERVICE_URL];
+            }
+
+            // var awsClient = CreateAWSClient<TAWSClient>(credential, region);
+            var awsClient = (TAWSClient)Activator.CreateInstance(typeof(TAWSClient), credential, clientConfig);
+            if (context.Configuration[ConfigConstants.SINK_TYPE]?.ToLower() == AWSEventSinkFactory.CLOUD_WATCH_LOG_EMF)
             {
                 awsClient.BeforeRequestEvent += (sender, args) =>
                 {
@@ -207,6 +241,7 @@ namespace Amazon.KinesisTap.AWS
             //If roleARN is specified. Assume if from the credential loaded above
             if (!string.IsNullOrWhiteSpace(roleArn))
             {
+                ConfigureSTSRegionalEndpoint(config);
                 credential = new AssumeRoleAWSCredentials(credential, roleArn, $"KinesisTap-{Utility.ComputerName}");
             }
 
@@ -269,6 +304,24 @@ namespace Amazon.KinesisTap.AWS
                 }
                 return _userAgent;
             }
+        }
+
+        private static void ConfigureSTSRegionalEndpoint(IConfiguration config)
+        {
+            // Don't set unless the user has specified in the config that they want to use the regional endpoint.
+            if (!bool.TryParse(config[ConfigConstants.USE_STS_REGIONAL_ENDPOINTS], out bool useRegionalSTSEndpoint)) return;
+            if (!useRegionalSTSEndpoint) return;
+
+            // Don't overwrite an existing value if it has already been set.
+            if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(ConfigConstants.STS_REGIONAL_ENDPOINTS_ENV_VARIABLE))) return;
+
+            // Don't set if we can't automatically resolve the region (required for using regional endpoints).
+            var autoDiscoveredRegion = FallbackRegionFactory.GetRegionEndpoint();
+            if (autoDiscoveredRegion == null || autoDiscoveredRegion.DisplayName == "Unknown") return;
+
+            // Set the AWS_STS_REGIONAL_ENDPOINTS environment variable to Regional.
+            // This will mean that customers don't have to set the system-level variable.
+            Environment.SetEnvironmentVariable(ConfigConstants.STS_REGIONAL_ENDPOINTS_ENV_VARIABLE, StsRegionalEndpointsValue.Regional.ToString());
         }
 
         private static void SetCommonRequestHeaders(WebServiceRequestEventArgs wsArgs)
