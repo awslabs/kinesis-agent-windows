@@ -73,19 +73,19 @@ You need Visual Studio 2017 Community, Professional or Enterprise on Windows to 
 
 ## Release Notes
 
-Release 1.1.216.1 (May 28, 2020)
+[Beta] Release 1.1.216.1 (May 28, 2020)
 *   1.1.216.1 [Release Notes][release1.1.216.1]
 
-Release 1.1.215.1 (May 18, 2020)
+[Beta] Release 1.1.215.1 (May 18, 2020)
 *   1.1.215.1 [Release Notes][release1.1.215.1]
 
-Release 1.1.212.1 (February 26, 2020)
+[Prod] Release 1.1.212.1 (February 26, 2020)
 *   1.1.212.1 [Release Notes][release1.1.212.1]
 
-Release 1.1.168.1 (June 24, 2019)
+[Prod] Release 1.1.168.1 (June 24, 2019)
 *   1.1 [Release Notes][release1.1]
 
-Release 1.0.0.115 (November 6, 2018)
+[Prod] Release 1.0.0.115 (November 6, 2018)
 *	This is the first release.
 
 ## Other resources
