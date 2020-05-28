@@ -108,3 +108,5 @@ Release 1.0.0.115 (November 6, 2018)
 [opt-out]: https://docs.aws.amazon.com/kinesis-agent-windows/latest/userguide/telemetrics-configuration-option.html
 [release1.1]: release_1.1.md
 [release1.1.212.1]: release_1.2.md
+[release1.1.215.1]: release_1.1.215.1.md
+[release1.1.216.1]: release_1.1.216.1.md
