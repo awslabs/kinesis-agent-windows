@@ -1,5 +1,5 @@
-# Amazon Kinesis Agent for Windows 1.1.216.1 (Beta) release notes
-You can download Kinesis Agent for Windows [here](https://s3-us-west-2.amazonaws.com/kinesis-agent-windows/beta/index.html).
+# Amazon Kinesis Agent for Windows 1.1.216.2 (Prod) release notes
+You can download Kinesis Agent for Windows [here](https://s3-us-west-2.amazonaws.com/kinesis-agent-windows/downloads/index.html).
 
 ## New feature: Local FileSystem sink
 
