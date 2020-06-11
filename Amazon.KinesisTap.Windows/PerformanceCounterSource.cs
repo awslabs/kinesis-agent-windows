@@ -44,6 +44,7 @@ namespace Amazon.KinesisTap.Windows
         //Cache the units for each category/counter pair
         private IDictionary<(string category, string counter), MetricUnit> _counterUnitsCache;
         private bool started;
+        private readonly object _lockObject = new object();
 
         public PerformanceCounterSource(IPlugInContext context)
         {
@@ -56,64 +57,73 @@ namespace Amazon.KinesisTap.Windows
 
         public void Start()
         {
-            var categoriesSection = _context.Configuration.GetSection("Categories");
-            _categoryInfos = new PerformanceCounterSourceConfigLoader(_context, _counterUnitsCache)
-                .LoadCategoriesConfig(categoriesSection);
-            if (_categoryInfos == null || _categoryInfos.Count == 0)
+            lock (_lockObject)
             {
-                throw new InvalidOperationException("WindowsPerformanceCounterSource missing required attribute 'Categories'.");
+                var categoriesSection = _context.Configuration.GetSection("Categories");
+                _categoryInfos = new PerformanceCounterSourceConfigLoader(_context, _counterUnitsCache)
+                    .LoadCategoriesConfig(categoriesSection);
+                if (_categoryInfos == null || _categoryInfos.Count == 0)
+                {
+                    throw new InvalidOperationException("WindowsPerformanceCounterSource missing required attribute 'Categories'.");
+                }
+                LoadPerformanceCounters();
+                started = true;
             }
-            LoadPerformanceCounters();
-            started = true;
         }
 
         public void Stop()
         {
-            started = false;
-            //Capture a copy of counters and set _categoryCounters to null so it can no longer be used
-            var singleInstanceCategoryCounters = _singleInstanceCategoryCounters;
-            _singleInstanceCategoryCounters = null;
-            //Dispose the counters
-            foreach(var categoryCounters in singleInstanceCategoryCounters.Values)
+            lock (_lockObject)
             {
-                foreach(var counter in categoryCounters)
+                started = false;
+                //Capture a copy of counters and set _categoryCounters to null so it can no longer be used
+                var singleInstanceCategoryCounters = _singleInstanceCategoryCounters;
+                _singleInstanceCategoryCounters = null;
+                //Dispose the counters
+                foreach (var categoryCounters in singleInstanceCategoryCounters.Values)
                 {
-                    counter?.Dispose();
+                    foreach (var counter in categoryCounters)
+                    {
+                        counter?.Dispose();
+                    }
                 }
-            }
 
-            var multipleInstanceCategoryCounters = _multipleInstanceCategoryCounters;
-            _multipleInstanceCategoryCounters = null;
-            foreach (var categoryInstances in multipleInstanceCategoryCounters.Values)
-            {
-                foreach (var instanceCounters in categoryInstances.Values)
+                var multipleInstanceCategoryCounters = _multipleInstanceCategoryCounters;
+                _multipleInstanceCategoryCounters = null;
+                foreach (var categoryInstances in multipleInstanceCategoryCounters.Values)
                 {
-                    DisposeInstanceCounters(instanceCounters);
+                    foreach (var instanceCounters in categoryInstances.Values)
+                    {
+                        DisposeInstanceCounters(instanceCounters);
+                    }
                 }
             }
         }
 
         public IEnvelope<ICollection<KeyValuePair<MetricKey, MetricValue>>> Query(string query)
         {
-            if (!started) return null;
-
-            try
+            lock (_lockObject)
             {
-                RefreshInstances();
+                if (!started) return null;
 
-                List<KeyValuePair<MetricKey, MetricValue>> metrics = new List<KeyValuePair<MetricKey, MetricValue>>();
+                try
+                {
+                    RefreshInstances();
 
-                ReadSingleInstanceCategoryCounters(metrics);
+                    List<KeyValuePair<MetricKey, MetricValue>> metrics = new List<KeyValuePair<MetricKey, MetricValue>>();
 
-                ReadMultipleInstanceCategoryCounters(metrics);
+                    ReadSingleInstanceCategoryCounters(metrics);
 
-                return new Envelope<ICollection<KeyValuePair<MetricKey, MetricValue>>>(metrics, DateTime.UtcNow);
+                    ReadMultipleInstanceCategoryCounters(metrics);
+
+                    return new Envelope<ICollection<KeyValuePair<MetricKey, MetricValue>>>(metrics, DateTime.UtcNow);
+                }
+                catch (Exception ex)
+                {
+                    _context.Logger?.LogError($"Error querying performance counter source {this.Id}: {ex.ToMinimized()}");
+                }
+                return null;
             }
-            catch(Exception ex)
-            {
-                _context.Logger?.LogError($"Error querying performance counter source {this.Id}: {ex.ToMinimized()}");
-            }
-            return null;
         }
 
         public static MetricUnit InferUnit(string category, string counterName)
@@ -123,11 +133,11 @@ namespace Amazon.KinesisTap.Windows
             if (isPercent) return MetricUnit.Percent;
 
             bool isRate = counterName.IndexOf("/sec", StringComparison.InvariantCultureIgnoreCase) > -1
-                || counterName.IndexOf("/ sec", StringComparison.InvariantCultureIgnoreCase) > -1 
+                || counterName.IndexOf("/ sec", StringComparison.InvariantCultureIgnoreCase) > -1
                 || counterName.EndsWith("Rate", StringComparison.InvariantCultureIgnoreCase)
                 || counterName.StartsWith("Rate of");
 
-            string sizeKeyword = SIZE_KEYWORDS.FirstOrDefault(kw => 
+            string sizeKeyword = SIZE_KEYWORDS.FirstOrDefault(kw =>
                 counterName.IndexOf(kw, StringComparison.InvariantCultureIgnoreCase) > -1);
             bool isSize = !string.IsNullOrEmpty(sizeKeyword);
 
@@ -135,7 +145,7 @@ namespace Amazon.KinesisTap.Windows
             {
                 if (isSize)
                 {
-                    switch(char.ToLower(sizeKeyword[0]))
+                    switch (char.ToLower(sizeKeyword[0]))
                     {
                         case 'm':
                             return MetricUnit.MegabytesSecond;
@@ -236,10 +246,10 @@ namespace Amazon.KinesisTap.Windows
         }
 
         //This method is responsible for both initial load and refresh of instances
-        private void LoadInstancesForCategory(CategoryInfo categoryInfo, 
-            string categoryName, 
-            PerformanceCounterCategory performanceCounterCategory, 
-            HashSet<string> counterNames, 
+        private void LoadInstancesForCategory(CategoryInfo categoryInfo,
+            string categoryName,
+            PerformanceCounterCategory performanceCounterCategory,
+            HashSet<string> counterNames,
             IList<Regex> counterPatterns,
             bool isInitialLoad)
         {
@@ -270,7 +280,7 @@ namespace Amazon.KinesisTap.Windows
                 if (cachedInstances.Contains(instanceName))
                 {
                     //Remove each verified instance name from the check list.
-                    cachedInstances.Remove(instanceName); 
+                    cachedInstances.Remove(instanceName);
                 }
                 else
                 {
@@ -279,7 +289,7 @@ namespace Amazon.KinesisTap.Windows
             }
 
             //Remove from cache and dispose all the instances remain in the check list
-            foreach(var instanceName in cachedInstances)
+            foreach (var instanceName in cachedInstances)
             {
                 _context.Logger?.LogInformation($"Remove performance counter instance: category {categoryName} instance {instanceName}.");
                 var instanceCounters = categoryInstances[instanceName];
@@ -288,11 +298,11 @@ namespace Amazon.KinesisTap.Windows
             }
         }
 
-        private void LoadPerformanceCounterForCategoryInstance(PerformanceCounterCategory performanceCounterCategory, 
-            HashSet<string> counterNames, 
+        private void LoadPerformanceCounterForCategoryInstance(PerformanceCounterCategory performanceCounterCategory,
+            HashSet<string> counterNames,
             IList<Regex> counterPatterns,
-            IDictionary<string, 
-            List<PerformanceCounter>> categoryInstances, 
+            IDictionary<string,
+            List<PerformanceCounter>> categoryInstances,
             string instanceName)
         {
             if (!categoryInstances.TryGetValue(instanceName, out List<PerformanceCounter> instanceCounters))
@@ -308,9 +318,9 @@ namespace Amazon.KinesisTap.Windows
             LogCountersToAdd(countersToAdd);
         }
 
-        private void LoadPerformanceCountersForSingleInstanceCategory(string categoryName, 
-            PerformanceCounterCategory performanceCounterCategory, 
-            HashSet<string> counterNames, 
+        private void LoadPerformanceCountersForSingleInstanceCategory(string categoryName,
+            PerformanceCounterCategory performanceCounterCategory,
+            HashSet<string> counterNames,
             IList<Regex> counterPatterns)
         {
             if (!_singleInstanceCategoryCounters.TryGetValue(categoryName, out List<PerformanceCounter> counters))
@@ -376,23 +386,24 @@ namespace Amazon.KinesisTap.Windows
         /// <summary>
         /// Number of instances could change since we use wildcard for instances
         /// </summary>
-        private void RefreshInstances()
+        /// <remarks>The signature is made virtual for testing purpose.</remarks>
+        public virtual void RefreshInstances()
         {
             //Only need to do this this for multiple-instance categories
             var multipleInstanceCategoryConfigs = _categoryInfos
                 .Where(ci => _multipleInstanceCategoryCounters.ContainsKey(ci.CategoryName))
                 .ToList();
-            foreach(var categoryInfo in multipleInstanceCategoryConfigs)
+            foreach (var categoryInfo in multipleInstanceCategoryConfigs)
             {
                 string categoryName = categoryInfo.CategoryName;
                 var performanceCounterCategory = new PerformanceCounterCategory(categoryName);
                 (HashSet<string> counterNames, IList<Regex> counterPatterns) =
                     GetNamesAndPatterns(categoryInfo.CounterFilters);
-                LoadInstancesForCategory(categoryInfo, 
-                    categoryInfo.CategoryName, 
-                    performanceCounterCategory, 
-                    counterNames, 
-                    counterPatterns, 
+                LoadInstancesForCategory(categoryInfo,
+                    categoryInfo.CategoryName,
+                    performanceCounterCategory,
+                    counterNames,
+                    counterPatterns,
                     false);
             }
         }
@@ -433,14 +444,14 @@ namespace Amazon.KinesisTap.Windows
                         foreach (var counter in counters)
                         {
                             var counterName = counter.CounterName;
-                                metrics.Add(new KeyValuePair<MetricKey, MetricValue>
-                                    (
-                                        new MetricKey { Name = counterName, Id=instanceName, Category = category },
-                                        new MetricValue((long)counter.NextValue(), GetMetricUnit(category, counterName))
-                                    ));
+                            metrics.Add(new KeyValuePair<MetricKey, MetricValue>
+                                (
+                                    new MetricKey { Name = counterName, Id = instanceName, Category = category },
+                                    new MetricValue((long)counter.NextValue(), GetMetricUnit(category, counterName))
+                                ));
                         }
                     }
-                    catch(InvalidOperationException ioex)
+                    catch (InvalidOperationException ioex)
                     {
                         //Instance no longer exist
                         _context.Logger?.LogInformation($"Instance no longer exists for category {category} instance {instanceName}: {ioex}");

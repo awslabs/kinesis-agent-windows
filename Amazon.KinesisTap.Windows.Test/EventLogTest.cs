@@ -273,6 +273,40 @@ namespace Amazon.KinesisTap.Windows.Test
             }
         }
 
+        /// <summary>
+        /// Make sure that 'SaveBookmarkInternal' handles out-dated bookmark position correctly.
+        /// </summary>
+        [Fact]
+        public void TestSavingOutdatedBookmark()
+        {
+            string logName = "Application";
+            string logSource = nameof(TestSavingOutdatedBookmark);
+            DeleteExistingBookmarkFile(logSource);
+
+            if (!EventLog.SourceExists(logSource))
+            {
+                EventLog.CreateEventSource(logSource, logName);
+            }
+
+            using (EventLogSource source = new EventLogSource(logName, null, new PluginContext(null, null, null)))
+            {
+                source.Id = logSource;
+                source.InitialPosition = InitialPositionEnum.Bookmark;
+                source.Start();
+                System.Threading.Thread.Sleep(1000);
+                EventLog.WriteEntry(logSource, "TestSavingOutdatedBookmark test message");
+                System.Threading.Thread.Sleep(1000);
+                var lastSavedBookmark = source.LastSavedBookmark;
+
+                // execute a save bookmark operation at the '0' position
+                source.SaveBookmarkInternal(0, false);
+
+                // assert that 'SaveBookmarkInternal' does not throw exception,
+                // and the saved bookmark remains the latest position.
+                Assert.Equal(lastSavedBookmark, source.LastSavedBookmark);
+            }
+        }
+
         private static void DeleteExistingBookmarkFile(string sourceId)
         {
             string bookmarkFile = Path.Combine(Utility.GetKinesisTapProgramDataPath(), ConfigConstants.BOOKMARKS, $"{sourceId}.bm");

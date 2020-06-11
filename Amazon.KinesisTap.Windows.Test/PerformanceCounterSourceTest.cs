@@ -15,13 +15,16 @@
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Core.Metrics;
 using Amazon.KinesisTap.Core.Test;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -117,7 +120,7 @@ namespace Amazon.KinesisTap.Windows.Test
             // Query the process again
             var newResults = performanceCounterSource.Query(null);
             var newMetrics = newResults.Data as ICollection<KeyValuePair<MetricKey, MetricValue>>;
-            
+
             // Find the different processes between the old process list and new process list
             var diff = newMetrics.Where(n => !metrics.Any(m => m.Key.Id == n.Key.Id)).ToList();
 
@@ -128,6 +131,32 @@ namespace Amazon.KinesisTap.Windows.Test
             p.Kill();
 
             performanceCounterSource.Stop();
+        }
+
+        /// <summary>
+        /// Tests the race condition of <see cref="PerformanceCounterSource"/> when the sink is querying while another thread is calling Stop().
+        /// </summary>
+        [Fact]
+        [Trait("Category", "Integration")]
+        public void TestPerformanceCounterSourceSafeStop()
+        {
+            var logger = new MemoryLogger(nameof(TestPerformanceCounterSourceSafeStop));
+            var config = TestUtility.GetConfig("Sources", "PerformanceCounter");
+            var mockCounterSource = new Mock<PerformanceCounterSource>(MockBehavior.Strict, new PluginContext(config, logger, null));
+
+            // in real deployment, RefreshInstances() might take a long time if there are a lot of counter instances.
+            // so we mock this method to simulate the situation
+            mockCounterSource.Setup(s => s.RefreshInstances()).Callback(() => Thread.Sleep(1000));
+            var source = mockCounterSource.Object;
+
+            source.Start();
+            var queryTask = Task.Run(() => source.Query(null));
+            Thread.Sleep(500);
+            source.Stop();
+            queryTask.Wait();
+
+            // assert that no error log message was written
+            Assert.Empty(logger.LogLevels.Where(l => l == LogLevel.Error));
         }
     }
 }

@@ -73,11 +73,8 @@ You need Visual Studio 2017 Community, Professional or Enterprise on Windows to 
 
 ## Release Notes
 
-[Beta] Release 1.1.216.1 (May 28, 2020)
-*   1.1.216.1 [Release Notes][release1.1.216.1]
-
-[Beta] Release 1.1.215.1 (May 18, 2020)
-*   1.1.215.1 [Release Notes][release1.1.215.1]
+[Prod] Release 1.1.216.2 (May 28, 2020)
+*   1.1.216.2 [Release Notes][release1.1.216.2]
 
 [Prod] Release 1.1.212.1 (February 26, 2020)
 *   1.1.212.1 [Release Notes][release1.1.212.1]
@@ -109,4 +106,4 @@ You need Visual Studio 2017 Community, Professional or Enterprise on Windows to 
 [release1.1]: release_1.1.md
 [release1.1.212.1]: release_1.2.md
 [release1.1.215.1]: release_1.1.215.1.md
-[release1.1.216.1]: release_1.1.216.1.md
+[release1.1.216.2]: release_1.1.216.2.md

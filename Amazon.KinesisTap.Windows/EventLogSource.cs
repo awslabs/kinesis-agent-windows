@@ -96,6 +96,11 @@ namespace Amazon.KinesisTap.Windows
             }
         }
 
+        /// <summary>
+        /// For testing purpose
+        /// </summary>
+        internal long LastSavedBookmark => this.lastSavedBookmark;
+
         public TimeSpan LastEventLatency { get; private set; }
 
         public void LoadSavedBookmark()
@@ -193,29 +198,29 @@ namespace Amazon.KinesisTap.Windows
         /// </summary>
         /// <param name="position">The new bookmark position.</param>
         /// <param name="forceFlush">Force the bookmark to be saved to the file system.</param>
-        private void SaveBookmarkInternal(long position, bool forceFlush)
+        internal void SaveBookmarkInternal(long position, bool forceFlush)
         {
             if (this.InitialPosition == InitialPositionEnum.EOS) return;
 
+            // first, we store the updated bookmark value in 'lastSavedBookmark' if position > lastSavedBookmark
+            var originalBookmark = Utility.InterlockedExchangeIfGreaterThan(ref this.lastSavedBookmark, position, position);
+            if (originalBookmark >= this.lastSavedBookmark && !forceFlush)
+            {
+                // 'lastSavedBookmark' is not updated and we're not required to flush
+                return;
+            }
+
+            // Try to enter the critical section to flush the bookmark and 'lastBookmarkFlushedTimestamp'
+            // If flush is required, wait indefinitely.
+            // Otherwise only wait for 2 seconds before abandoning the update attempt.
+            // This should never happen, but if it does, it's not a problem
+            // because there's likely another Task, started later, waiting
+            // to get the Semaphore as well.
+            if (!this.bookmarkSemaphore.Wait(forceFlush ? Timeout.Infinite : 2000)) return;
+
             try
             {
-                // first, we store the updated bookmark value in 'lastSavedBookmark' if position > lastSavedBookmark
-                var originalBookmark = Utility.InterlockedExchangeIfGreaterThan(ref this.lastSavedBookmark, position, position);
-                if (originalBookmark >= this.lastSavedBookmark && !forceFlush)
-                {
-                    // 'lastSavedBookmark' is not updated and we're not required to flush
-                    return;
-                }
-
-                // Try to enter the critical section to flush the bookmark and 'lastBookmarkFlushedTimestamp'
-                // If flush is required, wait indefinitely.
-                // Otherwise only wait for 2 seconds before abandoning the update attempt.
-                // This should never happen, but if it does, it's not a problem
-                // because there's likely another Task, started later, waiting
-                // to get the Semaphore as well.
-                if (!this.bookmarkSemaphore.Wait(forceFlush ? Timeout.Infinite : 2000)) return;
-
-                // if flush is required or the last flushed happened long enough ago, store the bookmark to file
+                // if flush is required or the last flush happened long enough ago, store the bookmark to file
                 if (forceFlush || (DateTime.Now - lastBookmarkFlushedTimestamp > bookmarkFlushInterval))
                 {
                     // if another thread is saving bookmark concurrently, 'lastSavedBookmark' might already changed

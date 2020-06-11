@@ -14,7 +14,6 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Text;
 using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.Core.Test
@@ -22,11 +21,13 @@ namespace Amazon.KinesisTap.Core.Test
     public class MemoryLogger : ILogger, IDisposable
     {
         private readonly string _categoryName;
-        private readonly List<String> _entries;
+        private readonly List<string> _entries;
+        private readonly List<LogLevel> _levels;
 
         public MemoryLogger(string categoryName)
         {
             _entries = new List<string>();
+            _levels = new List<LogLevel>();
             _categoryName = categoryName;
         }
 
@@ -35,10 +36,11 @@ namespace Amazon.KinesisTap.Core.Test
             return true;
         }
 
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, 
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception,
             Func<TState, Exception, string> formatter)
         {
             _entries.Add(formatter(state, exception));
+            _levels.Add(logLevel);
         }
 
         public IDisposable BeginScope<TState>(TState state)
@@ -52,6 +54,8 @@ namespace Amazon.KinesisTap.Core.Test
         }
 
         public IList<string> Entries => _entries;
+
+        public IList<LogLevel> LogLevels => _levels;
 
         public string LastEntry => _entries[_entries.Count - 1];
 
