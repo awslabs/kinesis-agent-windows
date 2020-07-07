@@ -12,6 +12,6 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System.Runtime.CompilerServices;
-
-[assembly: InternalsVisibleTo("Amazon.KinesisTap.Windows.Test")]
+using System;
+// suppress the build warnings
+[assembly: CLSCompliant(false)]

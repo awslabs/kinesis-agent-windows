@@ -46,6 +46,7 @@ namespace Amazon.KinesisTap.Core.Test
                 var source = new MockEventSource<W3SVCLogRecord>(context);
                 var sink = new MockEventSink(context);
                 context.ContextData[PluginContext.SOURCE_TYPE] = source.GetType();
+                context.ContextData[PluginContext.SOURCE_OUTPUT_TYPE] = source.GetOutputType();
                 context.ContextData[PluginContext.SINK_TYPE] = sink.GetType();
                 //var pipe = new PipeFactory().CreateInstance(PipeFactory.REGEX_FILTER_PIPE, context);
                 var pipe = new EMFPipe<W3SVCLogRecord>(context);
@@ -93,6 +94,7 @@ namespace Amazon.KinesisTap.Core.Test
                 var source = new MockEventSource<JObject>(context);
                 var sink = new MockEventSink(context);
                 context.ContextData[PluginContext.SOURCE_TYPE] = source.GetType();
+                context.ContextData[PluginContext.SOURCE_OUTPUT_TYPE] = source.GetOutputType();
                 context.ContextData[PluginContext.SINK_TYPE] = sink.GetType();
                 var pipe = new EMFPipe<JObject>(context);
                 source.Subscribe(pipe);

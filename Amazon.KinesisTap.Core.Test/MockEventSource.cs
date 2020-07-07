@@ -13,7 +13,6 @@
  * permissions and limitations under the License.
  */
 using System;
-using Amazon.KinesisTap.Core;
 using System.Reactive.Subjects;
 
 namespace Amazon.KinesisTap.Core.Test
@@ -53,6 +52,13 @@ namespace Amazon.KinesisTap.Core.Test
         public void MockLogEvent(T data, DateTime timestamp, string rawRecord, string filePath, long position, long lineNumber)
         {
             _subject.OnNext(new LogEnvelope<T>(data, timestamp, rawRecord, filePath, position, lineNumber));
+        }
+    }
+
+    internal class NonGenericMockEventSource : MockEventSource<string>
+    {
+        public NonGenericMockEventSource(IPlugInContext context) : base(context)
+        {
         }
     }
 }

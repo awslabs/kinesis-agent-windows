@@ -40,7 +40,7 @@ namespace Amazon.KinesisTap.Core.Test
                     filter,
                     1000,
                     new PluginContext(null, logger, null),
-                    new SingeLineRecordParser());
+                    new SingleLineRecordParser());
                 watcher.Start();
                 Assert.Equal($"DirectorySource id {null} watching directory {TestUtility.GetTestHome()} with filter {filter} started.", logger.LastEntry);
                 watcher.Stop();
@@ -58,7 +58,7 @@ namespace Amazon.KinesisTap.Core.Test
                     null,
                     1000,
                     new PluginContext(null, logger, null),
-                    new SingeLineRecordParser());
+                    new SingleLineRecordParser());
                 watcher.Start();
                 Assert.Equal($"DirectorySource id {null} watching directory {TestUtility.GetTestHome()} with filter  started.", logger.LastEntry);
                 watcher.Stop();
@@ -107,7 +107,7 @@ namespace Amazon.KinesisTap.Core.Test
                 Assert.Equal("test", env2.FileName);
                 Assert.Equal(filePath2, env2.FilePath);
 
-            }, new SingeLineRecordParser(), directory);
+            }, new SingleLineRecordParser(), directory);
         }
 
         /// <summary>
@@ -155,7 +155,7 @@ namespace Amazon.KinesisTap.Core.Test
                 Assert.Equal("test", env2.FileName);
                 Assert.Equal(filePath2, env2.FilePath);
 
-            }, new SingeLineRecordParser(), directory);
+            }, new SingleLineRecordParser(), directory);
         }
 
         /// <summary>
@@ -203,7 +203,7 @@ namespace Amazon.KinesisTap.Core.Test
                 Assert.Equal("test", env2.FileName);
                 Assert.Equal(filePath2, env2.FilePath);
 
-            }, new SingeLineRecordParser(), directory);
+            }, new SingleLineRecordParser(), directory);
         }
 
         /// <summary>
@@ -257,7 +257,7 @@ namespace Amazon.KinesisTap.Core.Test
                 Assert.Equal("test", env2.FileName);
                 Assert.Equal(filePath3, env2.FilePath);
 
-            }, new SingeLineRecordParser(), directory);
+            }, new SingleLineRecordParser(), directory);
         }
 
         /// <summary>
@@ -382,7 +382,7 @@ namespace Amazon.KinesisTap.Core.Test
                         Assert.NotNull(logRecords.FirstOrDefault(l => lastLine2.Equals(l.GetMessage(null))));
                         Assert.Equal(accumulatedRecords, logRecords.Count); //All records captured
                     },
-                    new SingeLineRecordParser(),
+                    new SingleLineRecordParser(),
                     logger
                 );
 
@@ -481,7 +481,7 @@ ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name, Transaction
                 Assert.Single(logRecords); //All records captured
                 var envelope = (ILogEnvelope)logRecords[0];
                 Assert.Equal(35, envelope.LineNumber);
-            }, new SingeLineRecordParser());
+            }, new SingleLineRecordParser());
         }
 
         [Fact]
@@ -578,7 +578,7 @@ ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name, Transaction
 
         private async Task CreateAndRunWatcher(string testName, string filter, Func<List<IEnvelope>, Task> testBody)
         {
-            await CreateAndRunWatcher(testName, filter, null, testBody, new SingeLineRecordParser());
+            await CreateAndRunWatcher(testName, filter, null, testBody, new SingleLineRecordParser());
         }
 
         private async Task CreateAndRunWatcher<TData>(string testName, string filter, IConfiguration config, Func<List<IEnvelope>, Task> testBody, IRecordParser<TData, LogContext> recordParser, TestDirectory directory = null)

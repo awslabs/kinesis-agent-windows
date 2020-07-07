@@ -134,11 +134,7 @@ namespace Amazon.KinesisTap.AWS
                 {
                     foreach (var record in records)
                     {
-                        // Envelope.GetMessage() doesn't handle plain text very well, so we handle it here
-                        var recordLine = string.IsNullOrWhiteSpace(_format)
-                            ? $"[{record.Data.Timestamp:o}] {record.Data.Message}"
-                            : record.GetMessage(_format);
-                        await sw.WriteLineAsync(recordLine);
+                        await sw.WriteLineAsync(record.Data.Message);
                     }
 
                     await sw.FlushAsync();

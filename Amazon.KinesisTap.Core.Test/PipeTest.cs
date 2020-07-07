@@ -13,33 +13,64 @@
  * permissions and limitations under the License.
  */
 using Amazon.KinesisTap.Core.Pipes;
-using Microsoft.Extensions.Configuration;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using Xunit;
 
 namespace Amazon.KinesisTap.Core.Test
 {
     public class PipeTest
     {
-        [Fact]
-        public void TestStringPipe()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void TestStringPipe(bool negate)
         {
             var config = TestUtility.GetConfig("Pipes", "TestPipe");
+            if (negate)
+            {
+                config["Negate"] = "true";
+            }
             var context = new PluginContext(config, null, null);
             var source = new MockEventSource<string>(context);
             var sink = new MockEventSink(context);
             context.ContextData[PluginContext.SOURCE_TYPE] = source.GetType();
+            context.ContextData[PluginContext.SOURCE_OUTPUT_TYPE] = source.GetOutputType();
             context.ContextData[PluginContext.SINK_TYPE] = sink.GetType();
             var pipe = new PipeFactory().CreateInstance(PipeFactory.REGEX_FILTER_PIPE, context);
             source.Subscribe(pipe);
             pipe.Subscribe(sink);
             string record1 = "24,09/29/17,00:00:04,Database Cleanup Begin,,,,,0,6,,,,,,,,,0";
+            string record2 = "25,09/29/17,00:00:04,0 leases expired and 0 leases deleted,,,,,0,6,,,,,,,,,0";
             source.MockEvent(record1);
-            source.MockEvent("25,09/29/17,00:00:04,0 leases expired and 0 leases deleted,,,,,0,6,,,,,,,,,0");
+            source.MockEvent(record2);
             Assert.Single(sink.Records);
-            Assert.Equal(record1, sink.Records[0]);
+            Assert.Equal(negate ? record2 : record1, sink.Records[0]);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void TestRegexFilterPipeWithNonGenericSource(bool negate)
+        {
+            var config = TestUtility.GetConfig("Pipes", "TestPipe");
+            if (negate)
+            {
+                config["Negate"] = "true";
+            }
+            var context = new PluginContext(config, null, null);
+            var source = new NonGenericMockEventSource(context);
+            var sink = new MockEventSink(context);
+            context.ContextData[PluginContext.SOURCE_TYPE] = source.GetType();
+            context.ContextData[PluginContext.SOURCE_OUTPUT_TYPE] = source.GetOutputType();
+            context.ContextData[PluginContext.SINK_TYPE] = sink.GetType();
+            var pipe = new PipeFactory().CreateInstance(PipeFactory.REGEX_FILTER_PIPE, context);
+            source.Subscribe(pipe);
+            pipe.Subscribe(sink);
+            string record1 = "24,09/29/17,00:00:04,Database Cleanup Begin,,,,,0,6,,,,,,,,,0";
+            string record2 = "25,09/29/17,00:00:04,0 leases expired and 0 leases deleted,,,,,0,6,,,,,,,,,0";
+            source.MockEvent(record1);
+            source.MockEvent(record2);
+            Assert.Single(sink.Records);
+            Assert.Equal(negate ? record2 : record1, sink.Records[0]);
         }
     }
 }

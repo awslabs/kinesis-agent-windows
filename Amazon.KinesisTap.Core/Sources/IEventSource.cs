@@ -13,8 +13,6 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Amazon.KinesisTap.Core
 {
@@ -23,6 +21,12 @@ namespace Amazon.KinesisTap.Core
     /// </summary>
     public interface IEventSource : ISource, IObservable<IEnvelope>
     {
+        /// <returns>The output type of the data produced by the source (wrapped in IEnvelop<T>).</returns>
+        /// <remarks>
+        /// Pipes that process data (filtering, transformation etc.) expects an input type.
+        /// This is meant to be a temporary fix to make all sources work with those pipes.
+        /// </remarks>
+        Type GetOutputType();
     }
 
     public interface IEventSource<out T> : IEventSource, IObservable<IEnvelope<T>>

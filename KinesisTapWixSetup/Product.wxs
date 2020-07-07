@@ -159,7 +159,7 @@
       <!-- Use AWSKinesisTap.exe to key the ServiceInstall-->
       <Component Id="ProductComponent"
         Guid="{8DBCA2DE-9D6E-47AD-8EBE-1B6384D327EF}">
-        <File Id="KinesisTapExe" Name="AWSKinesisTap.exe" DiskId="1" Source="$(var.Amazon.KinesisTap.TargetDir)\AWSKinesisTap.exe" Vital="yes" KeyPath="yes" />
+        <File Id="KinesisTapExe" Name="AWSKinesisTap.exe" DiskId="1" Source="$(var.SolutionDir)Amazon.KinesisTap\bin\Release\AWSKinesisTap.exe" Vital="yes" KeyPath="yes" />
 
         <!-- Tell WiX to install the Service -->
         <ServiceInstall

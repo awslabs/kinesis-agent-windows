@@ -41,6 +41,13 @@ namespace Amazon.KinesisTap.Core
         public const string RECORD_COUNT = "RecordCount";
         public const string MAX_BATCH_SIZE = "MaxBatchSize";
 
+        // Regex filter pipe attributes
+        public const string FILTER_PATTERN = "FilterPattern";
+        public const string MULTILINE = "Multiline";
+        public const string IGNORE_CASE = "IgnoreCase";
+        public const string RIGHT_TO_LEFT = "RightToLeft";
+        public const string NEGATE = "Negate";
+
         // Proxy and alternate endpoint support
         public const string PROXY_HOST = "ProxyHost";
         public const string PROXY_PORT = "ProxyPort";

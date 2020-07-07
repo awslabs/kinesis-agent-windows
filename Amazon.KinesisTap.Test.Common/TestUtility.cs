@@ -66,5 +66,20 @@ namespace Amazon.KinesisTap.Core.Test
         {
             return Utility.IsWindows ? WINDOWS_TEST_HOME : Path.Combine(Environment.GetEnvironmentVariable("HOME"), "temp", "kinesistap");
         }
+
+        /// <summary>
+        /// Gets the path of the directory containing the root solution (.sln) file.
+        /// </summary>
+        public static string SolutionDir => FindSolutionDirRecursive(new DirectoryInfo(AppContext.BaseDirectory));
+
+        private static string FindSolutionDirRecursive(DirectoryInfo thisDir)
+        {
+            if (thisDir.EnumerateFiles("*KinesisTap.sln").Any())
+            {
+                return thisDir.FullName;
+            }
+
+            return thisDir.Parent == null ? null : FindSolutionDirRecursive(thisDir.Parent);
+        }
     }
 }

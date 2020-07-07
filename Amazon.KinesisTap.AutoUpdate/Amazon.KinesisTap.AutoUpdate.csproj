@@ -11,7 +11,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Amazon.KinesisTap.AWS\Amazon.KinesisTap.AWS.csproj" />
-    <ProjectReference Include="..\Amazon.KinesisTap.Core\Amazon.KinesisTap.Core.csproj" />
   </ItemGroup>
 
 </Project>

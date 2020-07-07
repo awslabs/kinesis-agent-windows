@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30104.148
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Amazon.KinesisTap", "Amazon.KinesisTap\Amazon.KinesisTap.csproj", "{1CE3DDD0-7FDC-4EDF-86F0-C9592FC9E895}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap", "Amazon.KinesisTap\Amazon.KinesisTap.csproj", "{1CE3DDD0-7FDC-4EDF-86F0-C9592FC9E895}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.Core", "Amazon.KinesisTap.Core\Amazon.KinesisTap.Core.csproj", "{64117EDF-E228-43CB-9425-9C3A7F2EBD99}"
 EndProject
@@ -11,9 +11,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.Core.Test
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.AWS", "Amazon.KinesisTap.AWS\Amazon.KinesisTap.AWS.csproj", "{E0708A8E-149C-4968-9313-DE3779721045}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Amazon.KinesisTap.Windows", "Amazon.KinesisTap.Windows\Amazon.KinesisTap.Windows.csproj", "{6B0C158A-4100-440B-8155-8ED309A75B81}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.Windows", "Amazon.KinesisTap.Windows\Amazon.KinesisTap.Windows.csproj", "{6B0C158A-4100-440B-8155-8ED309A75B81}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Amazon.KinesisTap.Windows.Test", "Amazon.KinesisTap.Windows.Test\Amazon.KinesisTap.Windows.Test.csproj", "{623FAF49-4659-4AA4-A733-3442FA9C0D01}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.Windows.Test", "Amazon.KinesisTap.Windows.Test\Amazon.KinesisTap.Windows.Test.csproj", "{623FAF49-4659-4AA4-A733-3442FA9C0D01}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{6CE3DFA4-D689-476E-832D-9CCA261CA1AB}"
 EndProject
@@ -23,7 +23,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.Hosting",
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tool", "tool", "{0F905F85-F232-4F86-A5B2-A2F06E5E6E19}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Amazon.KinesisTap.DiagnosticTool", "Amazon.KinesisTap.DiagnosticTool\Amazon.KinesisTap.DiagnosticTool.csproj", "{4F9CF5CD-FE9A-4CF1-A1D2-0CE55F1A6829}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.DiagnosticTool", "Amazon.KinesisTap.DiagnosticTool\Amazon.KinesisTap.DiagnosticTool.csproj", "{4F9CF5CD-FE9A-4CF1-A1D2-0CE55F1A6829}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.ExchangeSource", "Amazon.KinesisTap.ExchangeSource\Amazon.KinesisTap.ExchangeSource.csproj", "{9BDFB158-BB03-45F1-A938-8C2D59EBB3A2}"
 EndProject
@@ -35,7 +35,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.Uls.Test"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.AutoUpdate", "Amazon.KinesisTap.AutoUpdate\Amazon.KinesisTap.AutoUpdate.csproj", "{5D2751FF-BEA6-4F08-91C0-41BDE2DC5F9B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Amazon.KinesisTap.EtwEvent.Test", "Amazon.KinesisTap.EtwEvent.Test\Amazon.KinesisTap.EtwEvent.Test.csproj", "{FD7201DC-80BC-421E-8533-302B2315BE01}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.EtwEvent.Test", "Amazon.KinesisTap.EtwEvent.Test\Amazon.KinesisTap.EtwEvent.Test.csproj", "{FD7201DC-80BC-421E-8533-302B2315BE01}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.DiagnosticTool.Core", "Amazon.KinesisTap.DiagnosticTool.Core\Amazon.KinesisTap.DiagnosticTool.Core.csproj", "{480D613E-2E4E-494D-A88E-FBC81F6559F4}"
 EndProject
@@ -43,19 +43,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.Expressio
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.Expression.Test", "Amazon.KinesisTap.Expression.Test\Amazon.KinesisTap.Expression.Test.csproj", "{05AB5CD0-B79D-4FAC-99BA-341F51ED8490}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "installer", "installer", "{9D24016C-126C-4CE5-8F2E-4D76B2EF24D4}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KinesisTapMsiCustomAction", "KinesisTapMsiCustomAction\KinesisTapMsiCustomAction.csproj", "{E9B048B2-B6C9-4C75-A0DA-BDFC414C2A06}"
-EndProject
-Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "KinesisTapWixSetup", "KinesisTapWixSetup\KinesisTapWixSetup.wixproj", "{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "example", "example", "{D3F846C4-AEEC-440B-B4B9-A34EFBF1BB8E}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.ParserExamples", "Amazon.KinesisTap.ParserExamples\Amazon.KinesisTap.ParserExamples.csproj", "{8734C519-4D5F-4893-9EB0-CD90B42CF776}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.Shared", "Amazon.KinesisTap.Shared\Amazon.KinesisTap.Shared.csproj", "{C1E87070-5A6C-4C29-9E99-61A74E89DF99}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.ServiceTests", "Amazon.KinesisTap.ServiceTests\Amazon.KinesisTap.ServiceTests.csproj", "{69AF892B-0697-46C9-B9B3-32D132B4DABE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.ServiceTests", "Amazon.KinesisTap.ServiceTests\Amazon.KinesisTap.ServiceTests.csproj", "{4A35C6AB-7283-4AE8-A10B-20C86F0A9336}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -271,26 +265,6 @@ Global
 		{05AB5CD0-B79D-4FAC-99BA-341F51ED8490}.Release|x64.Build.0 = Release|Any CPU
 		{05AB5CD0-B79D-4FAC-99BA-341F51ED8490}.Release|x86.ActiveCfg = Release|Any CPU
 		{05AB5CD0-B79D-4FAC-99BA-341F51ED8490}.Release|x86.Build.0 = Release|Any CPU
-		{E9B048B2-B6C9-4C75-A0DA-BDFC414C2A06}.Debug|Any CPU.ActiveCfg = Debug|x86
-		{E9B048B2-B6C9-4C75-A0DA-BDFC414C2A06}.Debug|x64.ActiveCfg = Debug|x86
-		{E9B048B2-B6C9-4C75-A0DA-BDFC414C2A06}.Debug|x86.ActiveCfg = Debug|x86
-		{E9B048B2-B6C9-4C75-A0DA-BDFC414C2A06}.Debug|x86.Build.0 = Debug|x86
-		{E9B048B2-B6C9-4C75-A0DA-BDFC414C2A06}.Release|Any CPU.ActiveCfg = Release|x86
-		{E9B048B2-B6C9-4C75-A0DA-BDFC414C2A06}.Release|Any CPU.Build.0 = Release|x86
-		{E9B048B2-B6C9-4C75-A0DA-BDFC414C2A06}.Release|x64.ActiveCfg = Release|x86
-		{E9B048B2-B6C9-4C75-A0DA-BDFC414C2A06}.Release|x86.ActiveCfg = Release|x86
-		{E9B048B2-B6C9-4C75-A0DA-BDFC414C2A06}.Release|x86.Build.0 = Release|x86
-		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}.Debug|Any CPU.ActiveCfg = Debug|x64
-		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}.Debug|x64.ActiveCfg = Debug|x64
-		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}.Debug|x64.Build.0 = Debug|x64
-		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}.Debug|x86.ActiveCfg = Debug|x86
-		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}.Debug|x86.Build.0 = Debug|x86
-		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}.Release|Any CPU.ActiveCfg = Release|x64
-		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}.Release|Any CPU.Build.0 = Release|x64
-		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}.Release|x64.ActiveCfg = Release|x64
-		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}.Release|x64.Build.0 = Release|x64
-		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}.Release|x86.ActiveCfg = Release|x86
-		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9}.Release|x86.Build.0 = Release|x86
 		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8734C519-4D5F-4893-9EB0-CD90B42CF776}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -315,18 +289,18 @@ Global
 		{C1E87070-5A6C-4C29-9E99-61A74E89DF99}.Release|x64.Build.0 = Release|Any CPU
 		{C1E87070-5A6C-4C29-9E99-61A74E89DF99}.Release|x86.ActiveCfg = Release|Any CPU
 		{C1E87070-5A6C-4C29-9E99-61A74E89DF99}.Release|x86.Build.0 = Release|Any CPU
-		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Debug|x64.Build.0 = Debug|Any CPU
-		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Debug|x86.Build.0 = Debug|Any CPU
-		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Release|Any CPU.Build.0 = Release|Any CPU
-		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Release|x64.ActiveCfg = Release|Any CPU
-		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Release|x64.Build.0 = Release|Any CPU
-		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Release|x86.ActiveCfg = Release|Any CPU
-		{69AF892B-0697-46C9-B9B3-32D132B4DABE}.Release|x86.Build.0 = Release|Any CPU
+		{4A35C6AB-7283-4AE8-A10B-20C86F0A9336}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A35C6AB-7283-4AE8-A10B-20C86F0A9336}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4A35C6AB-7283-4AE8-A10B-20C86F0A9336}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4A35C6AB-7283-4AE8-A10B-20C86F0A9336}.Debug|x64.Build.0 = Debug|Any CPU
+		{4A35C6AB-7283-4AE8-A10B-20C86F0A9336}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4A35C6AB-7283-4AE8-A10B-20C86F0A9336}.Debug|x86.Build.0 = Debug|Any CPU
+		{4A35C6AB-7283-4AE8-A10B-20C86F0A9336}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A35C6AB-7283-4AE8-A10B-20C86F0A9336}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4A35C6AB-7283-4AE8-A10B-20C86F0A9336}.Release|x64.ActiveCfg = Release|Any CPU
+		{4A35C6AB-7283-4AE8-A10B-20C86F0A9336}.Release|x64.Build.0 = Release|Any CPU
+		{4A35C6AB-7283-4AE8-A10B-20C86F0A9336}.Release|x86.ActiveCfg = Release|Any CPU
+		{4A35C6AB-7283-4AE8-A10B-20C86F0A9336}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -349,11 +323,9 @@ Global
 		{480D613E-2E4E-494D-A88E-FBC81F6559F4} = {0F905F85-F232-4F86-A5B2-A2F06E5E6E19}
 		{D4CB6105-9D98-44B4-BDBA-885F081D8432} = {6CE3DFA4-D689-476E-832D-9CCA261CA1AB}
 		{05AB5CD0-B79D-4FAC-99BA-341F51ED8490} = {59AF3E35-C33A-4A3B-9E1B-BAA76439D006}
-		{E9B048B2-B6C9-4C75-A0DA-BDFC414C2A06} = {9D24016C-126C-4CE5-8F2E-4D76B2EF24D4}
-		{DCF4EBDE-BAC6-427E-8A7A-03664EE54DE9} = {9D24016C-126C-4CE5-8F2E-4D76B2EF24D4}
 		{8734C519-4D5F-4893-9EB0-CD90B42CF776} = {D3F846C4-AEEC-440B-B4B9-A34EFBF1BB8E}
 		{C1E87070-5A6C-4C29-9E99-61A74E89DF99} = {6CE3DFA4-D689-476E-832D-9CCA261CA1AB}
-		{69AF892B-0697-46C9-B9B3-32D132B4DABE} = {59AF3E35-C33A-4A3B-9E1B-BAA76439D006}
+		{4A35C6AB-7283-4AE8-A10B-20C86F0A9336} = {59AF3E35-C33A-4A3B-9E1B-BAA76439D006}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F17B29AD-BF48-46EE-8A30-6CE143282C1D}

@@ -27,6 +27,7 @@ namespace Amazon.KinesisTap.Core
         public const string SOURCE_TYPE = "SOURCE_TYPE";
         public const string SINK_TYPE = "SINK_TYPE";
         public const string PARSER_FACTORIES = "PARSER_FACTORIES";
+        public const string SOURCE_OUTPUT_TYPE = "SOURCE_OUTPUT_TYPE";
 
         private readonly IConfiguration _config;
         private readonly ILogger _logger;

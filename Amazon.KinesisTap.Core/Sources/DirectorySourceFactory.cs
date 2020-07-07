@@ -57,7 +57,7 @@ namespace Amazon.KinesisTap.Core
                     {
                         case "singleline":
                             return CreateEventSource(context,
-                                new SingeLineRecordParser());
+                                new SingleLineRecordParser());
                         case "regex":
                             string pattern = config["Pattern"];
                             return CreateEventSource(context,

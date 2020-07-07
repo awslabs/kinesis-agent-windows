@@ -37,30 +37,6 @@
     <Compile Include="Product.wxs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Amazon.KinesisTap.AutoUpdate\Amazon.KinesisTap.AutoUpdate.csproj">
-      <Name>Amazon.KinesisTap.AutoUpdate</Name>
-      <Project>{5d2751ff-bea6-4f08-91c0-41bde2dc5f9b}</Project>
-      <Private>True</Private>
-      <DoNotHarvest>True</DoNotHarvest>
-      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
-      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
-    </ProjectReference>
-    <ProjectReference Include="..\Amazon.KinesisTap.Uls\Amazon.KinesisTap.Uls.csproj">
-      <Name>Amazon.KinesisTap.Uls</Name>
-      <Project>{c05f2a83-44c3-4022-a6d6-421c74049ccf}</Project>
-      <Private>True</Private>
-      <DoNotHarvest>True</DoNotHarvest>
-      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
-      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
-    </ProjectReference>
-    <ProjectReference Include="..\Amazon.KinesisTap\Amazon.KinesisTap.csproj">
-      <Name>Amazon.KinesisTap</Name>
-      <Project>{1ce3ddd0-7fdc-4edf-86f0-c9592fc9e895}</Project>
-      <Private>True</Private>
-      <DoNotHarvest>True</DoNotHarvest>
-      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
-      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
-    </ProjectReference>
     <ProjectReference Include="..\KinesisTapMsiCustomAction\KinesisTapMsiCustomAction.csproj">
       <Name>KinesisTapMsiCustomAction</Name>
       <Project>{e9b048b2-b6c9-4c75-a0da-bdfc414c2a06}</Project>
@@ -93,42 +69,4 @@
   <Target Name="EnsureWixToolsetInstalled" Condition=" '$(WixTargetsImported)' != 'true' ">
     <Error Text="The WiX Toolset v3.11 (or newer) build tools must be installed to build this project. To download the WiX Toolset, see http://wixtoolset.org/releases/" />
   </Target>
-  <PropertyGroup>
-    <PreBuildEvent>rmdir /s /q  "$(SolutionDir)msibuild"
-
-xcopy "$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\%2a.dll" "$(SolutionDir)msibuild" /y /i
-xcopy "$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\amd64\%2a.dll" "$(SolutionDir)msibuild\amd64" /y /i
-xcopy "$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\x86\%2a.dll" "$(SolutionDir)msibuild\x86" /y /i
-xcopy "$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\%2a.pdb" "$(SolutionDir)msibuild" /y /i
-xcopy "$(SolutionDir)Amazon.KinesisTap\appsettingsTemplate.json" "$(SolutionDir)msibuild" /y /i
-xcopy "$(SolutionDir)Amazon.KinesisTap\appsettingsSchema.json" "$(SolutionDir)msibuild" /y /i
-copy "$(SolutionDir)Amazon.KinesisTap\NLog.xml" "$(SolutionDir)msibuild/NLogTemplate.xml" /y
-copy "$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\AWSKinesisTap.exe.config" "$(SolutionDir)msibuild\AWSKinesisTap.exe.config.new" /y
-
-xcopy "$(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\%2a.exe" "$(SolutionDir)msibuild" /y /i
-xcopy "$(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\%2a.exe.config" "$(SolutionDir)msibuild\" /y /i
-xcopy "$(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\log4net.dll" "$(SolutionDir)msibuild" /y /i
-xcopy "$(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\Newtonsoft.Json.Schema.dll" "$(SolutionDir)msibuild" /y /i
-xcopy "$(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\System.Console.dll" "$(SolutionDir)msibuild" /y /i
-xcopy "$(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\Amazon.KinesisTap.DiagnosticTool.Core.%3f%3f%3f" "$(SolutionDir)msibuild" /y /i
-
-xcopy "$(SolutionDir)Amazon.KinesisTap.Uls\bin\$(Configuration)\netstandard1.3\Amazon.KinesisTap.Uls.%3f%3f%3f" "$(SolutionDir)msibuild" /y /i
-
-xcopy "$(SolutionDir)Amazon.KinesisTap.AutoUpdate\bin\$(Configuration)\netstandard1.3\Amazon.KinesisTap.AutoUpdate.%3f%3f%3f" "$(SolutionDir)msibuild" /y /i
-
-if exist "$(SolutionDir)signed_artifacts" (
-move "$(SolutionDir)signed_artifacts\AWSKinesisTap.exe" "$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)"
-xcopy "$(SolutionDir)signed_artifacts\%2a" "$(SolutionDir)\msibuild" /y /i
-)
-
-"%25wix%25\bin\heat.exe" dir "$(SolutionDir)msibuild" -dr INSTALLFOLDER -cg KinesisTapComponents -gg -g1 -scom -sreg -sfrag -srd -var var.SourcePath -platform  -out "$(SolutionDir)KinesisTapWixSetup\Amazon.KinesisTap.wxs"</PreBuildEvent>
-  </PropertyGroup>
-  <!--
-	To modify your build process, add your task inside one of the targets below and uncomment it.
-	Other similar extension points exist, see Wix.targets.
-	<Target Name="BeforeBuild">
-	</Target>
-	<Target Name="AfterBuild">
-	</Target>
-	-->
 </Project>

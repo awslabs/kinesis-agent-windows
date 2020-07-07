@@ -37,23 +37,29 @@ $releaseDir = Join-Path -Path $projDir -ChildPath "bin\Release\"
 
 if (!$packageOnly)
 {
-    $sln = Join-Path -Path $PSScriptRoot -ChildPath "$serviceName.sln"
-    $vsVersions = "Professional", "Enterprise", "Community", "BuildTools"
-    foreach ( $vsVersion in $vsVersions ) 
-    { 
-        $msbuild = 'C:\Program Files (x86)\Microsoft Visual Studio\2017\' + $vsVersion + '\MSBuild\15.0\Bin\MSBuild'
-        if (Test-Path -Path $msbuild)
-        {
-            break
+    # try to use the environment-defined MSBuild if possible
+    $msbuild = Get-Command MSBuild.exe -ErrorAction Ignore | Select-Object -ExpandProperty Path
+    if($null -eq $msbuild)
+    {
+        $vsVersions = "Professional", "Enterprise", "Community", "BuildTools"
+        foreach ( $vsVersion in $vsVersions ) 
+        { 
+            $msbuild = 'C:\Program Files (x86)\Microsoft Visual Studio\2017\' + $vsVersion + '\MSBuild\15.0\Bin\MSBuild'
+            if (Test-Path -Path $msbuild)
+            {
+                break
+            }
         }
     }
 
+    $sln = Join-Path -Path $PSScriptRoot -ChildPath "$serviceName.sln"
+    $msiBuildSln = Join-Path -Path $PSScriptRoot -ChildPath "KinesisTapMsiBuild.sln"
     $service = Get-Service -Name $serviceName -ErrorAction Ignore
 
     if ($service -and $service.Status -eq 'Running')
     {
         Stop-Service -Name $serviceName -Force
-        sleep -Milliseconds 2000
+        Start-Sleep -Milliseconds 2000
     }
 
     if (Test-Path -Path $releaseDir)
@@ -65,7 +71,8 @@ if (!$packageOnly)
     try
     {
 	    Write-Verbose 'Building agent'
-	    & "$msbuild" $sln /p:Configuration=Release /p:Platform="Any CPU"
+	    dotnet build $sln -c Release
+	    & "$msbuild" "$msiBuildSln" /p:Configuration=Release /p:Platform="x64"
     }
     catch
     {

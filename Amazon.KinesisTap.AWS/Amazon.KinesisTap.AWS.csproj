@@ -12,7 +12,9 @@
     <PackageReference Include="AWSSDK.EC2" Version="3.3.145" />
     <PackageReference Include="AWSSDK.Kinesis" Version="3.3.100.115" />
     <PackageReference Include="AWSSDK.KinesisFirehose" Version="3.3.103.14" />
+    <PackageReference Include="AWSSDK.S3" Version="3.3.110.3" />
     <PackageReference Include="AWSSDK.SecurityToken" Version="3.3.104.12" />
+	<PackageReference Include="AWSSDK.SecretsManager" Version="3.3.101.65" />
   </ItemGroup>
 
   <ItemGroup>

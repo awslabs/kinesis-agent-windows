@@ -19,12 +19,10 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Primitives;
 using NLog.Extensions.Logging;
-
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Core.Metrics;
 
@@ -43,7 +41,7 @@ namespace Amazon.KinesisTap.Hosting
         private readonly IFactoryCatalog<ICredentialProvider> _credentialProviderFactoryCatalog = new FactoryCatalog<ICredentialProvider>();
         private readonly IFactoryCatalog<IGenericPlugin> _genericPluginFactoryCatalog = new FactoryCatalog<IGenericPlugin>();
         private readonly IFactoryCatalog<IPipe> _pipeFactoryCatalog = new FactoryCatalog<IPipe>();
-        private readonly IFactoryCatalog<IRecordParser> _recordParserCatalog = new FactoryCatalog<IRecordParser>(); 
+        private readonly IFactoryCatalog<IRecordParser> _recordParserCatalog = new FactoryCatalog<IRecordParser>();
 
         private readonly IDictionary<string, ISource> _sources = new Dictionary<string, ISource>();
         private readonly IDictionary<string, ISink> _sinks = new Dictionary<string, ISink>();
@@ -77,7 +75,7 @@ namespace Amazon.KinesisTap.Hosting
                     .Build();
 
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError($"Unable to load apsettings.json. {ex.ToMinimized()}");
                 throw;
@@ -167,7 +165,7 @@ namespace Amazon.KinesisTap.Hosting
             }
 
             var subscriptionStopTasks = new List<Task>();
-            foreach(var subscription in _subscriptions)
+            foreach (var subscription in _subscriptions)
             {
                 subscriptionStopTasks.Add(Task.Run(() =>
                 {
@@ -206,7 +204,7 @@ namespace Amazon.KinesisTap.Hosting
                     }
                 }));
             }
-            
+
             foreach (var plugin in _plugins)
             {
                 sinksAndPluginStopTasks.Add(Task.Run(() =>
@@ -247,6 +245,9 @@ namespace Amazon.KinesisTap.Hosting
         private static ILoggerFactory CreateLoggerFactory()
         {
             ILoggerFactory loggerFactory = new LoggerFactory();
+#if DEBUG
+            loggerFactory.AddConsole(LogLevel.Debug);
+#endif
             loggerFactory.AddNLog();
             NLog.LogManager.LoadConfiguration(Path.Combine(Utility.GetKinesisTapConfigPath(), "NLog.xml"));
             return loggerFactory;
@@ -293,7 +294,8 @@ namespace Amazon.KinesisTap.Hosting
 
         private void LoadFactories()
         {
-            LoadFactories<IEventSink>(_sinkFactoryCatalog, (loaded, failed) => {
+            LoadFactories<IEventSink>(_sinkFactoryCatalog, (loaded, failed) =>
+            {
                 _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
                 {
                     { MetricsConstants.SINK_FACTORIES_LOADED, new MetricValue(loaded) },
@@ -310,7 +312,8 @@ namespace Amazon.KinesisTap.Hosting
                 });
             });
 
-            LoadFactories<ISource>(_sourceFactoryCatalog, (loaded, failed) => {
+            LoadFactories<ISource>(_sourceFactoryCatalog, (loaded, failed) =>
+            {
                 _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
                 {
                     { MetricsConstants.SOURCE_FACTORIES_LOADED, new MetricValue(loaded) },
@@ -327,7 +330,8 @@ namespace Amazon.KinesisTap.Hosting
                 });
             });
 
-            LoadFactories<ICredentialProvider>(_credentialProviderFactoryCatalog, (loaded, failed) => {
+            LoadFactories<ICredentialProvider>(_credentialProviderFactoryCatalog, (loaded, failed) =>
+            {
                 _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
                 {
                     { MetricsConstants.CREDENTIAL_PROVIDER_FACTORIES_LOADED, new MetricValue(loaded) },
@@ -335,7 +339,8 @@ namespace Amazon.KinesisTap.Hosting
                 });
             });
 
-            LoadFactories<IGenericPlugin>(_genericPluginFactoryCatalog, (loaded, failed) => {
+            LoadFactories<IGenericPlugin>(_genericPluginFactoryCatalog, (loaded, failed) =>
+            {
                 _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
                 {
                     { MetricsConstants.GENERIC_PLUGIN_FACTORIES_LOADED, new MetricValue(loaded) },
@@ -419,14 +424,14 @@ namespace Amazon.KinesisTap.Hosting
         private void StartEventSources(int sourceLoaded, int sourcesFailed)
         {
             int sourceStarted = 0;
-            foreach(var source in _sources.Values)
+            foreach (var source in _sources.Values)
             {
                 try
                 {
                     source.Start();
                     sourceStarted++;
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     sourceLoaded--;
                     sourcesFailed++;
@@ -600,7 +605,7 @@ namespace Amazon.KinesisTap.Hosting
                 _logger.LogInformation($"Connected source {sourceRef} to sink {sinkRef}");
                 return true;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError($"Unable to connect source {sourceRef} to sink {sinkRef}. Error: {ex.ToMinimized()}");
                 return false;
@@ -616,6 +621,7 @@ namespace Amazon.KinesisTap.Hosting
                 {
                     var plugInContext = CreatePlugInContext(config);
                     plugInContext.ContextData[PluginContext.SOURCE_TYPE] = eventSource.GetType();
+                    plugInContext.ContextData[PluginContext.SOURCE_OUTPUT_TYPE] = eventSource.GetOutputType();
                     plugInContext.ContextData[PluginContext.SINK_TYPE] = eventSink.GetType();
                     IPipe pipe = factory.CreateInstance(pipeType, plugInContext);
                     pipe.Start();

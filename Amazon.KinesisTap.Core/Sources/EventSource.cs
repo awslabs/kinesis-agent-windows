@@ -185,5 +185,7 @@ namespace Amazon.KinesisTap.Core
         {
             return Path.Combine(Utility.GetKinesisTapProgramDataPath(), ConfigConstants.BOOKMARKS, $"{this.Id}.bm");
         }
+
+        public Type GetOutputType() => typeof(T);
     }
 }

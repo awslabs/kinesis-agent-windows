@@ -55,4 +55,90 @@
   <Target Name="EnsureWixToolsetInstalled" Condition=" '$(WixCATargetsImported)' != 'true' ">
     <Error Text="The WiX Toolset v3.11 (or newer) build tools must be installed to build this project. To download the WiX Toolset, see http://wixtoolset.org/releases/" />
   </Target>
+  <ItemGroup>
+    <MainArtifacts Include="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\*.dll;
+                            $(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\*.pdb;
+                            $(SolutionDir)Amazon.KinesisTap\appsettingsTemplate.json;
+                            $(SolutionDir)Amazon.KinesisTap\appsettingsSchema.json;"/>
+    <MainArtifactsAmd64 Include="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\amd64\*.dll;"/>
+    <MainArtifactsX86 Include="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\x86\*.dll;"/>
+    <DiagnosticTool Include="$(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\*.exe;
+                             $(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\*.exe.config;
+                             $(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\log4net.dll;
+                             $(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\Newtonsoft.Json.Schema.dll;
+                             $(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\System.Console.dll;
+                             $(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\Amazon.KinesisTap.DiagnosticTool.Core.???"/>
+    <Uls Include="$(SolutionDir)Amazon.KinesisTap.Uls\bin\$(Configuration)\netstandard1.3\Amazon.KinesisTap.Uls.???"/>
+    <AutoUpdate Include="$(SolutionDir)Amazon.KinesisTap.AutoUpdate\bin\$(Configuration)\netstandard1.3\Amazon.KinesisTap.AutoUpdate.???"/>
+    <Wincredible Include="$(SolutionDir)Amazon.KinesisTap.CredentialProvider.Wincredible\bin\$(Configuration)\Amazon.KinesisTap.CredentialProvider.Wincredible.???;
+                          $(SolutionDir)Amazon.KinesisTap.CredentialProvider.Wincredible\bin\$(Configuration)\Wincredible.*.???"/>
+    <DungeonMaster Include="$(SolutionDir)Amazon.KinesisTap.DungeonMaster\bin\$(Configuration)\netstandard1.3\Amazon.KinesisTap.DungeonMaster.???"/>
+    <SharedProj Include="$(SolutionDir)Amazon.KinesisTap.Shared\bin\$(Configuration)\net46\Amazon.KinesisTap.Shared.???"/>
+    <SecurityPlugins Include="$(SolutionDir)Amazon.KinesisTap.Windows.SecurityPlugins\bin\$(Configuration)\Amazon.KinesisTap.Windows.SecurityPlugins.???"/>
+    <AutorunsWorker Include="$(SolutionDir)Amazon.KinesisTap.AutorunsWorker\bin\$(Configuration)\AutorunsWorker.*"/>
+    <AutorunsX64 Include="$(SolutionDir)Library\autoruns*64.*"/>
+  </ItemGroup>
+  <Target Name="BeforeBuild">
+    <RemoveDir Directories="$(SolutionDir)msibuild" />
+    <Copy
+      SourceFiles="@(MainArtifacts)"
+      DestinationFolder="$(SolutionDir)msibuild"/>
+    <Copy
+      SourceFiles="@(MainArtifactsAmd64)"
+      DestinationFolder="$(SolutionDir)msibuild\amd64"/>
+    <Copy
+      SourceFiles="@(MainArtifactsX86)"
+      DestinationFolder="$(SolutionDir)msibuild\x86"/>
+    <Copy
+      SourceFiles="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\NLog.xml"
+      DestinationFiles="$(SolutionDir)msibuild\NLogTemplate.xml"/>
+    <Copy
+      SourceFiles="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\AWSKinesisTap.exe.config"
+      DestinationFiles="$(SolutionDir)msibuild\AWSKinesisTap.exe.config.new"/>
+
+    <Copy
+      SourceFiles="@(DiagnosticTool)"
+      DestinationFolder="$(SolutionDir)msibuild"/>
+
+    <Copy
+      SourceFiles="@(Uls)"
+      DestinationFolder="$(SolutionDir)msibuild"/>
+
+    <Copy
+      SourceFiles="@(AutoUpdate)"
+      DestinationFolder="$(SolutionDir)msibuild"/>
+
+    <Copy
+      SourceFiles="@(Wincredible)"
+      DestinationFolder="$(SolutionDir)msibuild"/>
+
+    <Copy
+      SourceFiles="@(DungeonMaster)"
+      DestinationFolder="$(SolutionDir)msibuild"/>
+
+    <Copy
+      SourceFiles="@(SharedProj)"
+      DestinationFolder="$(SolutionDir)msibuild"/>
+
+    <Copy
+      SourceFiles="@(SecurityPlugins)"
+      DestinationFolder="$(SolutionDir)msibuild"/>
+
+    <Copy
+      SourceFiles="@(AutorunsWorker)"
+      DestinationFolder="$(SolutionDir)msibuild"/>
+
+    <Copy
+      SourceFiles="@(AutorunsX64)"
+      DestinationFolder="$(SolutionDir)msibuild\amd64"/>
+
+    <Move Condition="Exists('$(SolutionDir)signed_artifacts')"
+      SourceFiles="$(SolutionDir)signed_artifacts\KinesisTap.exe" DestinationFolder="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)"/>
+
+    <Exec Condition="Exists('$(SolutionDir)signed_artifacts')"
+      Command='xcopy "$(SolutionDir)signed_artifacts\%2a" "$(SolutionDir)\msibuild" /y /i'/>
+
+    <Exec
+      Command='"C:\Program Files (x86)\WiX Toolset v3.11\bin\heat.exe" dir "$(SolutionDir)msibuild" -dr INSTALLFOLDER -cg KinesisTapComponents -gg -g1 -scom -sreg -sfrag -srd -var var.SourcePath -platform  -out "$(SolutionDir)KinesisTapWixSetup\Amazon.KinesisTap.wxs"'/>
+	</Target> 
 </Project>

@@ -29,3 +29,4 @@ global.json
 msibuild/
 /KinesisTapWixSetup/Amazon.KinesisTap.wxs
 macbuild/*.pkg
+.vscode/

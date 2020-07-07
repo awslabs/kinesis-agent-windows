@@ -17,6 +17,7 @@ namespace Amazon.KinesisTap.ServiceTests
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
+    using System.IO;
     using System.Threading;
     using Amazon.KinesisTap.Core;
     using Amazon.KinesisTap.Core.Test;
@@ -24,8 +25,13 @@ namespace Amazon.KinesisTap.ServiceTests
     using Moq;
     using Xunit;
 
-    public class KinesisTapServiceManagerTests
+    public class KinesisTapServiceManagerTests : IDisposable
     {
+        public KinesisTapServiceManagerTests()
+        {
+            ProgramInfo.KinesisTapPath = Path.Combine(AppContext.BaseDirectory, ConfigConstants.KINESISTAP_EXE_NAME);
+        }
+
         /// <summary>
         /// This test verifies simple stop/start behavior, with no special conditions.
         /// </summary>
@@ -231,6 +237,11 @@ namespace Amazon.KinesisTap.ServiceTests
             // If any other test has set this variable, these tests will fail.
             Environment.SetEnvironmentVariable(ConfigConstants.KINESISTAP_CONFIG_PATH, null);
             return new KinesisTapServiceManager(typeLoader.Object, parStore.Object, logger);
+        }
+
+        public void Dispose()
+        {
+            ProgramInfo.KinesisTapPath = null;
         }
     }
 }

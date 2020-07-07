@@ -98,7 +98,7 @@ namespace Amazon.KinesisTap.Core
         protected virtual string GetRecord(IEnvelope envelope)
         {
             string record = envelope.GetMessage(_format);
-            switch((_format ?? string.Empty).ToLower())
+            switch ((_format ?? string.Empty).ToLower())
             {
                 case "json":
                     if (_objectDecorationEvaluator != null)
@@ -108,6 +108,7 @@ namespace Amazon.KinesisTap.Core
                     }
                     break;
                 case "xml":
+                case "xml2":
                     //Do nothing until someone request this to be implemented
                     break;
                 default:
@@ -133,10 +134,10 @@ namespace Amazon.KinesisTap.Core
             {
                 variable = variable.Substring(1, variable.Length - 2);
             }
-            
+
             if (variable.StartsWith("$"))  //Local variable started with $
             {
-                return envelope.ResolveLocalVariable(variable); 
+                return envelope.ResolveLocalVariable(variable);
             }
             else if (variable.StartsWith("_"))  //Meta variable started with _
             {
@@ -151,7 +152,8 @@ namespace Amazon.KinesisTap.Core
         {
             if (string.IsNullOrWhiteSpace(_format)
                 || _format.Equals("json", StringComparison.CurrentCultureIgnoreCase)
-                || _format.Equals("xml", StringComparison.CurrentCultureIgnoreCase))
+                || _format.Equals("xml", StringComparison.CurrentCultureIgnoreCase)
+                || _format.Equals("xml2", StringComparison.CurrentCultureIgnoreCase))
             {
                 return;
             }

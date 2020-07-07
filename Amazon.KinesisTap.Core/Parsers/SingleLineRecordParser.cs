@@ -15,14 +15,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 
 namespace Amazon.KinesisTap.Core
 {
     /// <summary>
     /// Eg: each line is a single record
     /// </summary>
-    public class SingeLineRecordParser : IRecordParser<string, LogContext>
+    public class SingleLineRecordParser : IRecordParser<string, LogContext>
     {
         public IEnumerable<IEnvelope<string>> ParseRecords(StreamReader sr, LogContext context)
         {

@@ -35,10 +35,18 @@ namespace Amazon.KinesisTap.Windows.Test
     /// When it is "false", we are simulating the situation when the sink has NOT acknowledged the sending of events.
     /// This allows us to verify that the callbacks in the sinks are updating the bookmarks as expected.
     /// </summary>
-    public class EventLogBookmarkBufferedSinkTest
+    public class EventLogBookmarkBufferedSinkTest : IDisposable
     {
         private const string LogName = "Application";
-        private const string LogSource = "Test";
+        private const string LogSource = nameof(EventLogBookmarkBufferedSinkTest);
+
+        public EventLogBookmarkBufferedSinkTest()
+        {
+            if (!EventLog.SourceExists(LogSource))
+            {
+                EventLog.CreateEventSource(LogSource, LogName);
+            }
+        }
 
         [Theory]
         [InlineData(true)]
@@ -188,7 +196,7 @@ namespace Amazon.KinesisTap.Windows.Test
             var localSinkconfig = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string> { ["FilePath"] = localSinkPath, ["Id"] = "LocalSink" })
                 .Build();
-            var localSink = new FileSystemEventSink(new PluginContext(localSinkconfig, NullLogger.Instance, null, null, null), 5, 1, 5, 5);
+            var localSink = new FileSystemEventSink(new PluginContext(localSinkconfig, NullLogger.Instance, null, null, null), 100, 1, 5, 5);
 
             var sourceId = nameof(TestBookmarkFlushedAfterSourceStops);
             var eventId = (int)(DateTime.Now.Ticks % ushort.MaxValue);
@@ -240,9 +248,6 @@ namespace Amazon.KinesisTap.Windows.Test
 
         private static EventLogSource CreateSource(string sourceId, int eventId)
         {
-            if (!EventLog.SourceExists(LogSource))
-                EventLog.CreateEventSource(LogSource, LogName);
-
             DeleteExistingBookmarkFile(sourceId);
             BookmarkManager.RemoveBookmark(sourceId);
 
@@ -258,6 +263,14 @@ namespace Amazon.KinesisTap.Windows.Test
             var bookmarkFile = Path.Combine(Utility.GetKinesisTapProgramDataPath(), ConfigConstants.BOOKMARKS, $"{sourceId}.bm");
             if (File.Exists(bookmarkFile))
                 File.Delete(bookmarkFile);
+        }
+
+        public void Dispose()
+        {
+            if (EventLog.SourceExists(LogSource))
+            {
+                EventLog.DeleteEventSource(LogSource);
+            }
         }
     }
 }

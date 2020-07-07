@@ -46,11 +46,13 @@ namespace Amazon.KinesisTap.Core
             this._logger = context.Logger;
             this._metrics = context.Metrics;
         }
-        
+
         /// <summary>
         /// Get the Id of the pipe
         /// </summary>
         public string Id { get; set; }
+
+        public Type GetOutputType() => typeof(TOut);
 
         /// <summary>
         /// Implement the IObserver.OnCompleted

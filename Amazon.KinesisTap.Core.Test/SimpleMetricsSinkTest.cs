@@ -167,7 +167,7 @@ namespace Amazon.KinesisTap.Core.Test
                 "*.*",
                 1000,
                 new PluginContext(config, logger, metrics),
-                new SingeLineRecordParser());
+                new SingleLineRecordParser());
 
             MockMetricsSink metricsSink = new MockMetricsSink(3600, new PluginContext(config, logger, metrics));
 
@@ -193,7 +193,7 @@ namespace Amazon.KinesisTap.Core.Test
                 "*.*",
                 1000,
                 new PluginContext(config, logger, metrics),
-                new SingeLineRecordParser());
+                new SingleLineRecordParser());
 
             MockMetricsSink metricsSink = new MockMetricsSink(3600, new PluginContext(config, logger, metrics));
 
