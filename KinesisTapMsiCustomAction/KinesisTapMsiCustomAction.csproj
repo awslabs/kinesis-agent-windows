@@ -133,7 +133,7 @@
       DestinationFolder="$(SolutionDir)msibuild\amd64"/>
 
     <Move Condition="Exists('$(SolutionDir)signed_artifacts')"
-      SourceFiles="$(SolutionDir)signed_artifacts\KinesisTap.exe" DestinationFolder="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)"/>
+      SourceFiles="$(SolutionDir)signed_artifacts\AWSKinesisTap.exe" DestinationFolder="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)"/>
 
     <Exec Condition="Exists('$(SolutionDir)signed_artifacts')"
       Command='xcopy "$(SolutionDir)signed_artifacts\%2a" "$(SolutionDir)\msibuild" /y /i'/>
