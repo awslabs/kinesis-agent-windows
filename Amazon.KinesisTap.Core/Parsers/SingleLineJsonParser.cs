@@ -16,7 +16,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Amazon.KinesisTap.Core
@@ -26,10 +27,13 @@ namespace Amazon.KinesisTap.Core
     /// </summary>
     public class SingleLineJsonParser : IRecordParser<JObject, LogContext>
     {
+        private readonly FileLineReader _lineReader = new FileLineReader();
+        private readonly ILogger _logger;
         private readonly Func<JObject, DateTime> _getTimestamp;
 
-        public SingleLineJsonParser(string timestampField, string timestampFormat)
+        public SingleLineJsonParser(string timestampField, string timestampFormat, ILogger logger)
         {
+            _logger = logger;
             if (!string.IsNullOrEmpty(timestampField) || !string.IsNullOrEmpty(timestampFormat))
             {
                 //If one is provided, then timestampField is required
@@ -45,26 +49,65 @@ namespace Amazon.KinesisTap.Core
 
         public IEnumerable<IEnvelope<JObject>> ParseRecords(StreamReader sr, LogContext context)
         {
-            if (context.Position > sr.BaseStream.Position)
+            var baseStream = sr.BaseStream;
+            var fileName = (sr.BaseStream as FileStream)?.Name;
+            if (context.Position > baseStream.Position)
             {
-                sr.BaseStream.Position = context.Position;
+                baseStream.Position = context.Position;
+            }
+            else if (context.Position == 0)
+            {
+                // this might happen due to the file being truncated
+                // in that case, we need to reset the reader's state
+                _lineReader.Reset();
+                context.LineNumber = 0;
             }
 
-            while (!sr.EndOfStream)
+            string line;
+            do
             {
-                string record = sr.ReadLine();
-                context.LineNumber++;
-                if (!string.IsNullOrWhiteSpace(record))
+                line = _lineReader.ReadLine(baseStream, sr.CurrentEncoding ?? Encoding.UTF8);
+                if (line is null)
                 {
-                    JObject jObject = JObject.Parse(record);
-                    yield return new LogEnvelope<JObject>(jObject,
-                        _getTimestamp(jObject),
-                        record,
-                        context.FilePath,
-                        context.Position,
-                        context.LineNumber);
+                    yield break;
                 }
-            }
+
+                context.LineNumber++;
+                _logger.LogDebug("ReadLine '{0}'", line);
+
+                if (line.Length == 0)
+                {
+                    // an 'empty' line, ignore
+                    continue;
+                }
+
+                JObject jObject;
+                try
+                {
+                    jObject = JObject.Parse(line);
+                }
+                catch (JsonReaderException jre)
+                {
+                    _logger.LogError(0, jre, "Error parsing log file '{0}' at line {1}", fileName, context.LineNumber);
+                    jObject = null;
+                }
+
+                if (jObject is null)
+                {
+                    // this means that the line is not a valid JSON, skip and read next line
+                    continue;
+                }
+                else
+                {
+                    yield return new LogEnvelope<JObject>(jObject,
+                       _getTimestamp(jObject),
+                       line,
+                       context.FilePath,
+                       context.Position,
+                       context.LineNumber);
+                }
+
+            } while (line != null);
         }
     }
 }

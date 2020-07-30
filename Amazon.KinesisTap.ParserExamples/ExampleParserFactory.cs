@@ -18,6 +18,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 using Amazon.KinesisTap.Core;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Amazon.KinesisTap.ParserExamples
 {
@@ -55,7 +56,7 @@ namespace Amazon.KinesisTap.ParserExamples
             switch (entry.ToLower())
             {
                 case SINGLE_LINE_JSON2:
-                    return new SingleLineJsonParser(timestampField, timetampFormat);
+                    return new SingleLineJsonParser(timestampField, timetampFormat, NullLogger.Instance);
                 default:
                     throw new ArgumentException($"Parser {entry} not recognized.");
             }
