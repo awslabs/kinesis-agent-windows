@@ -50,7 +50,7 @@ namespace Amazon.KinesisTap.Core
         public IEnumerable<IEnvelope<JObject>> ParseRecords(StreamReader sr, LogContext context)
         {
             var baseStream = sr.BaseStream;
-            var fileName = (sr.BaseStream as FileStream)?.Name;
+            var fileName = (baseStream as FileStream)?.Name;
             if (context.Position > baseStream.Position)
             {
                 baseStream.Position = context.Position;
@@ -97,16 +97,13 @@ namespace Amazon.KinesisTap.Core
                     // this means that the line is not a valid JSON, skip and read next line
                     continue;
                 }
-                else
-                {
-                    yield return new LogEnvelope<JObject>(jObject,
+
+                yield return new LogEnvelope<JObject>(jObject,
                        _getTimestamp(jObject),
                        line,
                        context.FilePath,
                        context.Position,
                        context.LineNumber);
-                }
-
             } while (line != null);
         }
     }
