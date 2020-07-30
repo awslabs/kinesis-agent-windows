@@ -13,10 +13,8 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.IO;
 using System.Linq;
 using System.Reflection;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -80,7 +78,7 @@ namespace Amazon.KinesisTap.Core
                             return CreateEventSourceWithDelimitedLogParser(context, timetampFormat, timeZoneKind);
                         case "singlelinejson":
                             return CreateEventSource(context,
-                                new SingleLineJsonParser(timestampField, timetampFormat));
+                                new SingleLineJsonParser(timestampField, timetampFormat, logger));
                         default:
                             IFactoryCatalog<IRecordParser> parserFactories =
                                 context?.ContextData?[PluginContext.PARSER_FACTORIES] as IFactoryCatalog<IRecordParser>;

@@ -469,19 +469,21 @@ namespace Amazon.KinesisTap.Core
                     foreach (var record in records)
                     {
                         ILogEnvelope envelope = (ILogEnvelope)record;
-                        if (record.Timestamp > (this.InitialPositionTimestamp ?? DateTime.MinValue) && envelope.LineNumber > _skipLines)
+                        if (envelope != null
+                            && record.Timestamp > (this.InitialPositionTimestamp ?? DateTime.MinValue)
+                            && envelope.LineNumber > _skipLines)
                         {
                             record.BookmarkId = bookmarkId;
                             _recordSubject.OnNext(record);
                             recordsRead++;
                         }
 
-                        //Need to grab the position before disposing the reader because disposing the reader will dispose the stream
-                        bytesRead = sr.BaseStream.Position - sourceInfo.Position;
-                        sourceInfo.Position = sr.BaseStream.Position;
-
                         if (!_started) break;
                     }
+
+                    //Need to grab the position before disposing the reader because disposing the reader will dispose the stream
+                    bytesRead = fs.Position - sourceInfo.Position;
+                    sourceInfo.Position = fs.Position;
                     sourceInfo.ConsecutiveIOExceptionCount = 0;
                 }
             }

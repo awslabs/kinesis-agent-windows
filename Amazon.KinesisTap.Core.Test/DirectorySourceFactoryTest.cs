@@ -13,9 +13,7 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Text;
-
+using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
@@ -29,7 +27,7 @@ namespace Amazon.KinesisTap.Core.Test
             var config = TestUtility.GetConfig("Sources", "JsonLog1");
             string timetampFormat = config["TimestampFormat"];
             string timestampField = config["TimestampField"];
-            IRecordParser parser = new SingleLineJsonParser(timestampField, timetampFormat);
+            IRecordParser parser = new SingleLineJsonParser(timestampField, timetampFormat, NullLogger.Instance);
 
             PluginContext context = new PluginContext(config, null, null);
             var source = DirectorySourceFactory.CreateEventSource(context, parser);
