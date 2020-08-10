@@ -1,4 +1,4 @@
-# Amazon Kinesis Agent for Windows 1.1.212.1 release notes
+# Amazon Kinesis Agent for Windows 1.1.216.4 release notes
 
 ## Fixed WindowsEventLogSource to RegexFilterPipe error
 
