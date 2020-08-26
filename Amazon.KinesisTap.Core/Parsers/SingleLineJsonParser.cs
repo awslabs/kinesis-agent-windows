@@ -13,6 +13,7 @@
  * permissions and limitations under the License.
  */
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -27,7 +28,7 @@ namespace Amazon.KinesisTap.Core
     /// </summary>
     public class SingleLineJsonParser : IRecordParser<JObject, LogContext>
     {
-        private readonly FileLineReader _lineReader = new FileLineReader();
+        private readonly ConcurrentDictionary<string, FileLineReader> _readers = new ConcurrentDictionary<string, FileLineReader>();
         private readonly ILogger _logger;
         private readonly Func<JObject, DateTime> _getTimestamp;
 
@@ -50,7 +51,8 @@ namespace Amazon.KinesisTap.Core
         public IEnumerable<IEnvelope<JObject>> ParseRecords(StreamReader sr, LogContext context)
         {
             var baseStream = sr.BaseStream;
-            var fileName = (baseStream as FileStream)?.Name;
+            var filePath = context.FilePath;
+            var lineReader = _readers.GetOrAdd(filePath, f => new FileLineReader());
             if (context.Position > baseStream.Position)
             {
                 baseStream.Position = context.Position;
@@ -59,14 +61,14 @@ namespace Amazon.KinesisTap.Core
             {
                 // this might happen due to the file being truncated
                 // in that case, we need to reset the reader's state
-                _lineReader.Reset();
+                lineReader.Reset();
                 context.LineNumber = 0;
             }
 
             string line;
             do
             {
-                line = _lineReader.ReadLine(baseStream, sr.CurrentEncoding ?? Encoding.UTF8);
+                line = lineReader.ReadLine(baseStream, sr.CurrentEncoding ?? Encoding.UTF8);
                 if (line is null)
                 {
                     yield break;
@@ -88,7 +90,7 @@ namespace Amazon.KinesisTap.Core
                 }
                 catch (JsonReaderException jre)
                 {
-                    _logger.LogError(0, jre, "Error parsing log file '{0}' at line {1}", fileName, context.LineNumber);
+                    _logger.LogError(0, jre, "Error parsing log file '{0}' at line {1}", filePath, context.LineNumber);
                     jObject = null;
                 }
 
