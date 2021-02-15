@@ -14,6 +14,7 @@ phases:
       - Get-ChildItem $input_artifacts -Recurse -filter *.exe | Copy-Item -Destination signed_artifacts
   build:
     commands:
+      - nuget restore AWSKinesisTap.sln
       - nuget restore .\KinesisTapMsiBuild.sln
       - dotnet restore AWSKinesisTap.sln
       - dotnet build AWSKinesisTap.sln -c Release

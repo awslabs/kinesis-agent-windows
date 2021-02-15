@@ -12,6 +12,7 @@ phases:
       - mkdir c:\temp\bookmark
   build:
     commands:
+      - nuget restore AWSKinesisTap.sln
       - nuget restore .\KinesisTapMsiBuild.sln
       - dotnet build AWSKinesisTap.sln -c Release
       - msbuild KinesisTapMsiBuild.sln /p:Configuration=Release /p:Platform="x64"
