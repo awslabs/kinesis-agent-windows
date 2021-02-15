@@ -13,16 +13,10 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Threading.Tasks;
-
-using AsyncFriendlyStackTrace;
-using Microsoft.Extensions.Logging;
-
 using Amazon.KinesisTap.Core;
-
+using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.AutoUpdate
 {
@@ -61,7 +55,7 @@ namespace Amazon.KinesisTap.AutoUpdate
             try
             {
                 //Skip if network not available
-                if (!NetworkStatus.CanDownload(_downloadNetworkPriority))
+                if (_networkStatus?.CanDownload(_downloadNetworkPriority) != true)
                 {
                     _logger?.LogInformation($"Skip configuration download due to network not allowed to download.");
                     return;
@@ -77,11 +71,10 @@ namespace Amazon.KinesisTap.AutoUpdate
                     File.WriteAllText(configPath, newConfig);
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 _logger?.LogError($"Error download {this.Source}. Exception: {ex.ToMinimized()}");
             }
         }
-
     }
 }

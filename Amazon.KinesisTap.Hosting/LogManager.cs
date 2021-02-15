@@ -14,24 +14,20 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Primitives;
-using NLog.Extensions.Logging;
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Core.Metrics;
+using System.Threading;
+using System.Collections.Concurrent;
 
 namespace Amazon.KinesisTap.Hosting
 {
-    public class LogManager
+    public class LogManager : ISession
     {
         private const string KINESISTAP_METRICS_SOURCE = "_KinesisTapMetricsSource";
-        private const string KINESISTAP_TELEMETRICS_SOURCE = "_KinesisTapTelemetricsSource";
         private const string TELEMETRICS = "Telemetrics";
 
         private readonly ITypeLoader _typeLoader;
@@ -42,102 +38,89 @@ namespace Amazon.KinesisTap.Hosting
         private readonly IFactoryCatalog<IGenericPlugin> _genericPluginFactoryCatalog = new FactoryCatalog<IGenericPlugin>();
         private readonly IFactoryCatalog<IPipe> _pipeFactoryCatalog = new FactoryCatalog<IPipe>();
         private readonly IFactoryCatalog<IRecordParser> _recordParserCatalog = new FactoryCatalog<IRecordParser>();
-
         private readonly IDictionary<string, ISource> _sources = new Dictionary<string, ISource>();
         private readonly IDictionary<string, ISink> _sinks = new Dictionary<string, ISink>();
         private readonly IDictionary<string, ICredentialProvider> _credentialProviders = new Dictionary<string, ICredentialProvider>();
         private readonly IList<IDisposable> _subscriptions = new List<IDisposable>();
         private readonly IList<IGenericPlugin> _plugins = new List<IGenericPlugin>();
-        private readonly IConfigurationRoot _config;
+        private readonly BookmarkManager _bookmarkManager = new BookmarkManager();
+        private readonly string _descriptiveName;
+        private readonly NetworkStatus _networkStatus;
+        private readonly IConfiguration _config;
         private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger _logger;
+        private readonly IConfigurationSection _defaultCredentialsSection;
+        private readonly bool _validated;
+        private readonly ConcurrentDictionary<string, IConfigurationSection> _pipesToRestart = new ConcurrentDictionary<string, IConfigurationSection>();
+        private readonly CancellationTokenSource _restartSinksAndPipesCts = new CancellationTokenSource();
+        internal Task _restartSinksAndPipesTask;
         private KinesisTapMetricsSource _metrics;
+        internal ConcurrentDictionary<string, ISink> _sinksToRestart = new ConcurrentDictionary<string, ISink>();
+        internal int MinSinkRestartDelayMs = 1000;
+        internal int MaxSinkRestartDelayMs = 5000;
 
-        private int _updateFrequency;
-        private Timer _updateTimer;
-        private Timer _configTimer;
-        private DateTime _configLoadTime;
-        private DateTime _configUpdateTime;
-
-        public LogManager(ITypeLoader typeLoader, IParameterStore parameterStore)
+        public LogManager(int id, IConfiguration config, DateTime startTime,
+            ITypeLoader typeLoader, IParameterStore parameterStore,
+            ILoggerFactory loggerFactory, INetworkStatusProvider defaultNetworkStatusProvider,
+            IConfigurationSection defaultCredentialsSection = null, bool validated = false)
         {
+            Id = id;
+            StartTime = startTime;
+
+            _config = config;
+            _loggerFactory = loggerFactory;
             _typeLoader = typeLoader;
             _parameterStore = parameterStore;
+            _networkStatus = new NetworkStatus(defaultNetworkStatusProvider);
+            _defaultCredentialsSection = defaultCredentialsSection;
 
-            _loggerFactory = CreateLoggerFactory();
-            _logger = _loggerFactory.CreateLogger<LogManager>();
-            try
-            {
-                ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
-                _config = configurationBuilder
-                    .SetBasePath(Utility.GetKinesisTapConfigPath())
-                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                    .Build();
+            _descriptiveName = string.IsNullOrWhiteSpace(config[ConfigConstants.CONFIG_DESCRIPTIVE_NAME])
+                ? string.Empty
+                : _config[ConfigConstants.CONFIG_DESCRIPTIVE_NAME];
 
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Unable to load apsettings.json. {ex.ToMinimized()}");
-                throw;
-            }
-
-            ChangeToken.OnChange(() => _config.GetReloadToken(), OnConfigChanged);
-
-            _updateTimer = new Timer(CheckUpdate, null, Timeout.Infinite, Timeout.Infinite);
-            _configTimer = new Timer(CheckConfig, null, Timeout.Infinite, Timeout.Infinite);
+            _logger = _loggerFactory.CreateLogger($"session:{_descriptiveName}");
+            _validated = validated;
+            _logger.LogDebug("Configuration is validated: {0}", _validated);
         }
+        public bool Disposed { get; private set; }
 
         #region public methods
         public void Start()
         {
-            // Clear some of the dictionaries in case there were lingering objects not cleaned up during stop.
-            _sources.Clear();
-            _sinks.Clear();
-            _subscriptions.Clear();
+            try
+            {
+                _metrics = KinesisTapMetricsSource.GetInstance(CreatePlugInContext(_config.GetSection("Metrics")));
 
-            _configLoadTime = DateTime.Now;
+                _sources[KINESISTAP_METRICS_SOURCE] = _metrics;
 
-            StackTraceMinimizerExceptionExtensions.DoCompressStackTrace = true;
+                LoadFactories();
 
-            _metrics = new KinesisTapMetricsSource(CreatePlugInContext(_config.GetSection("Metrics")));
+                LoadCredentialProviders();
 
-            PluginContext.ApplicationContext = new PluginContext(_config, _logger, _metrics);
+                LoadBuiltInSinks();
 
-            _sources[KINESISTAP_METRICS_SOURCE] = _metrics;
+                LoadEventSinks();
 
-            LoadFactories();
+                (int sourcesLoaded, int sourcesFailed) = LoadEventSources();
 
-            LoadCredentialProviders();
+                LoadPipes();
 
-            LoadBuiltInSinks();
+                StartEventSources(sourcesLoaded, sourcesFailed);
 
-            LoadEventSinks();
+                PublishBuildNumber();
 
-            (int sourcesLoaded, int sourcesFailed) = LoadEventSources();
+                LoadGenericPlugins();
 
-            LoadPipes();
-
-            StartEventSources(sourcesLoaded, sourcesFailed);
-
-            PublishBuilderNumber();
-
-            LoadSelfUpdator();
-
-            LoadConfigTimer();
-
-            LoadGenericPlugins();
-        }
-
-        public void Stop()
-        {
-            this.Stop(false);
+                _restartSinksAndPipesTask = RestartSinksAndPipesTask();
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
 
         public void Stop(bool serviceStopping)
         {
-            _configTimer.Change(Timeout.Infinite, Timeout.Infinite);
-            _updateTimer.Change(Timeout.Infinite, Timeout.Infinite);
-
             var sourceStopTasks = new List<Task>();
             foreach (ISource source in _sources.Values)
             {
@@ -146,8 +129,8 @@ namespace Amazon.KinesisTap.Hosting
                     try
                     {
                         source.Stop();
-                        if (source is IDisposable disposableSource)
-                            disposableSource.Dispose();
+                        if (!serviceStopping && source is IDisposable i)
+                            i.Dispose();
                     }
                     catch (Exception ex)
                     {
@@ -164,30 +147,6 @@ namespace Amazon.KinesisTap.Hosting
                 _sources.Clear();
             }
 
-            var subscriptionStopTasks = new List<Task>();
-            foreach (var subscription in _subscriptions)
-            {
-                subscriptionStopTasks.Add(Task.Run(() =>
-                {
-                    try
-                    {
-                        subscription?.Dispose();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError($"Error stopping subscription: {ex.ToMinimized()}");
-                    }
-                }));
-            }
-
-            if (!serviceStopping)
-            {
-                // Wait for items to stop, then move on if even if they haven't within the time limit.
-                if (Task.WaitAll(subscriptionStopTasks.ToArray(), TimeSpan.FromSeconds(300)))
-                    _logger.LogDebug("All subscriptions stopped gracefully.");
-                _subscriptions.Clear();
-            }
-
             // Since the sinks need a longer time to flush, we'll stop all the plugins at the same time.
             var sinksAndPluginStopTasks = new List<Task>();
             foreach (ISink sink in _sinks.Values)
@@ -197,6 +156,8 @@ namespace Amazon.KinesisTap.Hosting
                     try
                     {
                         sink.Stop();
+                        if (!serviceStopping && sink is IDisposable i)
+                            i.Dispose();
                     }
                     catch (Exception ex)
                     {
@@ -212,6 +173,8 @@ namespace Amazon.KinesisTap.Hosting
                     try
                     {
                         plugin.Stop();
+                        if (!serviceStopping && plugin is IDisposable i)
+                            i.Dispose();
                     }
                     catch (Exception ex)
                     {
@@ -226,43 +189,67 @@ namespace Amazon.KinesisTap.Hosting
             // the use case of both a timeLimited and a non-timeLimited Stop operation.
             if (Task.WaitAll(sinksAndPluginStopTasks.ToArray(), TimeSpan.FromSeconds(600)))
                 _logger.LogDebug("All sinks stopped gracefully.");
+
+            // cancel the background task that might still be restarting sinks and pipes
+            _restartSinksAndPipesCts.Cancel();
+            // wait for the background task to finish
+            _restartSinksAndPipesTask.GetAwaiter().GetResult();
+
             _sinks.Clear();
 
-            NetworkStatus.ResetNetworkStatusProviders();
-            _logger.LogInformation("Log manager stopped.");
+            // Clean all sinks and pipes that need to restart in order to terminate background task
+            _sinksToRestart.Clear();
+            _pipesToRestart.Clear();
+
+            _networkStatus.ResetNetworkStatusProviders();
+            _logger.LogInformation("Stopped.");
         }
 
-        public int ConfigInterval { get; set; } = 10000; //default to 10 seconds
+        /// <inheritdoc/>
+        public int Id { get; }
+
+        public DateTime StartTime { get; }
+
         #endregion
 
         #region private methods
-        private void OnConfigChanged()
-        {
-            _configUpdateTime = DateTime.Now;
-            _logger.LogInformation("Config file changed.");
-        }
-
-        private static ILoggerFactory CreateLoggerFactory()
-        {
-            ILoggerFactory loggerFactory = new LoggerFactory();
-#if DEBUG
-            loggerFactory.AddConsole(LogLevel.Debug);
-#endif
-            loggerFactory.AddNLog();
-            NLog.LogManager.LoadConfiguration(Path.Combine(Utility.GetKinesisTapConfigPath(), "NLog.xml"));
-            return loggerFactory;
-        }
 
         private void LoadCredentialProviders()
         {
-            var credentialsSection = _config.GetSection("Credentials");
-            var credentialSections = credentialsSection.GetChildren();
+            // load own credential section first so that credentials with the same ID overwrite that of the default config
+            var ownCredentialsSection = _config.GetSection("Credentials");
+            LoadCredentialsSection(ownCredentialsSection);
+
+            if (Id == 0)
+            {
+                return;
+            }
+
+            LoadCredentialsSection(_defaultCredentialsSection);
+        }
+
+        private void LoadCredentialsSection(IConfigurationSection credentialsSection)
+        {
             int credentialStarted = 0;
             int credentialFailed = 0;
+
+            if (credentialsSection is null || !credentialsSection.GetChildren().Any())
+            {
+                //this config file contains no credentials section
+                return;
+            }
+
+            var credentialSections = credentialsSection.GetChildren();
             foreach (var credentialSection in credentialSections)
             {
-                string id = _config.GetChildConfig(credentialSection.Path, ConfigConstants.ID);
-                string credentialType = _config.GetChildConfig(credentialSection.Path, ConfigConstants.CREDENTIAL_TYPE);
+                var id = credentialSection[ConfigConstants.ID];
+                if (_credentialProviders.ContainsKey(id))
+                {
+                    credentialFailed++;
+                    continue;
+                }
+
+                var credentialType = credentialSection[ConfigConstants.CREDENTIAL_TYPE];
                 var factory = _credentialProviderFactoryCatalog.GetFactory(credentialType);
                 if (factory != null)
                 {
@@ -272,24 +259,26 @@ namespace Amazon.KinesisTap.Hosting
                         credentialProvider.Id = id;
                         _credentialProviders[id] = credentialProvider;
                         credentialStarted++;
+                        _logger.LogDebug($"Created cred provider {credentialType} Id {id}");
                     }
                     catch (Exception ex)
                     {
+                        _logger?.LogError($"Unable to load credential {id}: {ex.ToMinimized()}");
                         credentialFailed++;
-                        _logger.LogError($"Unable to load event sink {id} exception {ex.ToMinimized()}");
                     }
                 }
                 else
                 {
+                    _logger?.LogError("Credential Type {0} is not recognized.", credentialType);
                     credentialFailed++;
-                    _logger.LogError("Credential Type {0} is not recognized.", credentialType);
                 }
-            }
-            _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
+
+                _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
                 {
                     { MetricsConstants.SINKS_STARTED, new MetricValue(credentialStarted) },
                     { MetricsConstants.SINKS_FAILED_TO_START, new MetricValue(credentialFailed) }
                 });
+            }
         }
 
         private void LoadFactories()
@@ -458,6 +447,7 @@ namespace Amazon.KinesisTap.Hosting
                 var factory = _sinkFactoryCatalog.GetFactory(sinkType);
                 if (factory != null)
                 {
+                    IEventSink sink = null;
                     try
                     {
                         if (string.IsNullOrWhiteSpace(id))
@@ -465,7 +455,7 @@ namespace Amazon.KinesisTap.Hosting
                             throw new Exception("Sink id is required.");
                         }
 
-                        IEventSink sink = factory.CreateInstance(sinkType, CreatePlugInContext(sinkSection));
+                        sink = factory.CreateInstance(sinkType, CreatePlugInContext(sinkSection));
                         sink.Start();
                         _sinks[sink.Id] = sink;
                         sinksStarted++;
@@ -473,7 +463,14 @@ namespace Amazon.KinesisTap.Hosting
                     catch (Exception ex)
                     {
                         sinksFailed++;
-                        _logger.LogError($"Unable to load event sink {id} exception {ex}");
+                        _logger.LogError(0, ex, $"Unable to load event sink {id} exception");
+
+                        // If the sink fails to start due to "Rate limit exceeded" error,
+                        // add it to the sinks that need to be retarted
+                        if (ex is RateExceededException)
+                        {
+                            _sinksToRestart[sink.Id] = sink;
+                        }
                     }
                 }
                 else
@@ -503,6 +500,8 @@ namespace Amazon.KinesisTap.Hosting
                 }
                 else
                 {
+                    // Add pipesection to the pipes that need to be restarted later
+                    _pipesToRestart[pipeSection[ConfigConstants.ID]] = pipeSection;
                     pipesFailedToConnect++;
                 }
             }
@@ -642,75 +641,6 @@ namespace Amazon.KinesisTap.Hosting
             }
         }
 
-        private void LoadSelfUpdator()
-        {
-            string selfUpdate = _config["SelfUpdate"];
-            if (int.TryParse(selfUpdate, out _updateFrequency) && _updateFrequency > 0)
-            {
-                int dueTime = (int)(Utility.Random.NextDouble() * _updateFrequency * 60000);
-                _updateTimer.Change(dueTime, _updateFrequency * 60000);
-            }
-            _metrics.PublishCounter(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, MetricsConstants.SELF_UPDATE_FREQUENCY, _updateFrequency, MetricUnit.Seconds);
-        }
-
-        private void CheckUpdate(object stateInfo)
-        {
-#if !DEBUG
-            _updateTimer.Change(Timeout.Infinite, Timeout.Infinite);
-
-            try
-            {
-                _logger.LogInformation("Running self-updater");
-                ProcessStartInfo startInfo = new ProcessStartInfo("choco", "upgrade KinesisTap -y");
-                startInfo.CreateNoWindow = true;
-                Process.Start(startInfo);
-            }
-            catch(Exception ex)
-            {
-                _logger.LogError($"KinesisTap update error: {ex.ToMinimized()}");
-            }
-
-            _updateTimer.Change(_updateFrequency * 60000, _updateFrequency * 60000);
-#endif
-        }
-
-        private void LoadConfigTimer()
-        {
-            _configTimer.Change(ConfigInterval, ConfigInterval);
-        }
-
-        private void CheckConfig(object state)
-        {
-            _configTimer.Change(Timeout.Infinite, Timeout.Infinite);
-            if (_configUpdateTime > _configLoadTime)
-            {
-                Reload();
-            }
-            _configTimer.Change(ConfigInterval, ConfigInterval);
-        }
-
-        private void Reload()
-        {
-            int configReloadSuccess = 0;
-            int configReloadFail = 0;
-            try
-            {
-                this.Stop();
-                this.Start();
-                configReloadSuccess++;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Reload exception: {ex.ToMinimized()}");
-                configReloadFail++;
-            }
-            _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
-                {
-                    { MetricsConstants.CONFIG_RELOAD_COUNT, new MetricValue(configReloadSuccess) },
-                    { MetricsConstants.CONFIG_RELOAD_FAILED_COUNT, new MetricValue(configReloadFail) }
-                });
-        }
-
         private void LoadBuiltInSinks()
         {
             CreatePerformanceCounterSink();
@@ -750,28 +680,38 @@ namespace Amazon.KinesisTap.Hosting
 
         private void CreatePerformanceCounterSink()
         {
-            const string PERFORMANCE_COUNTER = "PerformanceCounter";
-            try
+            if (!KinesisTapMetricsSource.PerformanceCounterSinkLoaded)
             {
-                var factory = _sinkFactoryCatalog.GetFactory(PERFORMANCE_COUNTER);
-                if (factory != null)
+                const string PERFORMANCE_COUNTER = "PerformanceCounter";
+                try
                 {
-                    IConfiguration perfCounterSection = _config.GetSection("PerformanceCounter");
-                    var sink = factory.CreateInstance(PERFORMANCE_COUNTER, CreatePlugInContext(perfCounterSection));
-                    sink.Start();
-                    _sinks["_" + PERFORMANCE_COUNTER] = sink;
-                    _subscriptions.Add(_metrics.Subscribe(sink));
+                    var factory = _sinkFactoryCatalog.GetFactory(PERFORMANCE_COUNTER);
+                    if (factory != null)
+                    {
+                        IConfiguration perfCounterSection = _config.GetSection("PerformanceCounter");
+                        var sink = factory.CreateInstance(PERFORMANCE_COUNTER, CreatePlugInContext(perfCounterSection));
+                        sink.Start();
+                        _sinks["_" + PERFORMANCE_COUNTER] = sink;
+                        _subscriptions.Add(_metrics.Subscribe(sink));
+                    }
+
+                    KinesisTapMetricsSource.PerformanceCounterSinkLoaded = true;
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Unable to load performance counter. Error: {ex.ToMinimized()}");
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Unable to load performance counter. Error: {ex.ToMinimized()}");
+                }
             }
         }
 
-        private void PublishBuilderNumber()
+        private void PublishBuildNumber()
         {
-            int buildNumber = ProgramInfo.GetBuildNumber();
+            if (Id != SessionManager.DefaultSessionId)
+            {
+                return;
+            }
+
+            int buildNumber = _parameterStore.GetStoredBuildNumber();
             _metrics.PublishCounter(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, MetricsConstants.KINESISTAP_BUILD_NUMBER, buildNumber, MetricUnit.None);
         }
 
@@ -782,7 +722,15 @@ namespace Amazon.KinesisTap.Hosting
             // This new logic will check the config for an "Id" property and if found, will create a new logger with that Id as the name.
             // If there is no "Id" property specified, it will use the default logger (i.e. the LogManager logger instance).
             // This means that every line in the log will contain the Id of the source/sink/pipe/plugin that it originated from.
-            var plugInContext = new PluginContext(config, string.IsNullOrWhiteSpace(config["Id"]) ? _logger : _loggerFactory.CreateLogger(config["Id"]), _metrics, _credentialProviders, _parameterStore);
+            var plugInLogger = string.IsNullOrWhiteSpace(config["Id"])
+                ? _logger
+                : _loggerFactory.CreateLogger($"{_descriptiveName}:{config["Id"]}");
+            var plugInContext = new PluginContext(config, plugInLogger, _metrics, _bookmarkManager, _credentialProviders, _parameterStore)
+            {
+                NetworkStatus = _networkStatus,
+                SessionId = Id,
+                Validated = _validated
+            };
             plugInContext.ContextData[PluginContext.PARSER_FACTORIES] = new ReadOnlyFactoryCatalog<IRecordParser>(_recordParserCatalog); //allow plug-ins access a list of parsers
             return plugInContext;
         }
@@ -805,10 +753,10 @@ namespace Amazon.KinesisTap.Hosting
                 }
             }
             _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
-                {
-                    { MetricsConstants.PLUGINS_STARTED, new MetricValue(pluginsStarted) },
-                    { MetricsConstants.PLUGINS_FAILED_TO_START, new MetricValue(pluginsFailedToStart) }
-                });
+            {
+                { MetricsConstants.PLUGINS_STARTED, new MetricValue(pluginsStarted) },
+                { MetricsConstants.PLUGINS_FAILED_TO_START, new MetricValue(pluginsFailedToStart) }
+            });
         }
 
         private bool LoadPlugin(IConfigurationSection pluginSection)
@@ -823,11 +771,12 @@ namespace Amazon.KinesisTap.Hosting
                     plugin.Start();
                     _plugins.Add(plugin);
                     _logger.LogInformation($"Plugin type {pluginType} started.");
-                    if (plugin is INetworkStatus networkStatusProvider)
+                    if (plugin is INetworkStatusProvider networkStatusProvider)
                     {
-                        NetworkStatus.RegisterNetworkStatusProvider(networkStatusProvider);
+                        _networkStatus.RegisterNetworkStatusProvider(networkStatusProvider);
                         _logger.LogInformation($"Registered network status provider {plugin.Id}");
                     }
+
                     return true;
                 }
                 catch (Exception ex)
@@ -841,6 +790,183 @@ namespace Amazon.KinesisTap.Hosting
                 _logger.LogError("Plugin Type {0} is not recognized.", pluginType);
                 return false;
             }
+        }
+
+        private async Task RestartSinksAndPipesTask()
+        {
+            // If no sinks need to restart, break the loop and exit the task
+            if (_sinksToRestart.Count == 0)
+            {
+                return;
+            };
+
+            var random = new Random();
+
+            // Restart sinks that need to be restarted until there is no more sinks need to be retried.
+            // Note that we only restart sinks that are caused by "Rate exceeded" recoverable error.
+            while (!_restartSinksAndPipesCts.Token.IsCancellationRequested)
+            {
+                // Delay a bit before trying to reload the failed sinks, this wait time is randomized between 1-5 seconds
+                await Task.Delay(random.Next(MinSinkRestartDelayMs, MaxSinkRestartDelayMs));
+
+                var sinks = _sinksToRestart.ToArray();
+                int sinksStarted = 0;
+                int sinksFailed = 0;
+                foreach (var sink in sinks)
+                {
+                    try
+                    {
+                        _logger.LogInformation("Restarting sink {0}", sink.Key);
+                        sink.Value.Start();
+                        _sinks[sink.Value.Id] = sink.Value;
+                        if (_sinksToRestart.TryRemove(sink.Key, out ISink value))
+                        {
+                            sinksStarted++;
+
+                            // Restart the associated pipe
+                            RestartPipes(sink.Key);
+                            _logger.LogDebug("Successfully restarted sink {0} from background task", sink.Key);
+                        }
+                        else
+                        {
+                            _logger.LogError("Failed to remove sink {0} from background task", sink.Key);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        sinksFailed++;
+
+                        // If failed to start the sink due to rate exceed error, move to next sink, and retry this sink later.
+                        if (ex is RateExceededException)
+                        {
+                            continue;
+                        }
+
+                        // Print out the error and remove the sink and its pipes from restart lists
+                        _logger.LogError(0, ex, "Failed to restart sink {0}", sink.Key);
+                        if (_sinksToRestart.TryRemove(sink.Key, out ISink value))
+                        {
+                            _logger.LogDebug("Successfully removed sink {0} from background task", sink.Key);
+
+                            // Remove the associated pipe
+                            RemovePipes(sink.Key);
+                        }
+                        else
+                        {
+                            _logger.LogError("Failed to remove sink {0} from background task", sink.Key);
+                        }
+                    }
+                }
+
+                _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
+                {
+                    { MetricsConstants.SINKS_STARTED, new MetricValue(sinksStarted) },
+                    { MetricsConstants.SINKS_FAILED_TO_START, new MetricValue(sinksFailed) }
+                });
+            }
+            _logger.LogDebug("Background task stopped.");
+        }
+
+        private void RestartPipes(string sinkId)
+        {
+            int pipesConnected = 0;
+            int pipesFailedToConnect = 0;
+            IDictionary<string, IConfigurationSection> configurationSections = new Dictionary<string, IConfigurationSection>(_pipesToRestart);
+            foreach (IConfigurationSection pipeSection in configurationSections.Values)
+            {
+                // Restart associated pipe as the sink started successfully
+                if (pipeSection["SinkRef"] == sinkId)
+                {
+                    if (LoadPipe(pipeSection))
+                    {
+                        pipesConnected++;
+                        if (!_pipesToRestart.TryRemove(pipeSection[ConfigConstants.ID], out IConfigurationSection pipe))
+                        {
+                            _logger.LogError("Failed to remove pipe {0} from background task.", pipeSection[ConfigConstants.ID]);
+                        }
+                        else
+                        {
+                            _logger.LogDebug("Successfully removed pipe {0} from background task", pipeSection[ConfigConstants.ID]);
+                        }
+                    }
+                    else
+                    {
+                        pipesFailedToConnect++;
+                    }
+                }
+            }
+
+            _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
+                {
+                    { MetricsConstants.PIPES_CONNECTED, new MetricValue(pipesConnected) },
+                    { MetricsConstants.PIPES_FAILED_TO_CONNECT, new MetricValue(pipesFailedToConnect) }
+                });
+        }
+
+        private void RemovePipes(string sinkId)
+        {
+            IDictionary<string, IConfigurationSection> configurationSections = new Dictionary<string, IConfigurationSection>(_pipesToRestart);
+            foreach (IConfigurationSection pipeSection in configurationSections.Values)
+            {
+                if (pipeSection["SinkRef"] == sinkId)
+                {
+                    if (!_pipesToRestart.TryRemove(pipeSection[ConfigConstants.ID], out IConfigurationSection pipe))
+                    {
+                        _logger.LogError("Failed to remove pipe {0} from background task.", pipeSection[ConfigConstants.ID]);
+                    }
+                    else
+                    {
+                        _logger.LogDebug("Successfully removed pipe {0} from background task", pipeSection[ConfigConstants.ID]);
+                    }
+                }
+            }
+        }
+
+        public void PublishServiceLevelCounter(string id, string category, CounterTypeEnum counterType, IDictionary<string, MetricValue> counters)
+        {
+            if (Id != SessionManager.DefaultSessionId)
+            {
+                throw new NotSupportedException($"Session [{Id}] does not support publishing service level counter");
+            }
+            _metrics.PublishCounters(id, category, CounterTypeEnum.CurrentValue, counters);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!this.Disposed)
+            {
+                if (disposing)
+                {
+                    foreach (var source in _sources.Values)
+                    {
+                        if (source is IDisposable disposableSource)
+                        {
+                            disposableSource.Dispose();
+                        }
+                    }
+
+                    foreach (var subscription in _subscriptions)
+                    {
+                        try
+                        {
+                            subscription?.Dispose();
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError($"Error stopping subscription: {ex.ToMinimized()}");
+                        }
+                    }
+                }
+
+                this.Disposed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            this.Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
 
         #endregion

@@ -42,7 +42,8 @@ namespace Amazon.KinesisTap.EtwEvent.Test
             //Configure
             ListEventSink mockSink = new ListEventSink();
 
-            using (EtwEventSource mockEtwSource = new MockEtwEventSource(MockTraceEvent.ClrProviderName, TraceEventLevel.Verbose, ulong.MaxValue, new PluginContext(null, null, null)))
+            using (EtwEventSource mockEtwSource = new MockEtwEventSource(MockTraceEvent.ClrProviderName, TraceEventLevel.Verbose, ulong.MaxValue,
+                new PluginContext(null, null, null, new BookmarkManager())))
             {
                 mockEtwSource.Subscribe(mockSink);
 

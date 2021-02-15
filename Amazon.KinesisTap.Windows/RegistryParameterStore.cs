@@ -25,7 +25,7 @@ namespace Amazon.KinesisTap.Windows
 {
     public class RegistryParameterStore : IParameterStore
     {
-        const string REG_ROOT = @"SOFTWARE\Amazon\AWSKinesisTap";
+        const string REG_ROOT = @"SOFTWARE\Amazon\KinesisTap";
 
         public string GetParameter(string name)
         {

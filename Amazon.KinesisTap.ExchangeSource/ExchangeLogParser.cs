@@ -13,8 +13,6 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Amazon.KinesisTap.Core
 {
@@ -22,7 +20,7 @@ namespace Amazon.KinesisTap.Core
     {
         protected const string FIELDS = "#Fields: ";
 
-        public ExchangeLogParser() : base(",", (data, context) => new ExchangeLogRecord(data, context))
+        public ExchangeLogParser() : base(",", (data, context) => new ExchangeLogRecord(data, context), null)
         {
         }
 

@@ -20,19 +20,19 @@ namespace Amazon.KinesisTap.Core
     using System.Threading;
     using Microsoft.Extensions.Logging;
 
-    public static class BookmarkManager
+    public class BookmarkManager
     {
         // Start from 1, so anything that tries to save a bookmark with id '0' does nothing.
-        private static int nextBookmarkInfoIdCounter = 1;
+        private int nextBookmarkInfoIdCounter = 1;
 
         // Controls concurrent requests to create new bookmarks.
-        private static readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
 
         // Stores the bookmark objects.
-        private static readonly ConcurrentDictionary<int, BookmarkInfo> bookmarks = new ConcurrentDictionary<int, BookmarkInfo>();
+        private readonly ConcurrentDictionary<int, BookmarkInfo> bookmarks = new ConcurrentDictionary<int, BookmarkInfo>();
 
         // Stores a mapping between bookmark names and their Id's, for fast lookups.
-        private static readonly ConcurrentDictionary<string, int> bookmarkMap = new ConcurrentDictionary<string, int>();
+        private readonly ConcurrentDictionary<string, int> bookmarkMap = new ConcurrentDictionary<string, int>();
 
         /// <summary>
         /// Saves a bookmark.
@@ -40,7 +40,7 @@ namespace Amazon.KinesisTap.Core
         /// <param name="bookmarkId">The Id of the bookmark to save.</param>
         /// <param name="position">The position which should be used when writing the bookmark.</param>
         /// <param name="logger">An optional <see cref="ILogger"/> implementation used for logging update operations and errors.</param>
-        public static void SaveBookmark(int bookmarkId, long position, ILogger logger)
+        public void SaveBookmark(int bookmarkId, long position, ILogger logger)
         {
             // When sources are stopped, they will persist their current bookmarks and remove them.
             // In the event that a source is stopped before the sink can call back to update the bookmark,
@@ -83,7 +83,7 @@ namespace Amazon.KinesisTap.Core
         /// </summary>
         /// <param name="name">The name of the bookmark to update.</param>
         /// <param name="newPosition">The new position that should be used for future updates.</param>
-        public static void ResetBookmarkPosition(string name, long newPosition)
+        public void ResetBookmarkPosition(string name, long newPosition)
         {
             if (!bookmarks.TryGetValue(GetBookmarkId(name), out BookmarkInfo bookmark)) return;
 
@@ -99,7 +99,7 @@ namespace Amazon.KinesisTap.Core
         /// <param name="name">The name of the bookmark. This must be unique across the system.</param>
         /// <param name="initialPosition">The position at which the bookmark should start.</param>
         /// <param name="action">The callback to be invoked by the AWSBufferedSink implementation when it needs to persist a bookmark's new position</param>
-        public static BookmarkInfo RegisterBookmark(string name, long initialPosition, Action<long> action)
+        public BookmarkInfo RegisterBookmark(string name, long initialPosition, Action<long> action)
         {
             // If the bookmark has already been registered, return the already registered bookmark.
             if (bookmarkMap.TryGetValue(name, out int bookmarkId) && bookmarks.TryGetValue(bookmarkId, out BookmarkInfo bookmark))
@@ -128,7 +128,7 @@ namespace Amazon.KinesisTap.Core
         /// Removes a bookmark.
         /// </summary>
         /// <param name="bookmarkId">The Id of the bookmark to remove.</param>
-        public static void RemoveBookmark(int bookmarkId)
+        public void RemoveBookmark(int bookmarkId)
         {
             if (!bookmarks.TryRemove(bookmarkId, out BookmarkInfo bookmark)) return;
             bookmarkMap.TryRemove(bookmark.Name, out _);
@@ -139,7 +139,7 @@ namespace Amazon.KinesisTap.Core
         /// Removes a bookmark.
         /// </summary>
         /// <param name="name">The name of the bookmark to remove.</param>
-        public static void RemoveBookmark(string name)
+        public void RemoveBookmark(string name)
         {
             RemoveBookmark(GetBookmarkId(name));
         }
@@ -149,7 +149,7 @@ namespace Amazon.KinesisTap.Core
         /// Returns null if no bookmark with that name is found.
         /// </summary>
         /// <param name="name">The name of the bookmark</param>
-        public static BookmarkInfo GetBookmark(string name)
+        public BookmarkInfo GetBookmark(string name)
         {
             return bookmarks.TryGetValue(GetBookmarkId(name), out BookmarkInfo result) ? result : null;
         }
@@ -159,7 +159,7 @@ namespace Amazon.KinesisTap.Core
         /// Returns 0 if no bookmark with that name is found.
         /// </summary>
         /// <param name="name">The name of the bookmark</param>
-        public static int GetBookmarkId(string name)
+        public int GetBookmarkId(string name)
         {
             return bookmarkMap.TryGetValue(name, out int result) ? result : 0;
         }
@@ -167,7 +167,7 @@ namespace Amazon.KinesisTap.Core
         /// <summary>
         /// Retrieves an enumerable of all registered bookmarks.
         /// </summary>
-        public static IEnumerable<BookmarkInfo> GetBookmarks()
+        public IEnumerable<BookmarkInfo> GetBookmarks()
         {
             return bookmarks.Values;
         }

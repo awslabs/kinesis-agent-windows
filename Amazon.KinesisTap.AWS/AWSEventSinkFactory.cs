@@ -62,7 +62,7 @@ namespace Amazon.KinesisTap.AWS
 #if DEBUG
                     const int TELEMETRICS_DEFAULT_INTERVAL = 60;
 #else
-                    const int TELEMETRICS_DEFAULT_INTERVAL = 3600;
+                    const int TELEMETRICS_DEFAULT_INTERVAL = 300;
 #endif
                     //If RedirectToSinkId is specified, we use TelemetryConnector. Otherwise, TelemtryClient
                     string redirectToSinkId = config[ConfigConstants.REDIRECT_TO_SINK_ID];

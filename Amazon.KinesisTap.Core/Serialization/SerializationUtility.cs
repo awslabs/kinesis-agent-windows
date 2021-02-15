@@ -12,15 +12,32 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
-
 namespace Amazon.KinesisTap.Core
 {
+    using System;
+    using System.Collections.Concurrent;
+    using System.IO;
+    using System.Xml.Serialization;
+    using Newtonsoft.Json;
+
     public static class SerializationUtility
     {
+        /// <summary>
+        /// Gets a static instance of the <see cref="JsonSerializer"/> class, using the default settings,
+        /// with overrides for ReferenceLoopHandling (Ignore) and NullValueHandling (Ignore).
+        /// </summary>
+        public static readonly JsonSerializer Json = JsonSerializer.CreateDefault(new JsonSerializerSettings
+        {
+            ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+            NullValueHandling = NullValueHandling.Ignore
+        });
+
+        /// <summary>
+        /// Gets a static dictionary of <see cref="XmlSerializer"/> instances used for converting objects to Xml.
+        /// This allows multiple Envelopes to reuse serializers rather than creating new ones each time.
+        /// </summary>
+        public static readonly ConcurrentDictionary<Type, XmlSerializer> XmlSerializers = new ConcurrentDictionary<Type, XmlSerializer>();
+
         public static void WriteNullableString(this BinaryWriter writer, string value)
         {
             bool isnull = value == null;

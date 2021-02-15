@@ -27,27 +27,13 @@ namespace Amazon.KinesisTap.Core
         protected readonly string _delimiter;
         protected readonly Func<string[], DelimitedLogContext, TData> _recordFactoryMethod;
         protected readonly DateTimeKind _timeZoneKind;
-
-        protected DelimitedLogParserBase(
-            string delimiter,
-            Func<string[], DelimitedLogContext, TData> recordFactoryMethod
-        ) : this(null, delimiter, recordFactoryMethod, DateTimeKind.Utc)
-        {
-        }
-
-        protected DelimitedLogParserBase(
-            IPlugInContext plugInContext,
-            string delimiter,
-            Func<string[], DelimitedLogContext, TData> recordFactoryMethod
-        ) : this(plugInContext, delimiter, recordFactoryMethod, DateTimeKind.Utc)
-        {
-        }
+        protected readonly string _defaultMapping;
 
         protected DelimitedLogParserBase(
             string delimiter,
             Func<string[], DelimitedLogContext, TData> recordFactoryMethod,
-            DateTimeKind timeZoneKind
-        ) : this(null, delimiter, recordFactoryMethod, timeZoneKind)
+            string defaultMapping
+        ) : this(null, delimiter, recordFactoryMethod, DateTimeKind.Utc, defaultMapping)
         {
         }
 
@@ -55,13 +41,33 @@ namespace Amazon.KinesisTap.Core
             IPlugInContext plugInContext,
             string delimiter,
             Func<string[], DelimitedLogContext, TData> recordFactoryMethod,
-            DateTimeKind timeZoneKind
+            string defaultMapping
+        ) : this(plugInContext, delimiter, recordFactoryMethod, DateTimeKind.Utc, defaultMapping)
+        {
+        }
+
+        protected DelimitedLogParserBase(
+            string delimiter,
+            Func<string[], DelimitedLogContext, TData> recordFactoryMethod,
+            DateTimeKind timeZoneKind,
+            string defaultMapping
+        ) : this(null, delimiter, recordFactoryMethod, timeZoneKind, defaultMapping)
+        {
+        }
+
+        protected DelimitedLogParserBase(
+            IPlugInContext plugInContext,
+            string delimiter,
+            Func<string[], DelimitedLogContext, TData> recordFactoryMethod,
+            DateTimeKind timeZoneKind,
+            string defaultMapping
         )
         {
             _plugInContext = plugInContext;
             _delimiter = delimiter;
             _recordFactoryMethod = recordFactoryMethod;
             _timeZoneKind = timeZoneKind;
+            _defaultMapping = defaultMapping;
         }
 
         public virtual IEnumerable<IEnvelope<TData>> ParseRecords(StreamReader sr, DelimitedLogContext context)
@@ -81,6 +87,11 @@ namespace Amazon.KinesisTap.Core
                 {
                     sr.BaseStream.Position = context.Position;
                 }
+            }
+
+            if (context.Mapping == null && _defaultMapping != null)
+            {
+                context.Mapping = GetFieldIndexMap(_defaultMapping);
             }
 
             while (!sr.EndOfStream)
@@ -116,7 +127,7 @@ namespace Amazon.KinesisTap.Core
                     {
                         timestamp = record.TimeStamp;
                     }
-                    catch(Exception ex)
+                    catch (Exception ex)
                     {
                         _plugInContext?.Logger?.LogError($"Failed to get time stamp in {context.FilePath}, {context.LineNumber}: {ex.ToMinimized()}");
                         _plugInContext?.Logger?.LogError(line);

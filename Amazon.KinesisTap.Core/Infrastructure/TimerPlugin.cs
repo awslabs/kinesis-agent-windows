@@ -13,12 +13,8 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
-using AsyncFriendlyStackTrace;
 using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.Core
@@ -26,12 +22,14 @@ namespace Amazon.KinesisTap.Core
     public abstract class TimerPlugin : GenericPlugin
     {
         protected Timer _timer;
+        protected readonly NetworkStatus _networkStatus;
 
         //Timestamp between plug-in invocation
         public TimeSpan Interval { get; protected set; }
 
         public TimerPlugin(IPlugInContext context) : base(context)
         {
+            _networkStatus = context.NetworkStatus;
             _timer = new Timer(this.OnTimerInternal, null, Timeout.Infinite, Timeout.Infinite);
         }
 

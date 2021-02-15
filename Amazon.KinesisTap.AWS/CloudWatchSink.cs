@@ -17,13 +17,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-
 using Amazon.CloudWatch;
 using Amazon.CloudWatch.Model;
 using Amazon.Runtime.Internal;
 using Amazon.Util;
 using Microsoft.Extensions.Logging;
-
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Core.Metrics;
 
@@ -83,7 +81,7 @@ namespace Amazon.KinesisTap.AWS
             {
                 List<Dimension> dimensions = new List<Dimension>();
                 string[] dimensionPairs = dimensionsConfig.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach(var dimensionPair in dimensionPairs)
+                foreach (var dimensionPair in dimensionPairs)
                 {
                     string[] keyValue = dimensionPair.Split('=');
                     string value = ResolveVariables(keyValue[1]);
@@ -149,7 +147,7 @@ namespace Amazon.KinesisTap.AWS
                 }
                 records.Add(datum);
             }
-            
+
             // Send Metric datums request
             PutMetricDataAsync(records).Wait();
         }
@@ -224,11 +222,11 @@ namespace Amazon.KinesisTap.AWS
             PrepareMetricDatums(filteredLastValues, datums);
             if (_aggregatedMetricsFilters.Count > 0)
             {
-                var filteredAggregatedAccumulatedValues = 
-                    FilterAndAggregateValues(accumlatedValues, 
+                var filteredAggregatedAccumulatedValues =
+                    FilterAndAggregateValues(accumlatedValues,
                         values => new MetricValue(values.Sum(v => v.Value), values.First().Unit));
                 PrepareMetricDatums(filteredAggregatedAccumulatedValues, datums);
-                var filteredAggregatedLastValues = FilterAndAggregateValues(lastValues, 
+                var filteredAggregatedLastValues = FilterAndAggregateValues(lastValues,
                     values => new MetricValue((long)values.Average(v => v.Value), values.First().Unit));
                 PrepareMetricDatums(filteredAggregatedLastValues, datums);
             }
@@ -286,7 +284,7 @@ namespace Amazon.KinesisTap.AWS
                     Dimensions = GetDimensions(metric.Key.Id, metric.Key.Category),
                     Value = metric.Value.Value,
                     MetricName = metric.Key.Name,
-                    Timestamp = DateTime.UtcNow,
+                    TimestampUtc = DateTime.UtcNow,
                     StorageResolution = _storageResolution,
                     Unit = _unitMap[metric.Value.Unit]
                 });

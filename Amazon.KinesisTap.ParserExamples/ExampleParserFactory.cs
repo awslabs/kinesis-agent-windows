@@ -13,10 +13,8 @@
  * permissions and limitations under the License.
  */
 using System;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-
 using Amazon.KinesisTap.Core;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -30,6 +28,7 @@ namespace Amazon.KinesisTap.ParserExamples
     public class ExampleParserFactory : IFactory<IRecordParser>
     {
         public const string SINGLE_LINE_JSON2 = "singlelinejson2";
+        public const string DELIMITED2 = "delimited2";
 
         /// <summary>
         /// Call by the infrastructure to register the name of the factory into the catalog
@@ -38,6 +37,7 @@ namespace Amazon.KinesisTap.ParserExamples
         public void RegisterFactory(IFactoryCatalog<IRecordParser> catalog)
         {
             catalog.RegisterFactory(SINGLE_LINE_JSON2, this);
+            catalog.RegisterFactory(DELIMITED2, this);
         }
 
         /// <summary>
@@ -57,6 +57,14 @@ namespace Amazon.KinesisTap.ParserExamples
             {
                 case SINGLE_LINE_JSON2:
                     return new SingleLineJsonParser(timestampField, timetampFormat, NullLogger.Instance);
+                case DELIMITED2:
+                    DateTimeKind timeZoneKind = DateTimeKind.Utc; //Default
+                    string timeZoneKindConfig = Utility.ProperCase(config["TimeZoneKind"]);
+                    if (!string.IsNullOrWhiteSpace(timeZoneKindConfig))
+                    {
+                        timeZoneKind = (DateTimeKind)Enum.Parse(typeof(DateTimeKind), timeZoneKindConfig);
+                    }
+                    return DirectorySourceFactory.CreateDelimitedLogParser(context, timetampFormat, timeZoneKind);
                 default:
                     throw new ArgumentException($"Parser {entry} not recognized.");
             }

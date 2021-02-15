@@ -12,11 +12,8 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 
 namespace Amazon.KinesisTap.Core
 {
@@ -24,7 +21,8 @@ namespace Amazon.KinesisTap.Core
     {
         protected const string FIELDS = "#Fields: ";
 
-        public W3SVCLogParser(IPlugInContext plugInContext) : base(plugInContext, " ", (data, context) => new W3SVCLogRecord(data, context))
+        public W3SVCLogParser(IPlugInContext plugInContext, string defaultMapping)
+            : base(plugInContext, " ", (data, context) => new W3SVCLogRecord(data, context), defaultMapping)
         {
         }
 

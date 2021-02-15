@@ -12,13 +12,13 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.IO;
-
 namespace Amazon.KinesisTap.Core
 {
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using Microsoft.Extensions.Logging;
+
     /// <summary>
     /// This abstract class provides batching behavior.
     /// It accepts individual event wrapped in envelopes.
@@ -40,7 +40,7 @@ namespace Amazon.KinesisTap.Core
         protected Buffer<List<Envelope<TRecord>>> _buffer;
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <param name="defaultInterval">Number of seconds</param>
         /// <param name="defaultRecordCount">Record count of the buffer.</param>
@@ -73,7 +73,24 @@ namespace Amazon.KinesisTap.Core
                 if (maxBatches == 0) maxBatches = 100;
                 lowerPriorityQueue = new InMemoryQueue<List<Envelope<TRecord>>>(maxBatches);
             }
-            _buffer = new HiLowBuffer<List<Envelope<TRecord>>>(1, _context.Logger, OnNextBatch, lowerPriorityQueue);
+
+            if (!int.TryParse(_config["MaxInMemoryCacheSize"], out int inMemoryCacheSize) || inMemoryCacheSize < 1)
+                inMemoryCacheSize = 10;
+            if (inMemoryCacheSize > 100)
+                throw new ConfigurationException("In-memory cache size cannot exceed 100 batches (500MB).");
+            
+            bool.TryParse(_config["PersistWhenCacheFull"], out bool persistWhenCacheFull);
+            if (persistWhenCacheFull)
+            {
+                this._logger?.LogDebug("Creating BatchEventSink with HighCapacityBuffer and max in-memory cache size: {0}", inMemoryCacheSize);
+                _buffer = new HighCapacityBuffer<List<Envelope<TRecord>>>(inMemoryCacheSize, _context.Logger, OnNextBatch, lowerPriorityQueue);
+            }
+            else
+            {
+                this._logger?.LogDebug("Creating BatchEventSink with HiLowBuffer and max in-memory cache size: {0}", inMemoryCacheSize);
+                _buffer = new HiLowBuffer<List<Envelope<TRecord>>>(inMemoryCacheSize, _context.Logger, OnNextBatch, lowerPriorityQueue);
+            }
+
             _batch = new Batch<Envelope<TRecord>>(TimeSpan.FromSeconds(_interval),
                     new long[] { _count, _maxBatchSize },
                     new Func<Envelope<TRecord>, long>[]
@@ -113,13 +130,15 @@ namespace Amazon.KinesisTap.Core
 
         protected void SendBatch(List<Envelope<TRecord>> records, long[] metrics, FlushReason reason)
         {
-            _logger?.LogDebug($"Sink {this.Id} sending {metrics[0]} records {metrics[1]} bytes for reason {reason}.");
+            _logger?.LogDebug("Sink {0} sending {1} records {2} bytes for reason {3}.", this.Id, metrics[0], metrics[1], reason);
             if (_buffer == null)
             {
+                this._logger?.LogTrace("Sending new batch of {0} records directly to sink", records.Count);
                 OnNextBatch(records);
             }
             else
             {
+                this._logger?.LogTrace("Adding new batch of {0} records to buffer", records.Count);
                 _buffer.Add(records);
             }
         }

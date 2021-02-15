@@ -13,15 +13,10 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Amazon.KinesisTap.Core;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using System.Diagnostics.Eventing.Reader;
 using Microsoft.Diagnostics.Tracing;
+using System.Diagnostics.Eventing.Reader;
 
 namespace Amazon.KinesisTap.Windows
 {
@@ -30,14 +25,19 @@ namespace Amazon.KinesisTap.Windows
         const string WINDOWS_EVENT_LOG_SOURCE = "windowseventlogsource";
         const string WINDOWS_PERFORMANCE_COUNTER_SOURCE = "windowsperformancecountersource";
         const string WINDOWS_ETW_EVENT_SOURCE = "windowsetweventsource";
+        const string WINDOWS_EVENT_LOG_POLLING_SOURCE = "windowseventlogpollingsource";
 
         public ISource CreateInstance(string entry, IPlugInContext context)
         {
             IConfiguration config = context.Configuration;
-            ILogger logger = context.Logger;
 
             switch (entry.ToLowerInvariant())
             {
+                case WINDOWS_EVENT_LOG_POLLING_SOURCE:
+                    var includeEventData = bool.TryParse(context?.Configuration?["IncludeEventData"], out bool ied) && ied;
+                    var weps = new WindowsEventPollingSource(config["LogName"], config["Query"], includeEventData, context);
+                    EventSource<EventRecord>.LoadCommonSourceConfig(config, weps);
+                    return weps;
                 case "windowseventlogsource":
                     string logName = config["LogName"];
                     string query = config["Query"];
@@ -56,7 +56,7 @@ namespace Amazon.KinesisTap.Windows
                     {
                         throw new Exception($"A provider name must be specified for the WindowsEtwEventSource.");
                     }
-                   
+
                     TraceEventLevel traceLevel;
                     ulong matchAnyKeyword;
 
@@ -110,6 +110,7 @@ namespace Amazon.KinesisTap.Windows
 
         public void RegisterFactory(IFactoryCatalog<ISource> catalog)
         {
+            catalog.RegisterFactory(WINDOWS_EVENT_LOG_POLLING_SOURCE, this);
             catalog.RegisterFactory(WINDOWS_EVENT_LOG_SOURCE, this);
             catalog.RegisterFactory(WINDOWS_PERFORMANCE_COUNTER_SOURCE, this);
             catalog.RegisterFactory(WINDOWS_ETW_EVENT_SOURCE, this);

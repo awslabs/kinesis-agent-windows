@@ -14,11 +14,9 @@
  */
 namespace Amazon.KinesisTap.Core.Test
 {
-    using System;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
-    using System.Text;
     using Amazon.KinesisTap.Core;
     using Amazon.KinesisTap.Core.EMF;
     using Newtonsoft.Json.Linq;
@@ -26,6 +24,9 @@ namespace Amazon.KinesisTap.Core.Test
 
     public class EMFPipeTests
     {
+        private readonly BookmarkManager _bookmarkManager = new BookmarkManager();
+
+
         [Fact]
         public void ConvertsIISLogs()
         {
@@ -42,7 +43,7 @@ namespace Amazon.KinesisTap.Core.Test
             var config = TestUtility.GetConfig("Pipes", "IISEMFTestPipe");
             using (var logger = new MemoryLogger(nameof(EMFPipeTests)))
             {
-                var context = new PluginContext(config, logger, null);
+                var context = new PluginContext(config, logger, null, _bookmarkManager);
                 var source = new MockEventSource<W3SVCLogRecord>(context);
                 var sink = new MockEventSink(context);
                 context.ContextData[PluginContext.SOURCE_TYPE] = source.GetType();
@@ -55,7 +56,7 @@ namespace Amazon.KinesisTap.Core.Test
 
                 using (var sr = new StreamReader(Utility.StringToStream(log)))
                 {
-                    var parser = new W3SVCLogParser(null);
+                    var parser = new W3SVCLogParser(null, null);
                     var records = parser.ParseRecords(sr, new DelimitedLogContext { FilePath = "Memory" });
                     foreach (var r in records)
                         source.MockEvent(r.Data);
@@ -90,7 +91,7 @@ namespace Amazon.KinesisTap.Core.Test
             var config = TestUtility.GetConfig("Pipes", "PSEMFTestPipe");
             using (var logger = new MemoryLogger(nameof(EMFPipeTests)))
             {
-                var context = new PluginContext(config, logger, null);
+                var context = new PluginContext(config, logger, null, _bookmarkManager);
                 var source = new MockEventSource<JObject>(context);
                 var sink = new MockEventSink(context);
                 context.ContextData[PluginContext.SOURCE_TYPE] = source.GetType();

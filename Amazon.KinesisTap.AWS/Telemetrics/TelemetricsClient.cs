@@ -12,17 +12,15 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Threading.Tasks;
 using Amazon.CognitoIdentity;
 using Amazon.CognitoIdentity.Model;
 using Amazon.KinesisTap.Core;
 using Amazon.Runtime;
 using Amazon.Util;
-using Microsoft.Extensions.Configuration;
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Amazon.KinesisTap.AWS.Telemetrics
 {
@@ -30,12 +28,12 @@ namespace Amazon.KinesisTap.AWS.Telemetrics
     {
 #if DEBUG
         private const string CLIENT_ID = "ClientId_Debug";
-        private const string IDENTITY_POOL_ID = "us-west-2:3cd2324c-0eaa-46ee-bba6-04ff7bdb0f00";
-        private const string TELEMETRIC_SERVICE_URI = "https://60q2i1r9q7.execute-api.us-west-2.amazonaws.com/prod/";
+        private const string IDENTITY_POOL_ID = "us-west-2:ee5a1104-d25a-4db9-b4d3-6f81419226ff";
+        private const string TELEMETRIC_SERVICE_URI = "https://byaw9mnya8.execute-api.us-west-2.amazonaws.com/prod/";
 #else
         private const string CLIENT_ID = "ClientId";
-        private const string IDENTITY_POOL_ID = "us-west-2:d773c513-c447-4b3c-89ba-a2cebde90b2e";
-        private const string TELEMETRIC_SERVICE_URI = "https://yq2fhu9ppd.execute-api.us-west-2.amazonaws.com/prod/";
+        private const string IDENTITY_POOL_ID = "us-west-2:4a5aa996-94e9-4a18-9932-c5454b7e7bea";
+        private const string TELEMETRIC_SERVICE_URI = "https://yxgz0397n8.execute-api.us-west-2.amazonaws.com/prod/";
 #endif
         private const string REGION = "us-west-2";
         private const string SERVICE_NAME = "execute-api";

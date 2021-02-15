@@ -56,15 +56,31 @@ namespace Amazon.KinesisTap.AWS.Telemetrics
 
         protected override void OnFlush(IDictionary<MetricKey, MetricValue> accumlatedValues, IDictionary<MetricKey, MetricValue> lastValues)
         {
-            Dictionary<string, object> data = new Dictionary<string, object>();
-            data["ClientId"] = _clientId;
-            data["ClientTimestamp"] = DateTime.UtcNow.Round();
-            data["OSDescription"] =  RuntimeInformation.OSDescription + " " + Environment.GetEnvironmentVariable("OS");
-            data["DotnetFramework"] = RuntimeInformation.FrameworkDescription;
-            data["MemoryUsage"] = ProgramInfo.GetMemoryUsage();
-            data["CPUUsage"] = ProgramInfo.GetCpuUsage();
-            data["InstanceId"] = EC2InstanceMetadata.InstanceId;
-            data["InstanctType"] = EC2InstanceMetadata.InstanceType;
+            Dictionary<string, object> data = new Dictionary<string, object>
+            {
+                ["ClientId"] = _clientId,
+                ["ComputerName"] = Utility.ComputerName,
+                ["ClientTimestamp"] = DateTime.UtcNow.Round(),
+                ["OSDescription"] = RuntimeInformation.OSDescription + " " + Environment.GetEnvironmentVariable("OS"),
+                ["DotnetFramework"] = RuntimeInformation.FrameworkDescription,
+                ["MemoryUsage"] = ProgramInfo.GetMemoryUsage(),
+                ["CPUUsage"] = ProgramInfo.GetCpuUsage(),
+                ["InstanceId"] = EC2InstanceMetadata.InstanceId,
+                ["InstanctType"] = EC2InstanceMetadata.InstanceType,
+                ["FQDN"] = Utility.HostName,
+                ["IPAddress"] = EC2InstanceMetadata.PrivateIpAddress,
+                ["KinesisTapVersionNumber"] = ProgramInfo.GetVersionNumber()
+            };
+
+            if (!string.IsNullOrEmpty(Utility.AgentId))
+            {
+                data.Add("AgentId", Utility.AgentId);
+            }
+
+            if (!string.IsNullOrEmpty(Utility.UserId))
+            {
+                data.Add("UserId", Utility.UserId);
+            }
 
             if (accumlatedValues != null)
             {

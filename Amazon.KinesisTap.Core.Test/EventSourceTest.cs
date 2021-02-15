@@ -77,7 +77,7 @@ namespace Amazon.KinesisTap.Core.Test
         private static EventSource<string> RunInitialPositionTest(string id, InitialPositionEnum expectedInitialPosition)
         {
             var config = TestUtility.GetConfig("Sources", id);
-            var source = new MockEventSource<string>(new PluginContext(config, null, null));
+            var source = new MockEventSource<string>(new PluginContext(config, null, null, new BookmarkManager()));
             EventSource<string>.LoadCommonSourceConfig(config, source);
             Assert.Equal(expectedInitialPosition, source.InitialPosition);
             return source;

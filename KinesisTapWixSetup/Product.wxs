@@ -24,7 +24,7 @@
   <!-- We will always do major upgrade.-->
   <!-- GUID are automated generated for IDs of "*" using Key information -->
   <!-- It is important not to change the UpgradeCode -->
-  <Product Id="*"
+  <Product Id="ADAB3982-68AA-4B45-AE09-7B9C03F3EBD3"
     Name="$(var.ProductName)"
     Language="1033"
     Version="$(var.ProductVersion)"

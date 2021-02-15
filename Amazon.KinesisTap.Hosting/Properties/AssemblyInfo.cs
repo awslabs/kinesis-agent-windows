@@ -15,3 +15,4 @@
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Amazon.KinesisTap.IntegrationTest")]
+[assembly: InternalsVisibleTo("Amazon.KinesisTap.Hosting.Test")]

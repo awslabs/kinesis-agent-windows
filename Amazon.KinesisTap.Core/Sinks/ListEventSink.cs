@@ -14,8 +14,6 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Reactive.Linq;
 using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.Core
@@ -58,7 +56,7 @@ namespace Amazon.KinesisTap.Core
 
         public void Stop()
         {
-            _logger?.LogInformation("ListEventSink started");
+            _logger?.LogInformation("ListEventSink stopped");
         }
     }
 }

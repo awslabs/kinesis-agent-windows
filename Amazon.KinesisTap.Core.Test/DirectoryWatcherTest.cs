@@ -15,19 +15,20 @@
 using System;
 using System.Linq;
 using Xunit;
-using Amazon.KinesisTap.Core;
 using Microsoft.Extensions.Logging;
 using System.IO;
-using System.Threading;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Configuration;
+using System.Globalization;
 
 namespace Amazon.KinesisTap.Core.Test
 {
     public class DirectoryWatcherTest
     {
+        private readonly BookmarkManager _bookmarkManager = new BookmarkManager();
+
         #region public members
         [Fact]
         public void StartStopTest()
@@ -39,7 +40,7 @@ namespace Amazon.KinesisTap.Core.Test
                     TestUtility.GetTestHome(),
                     filter,
                     1000,
-                    new PluginContext(null, logger, null),
+                    new PluginContext(null, logger, null, _bookmarkManager),
                     new SingleLineRecordParser());
                 watcher.Start();
                 Assert.Equal($"DirectorySource id {null} watching directory {TestUtility.GetTestHome()} with filter {filter} started.", logger.LastEntry);
@@ -57,7 +58,7 @@ namespace Amazon.KinesisTap.Core.Test
                     TestUtility.GetTestHome(),
                     null,
                     1000,
-                    new PluginContext(null, logger, null),
+                    new PluginContext(null, logger, null, _bookmarkManager),
                     new SingleLineRecordParser());
                 watcher.Start();
                 Assert.Equal($"DirectorySource id {null} watching directory {TestUtility.GetTestHome()} with filter  started.", logger.LastEntry);
@@ -607,7 +608,7 @@ ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name, Transaction
             ListEventSink logRecords = new ListEventSink();
 
             DirectorySource<TData, LogContext> watcher = new DirectorySource<TData, LogContext>
-                (testDir, filter, 1000, new PluginContext(config, logger, null), recordParser);
+                (testDir, filter, 1000, new PluginContext(config, logger, null, new BookmarkManager()), recordParser);
             watcher.Subscribe(logRecords);
             watcher.Start();
 
@@ -645,12 +646,12 @@ ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name, Transaction
 
         private string GenerateSingleLineRecord(DateTime timestamp)
         {
-            return timestamp.ToString("yyyyMMddhhmmssfff");
+            return timestamp.ToString("yyyyMMddhhmmssfff", CultureInfo.InvariantCulture);
         }
 
         private string GenerateMultiLineRecord(DateTime timestamp)
         {
-            return timestamp.ToString("MM/dd/yyyy HH:mm:ss" + ".fff") + Environment.NewLine + "Second Line." + Environment.NewLine + "Third Line.";
+            return timestamp.ToString("MM/dd/yyyy HH:mm:ss" + ".fff", CultureInfo.InvariantCulture) + Environment.NewLine + "Second Line." + Environment.NewLine + "Third Line.";
         }
 
         private string GetFileNameFromTimeStamp(string testName, string fileNameFormat)

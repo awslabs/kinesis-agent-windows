@@ -82,6 +82,7 @@ namespace Amazon.KinesisTap.Core
                 {
                     Flush(FlushReason.BeforeAdd);
                 }
+
                 //Add Item
                 _queue.Add(item);
                 UpdateCounts(newCounts);

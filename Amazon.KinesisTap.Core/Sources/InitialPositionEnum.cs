@@ -20,9 +20,9 @@ namespace Amazon.KinesisTap.Core
 {
     public enum InitialPositionEnum
     {
-        EOS, //Default
+        EOS,
         BOS,
-        Bookmark,
+        Bookmark, // Default
         Timestamp
     }
 }

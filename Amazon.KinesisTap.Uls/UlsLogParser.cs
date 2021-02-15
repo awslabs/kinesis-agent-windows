@@ -13,10 +13,8 @@
  * permissions and limitations under the License.
  */
 using Amazon.KinesisTap.Core;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace Amazon.KinesisTap.Uls
 {
@@ -28,7 +26,7 @@ namespace Amazon.KinesisTap.Uls
         /// <summary>
         /// Uls log is a tab delimited
         /// </summary>
-        public UlsLogParser() : base("\t", (data, context) => new UlsLogRecord(data, context))
+        public UlsLogParser() : base("\t", (data, context) => new UlsLogRecord(data, context), null)
         {
 
         }

@@ -38,6 +38,18 @@ namespace Amazon.KinesisTap.Core
             return this.lowPriorityQueue.TryEnqueue(item);
         }
 
+        /// <inheritdoc />
+        public override int GetCurrentPersistentQueueSize()
+        {
+            return this.lowPriorityQueue.Count;
+        }
+
+        /// <inheritdoc />
+        public override int IsPersistentQueueFull()
+        {
+            return (this.lowPriorityQueue.Count >= this.lowPriorityQueue.Capacity) ? 1 : 0;
+        }
+
         protected override bool LowPriorityPumpOne(Action<T> onNext)
         {
             // Try to dequeue an item and pass it to the onNext action,

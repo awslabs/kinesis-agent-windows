@@ -12,16 +12,13 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
 using System.Collections.Generic;
-using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Amazon.KinesisTap.Core.Metrics;
 
 namespace Amazon.KinesisTap.Core
 {
-
     public class PluginContext : IPlugInContext
     {
         public const string SOURCE_TYPE = "SOURCE_TYPE";
@@ -35,16 +32,25 @@ namespace Amazon.KinesisTap.Core
         private readonly IDictionary<string, ICredentialProvider> _credentialProviders;
         private readonly IParameterStore _parameterStore;
         private readonly IDictionary<string, object> _contextData = new Dictionary<string, object>();
+        private readonly BookmarkManager _bookmarkManager;
 
-        public PluginContext(IConfiguration config, ILogger logger, IMetrics metrics) : this(config, logger, metrics, null, null)
+        public PluginContext(IConfiguration config, ILogger logger, IMetrics metrics)
+            : this(config, logger, metrics, new BookmarkManager(), null, null)
         {
         }
 
-        public PluginContext(IConfiguration config, ILogger logger, IMetrics metrics, IDictionary<string, ICredentialProvider> credentialProviders, IParameterStore parameterStore)
+        public PluginContext(IConfiguration config, ILogger logger, IMetrics metrics, BookmarkManager bookmarkManager)
+            : this(config, logger, metrics, bookmarkManager, null, null)
+        {
+        }
+
+        public PluginContext(IConfiguration config, ILogger logger, IMetrics metrics, BookmarkManager bookmarkManager,
+            IDictionary<string, ICredentialProvider> credentialProviders, IParameterStore parameterStore)
         {
             _config = config;
             _logger = logger;
             _metrics = metrics;
+            _bookmarkManager = bookmarkManager;
             _credentialProviders = credentialProviders;
             _parameterStore = parameterStore;
         }
@@ -55,15 +61,20 @@ namespace Amazon.KinesisTap.Core
 
         public IMetrics Metrics => _metrics;
 
+        public BookmarkManager BookmarkManager => _bookmarkManager;
+
         public IParameterStore ParameterStore => _parameterStore;
 
         public ICredentialProvider GetCredentialProvider(string id) => _credentialProviders?[id];
 
         public IDictionary<string, object> ContextData => _contextData;
 
-        /// <summary>
-        /// Allow application to access logger, metrics
-        /// </summary>
-        public static IPlugInContext ApplicationContext { get; internal set; }
+        public static ILogger ServiceLogger { get; internal set; }
+
+        public NetworkStatus NetworkStatus { get; set; }
+
+        public int SessionId { get; set; }
+
+        public bool Validated { get; set; }
     }
 }

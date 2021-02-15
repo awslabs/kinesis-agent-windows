@@ -16,6 +16,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -25,6 +26,7 @@ namespace Amazon.KinesisTap.Core.Test
 {
     public class DirectoryWatcherBookmarkTest
     {
+        private readonly BookmarkManager _bookmarkManager = new BookmarkManager();
         private static readonly string BookmarkDirectory = Path.Combine(TestUtility.GetTestHome(), "bookmark");
         private const string RECORD_TIME_STAMP_FORMAT = "yyyy/MM/dd HH:mm:ss.fff";
 
@@ -425,7 +427,7 @@ namespace Amazon.KinesisTap.Core.Test
                 (BookmarkDirectory,
                 filter,
                 1000,
-                new PluginContext(config, NullLogger.Instance, null),
+                new PluginContext(config, NullLogger.Instance, null, _bookmarkManager),
                 new TimeStampRecordParser(RECORD_TIME_STAMP_FORMAT, null, DateTimeKind.Utc));
             watcher.Id = sourceId;
             watcher.Subscribe(logRecords);
@@ -480,8 +482,10 @@ namespace Amazon.KinesisTap.Core.Test
 
                 for (int i = 0; i < records; i++)
                 {
-                    sw.WriteLine($"{timestamp.AddMilliseconds(i).ToString(RECORD_TIME_STAMP_FORMAT)} {suffix} {i}");
+                    sw.WriteLine($"{timestamp.AddMilliseconds(i).ToString(RECORD_TIME_STAMP_FORMAT, CultureInfo.InvariantCulture)} {suffix} {i}");
                 }
+
+                sw.Flush();
             }
         }
     }

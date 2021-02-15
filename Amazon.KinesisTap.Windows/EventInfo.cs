@@ -14,9 +14,6 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using Newtonsoft.Json;
 
@@ -24,6 +21,8 @@ namespace Amazon.KinesisTap.Windows
 {
     public class EventInfo
     {
+        public static readonly char[] KeywordSeparator = new char[','];
+
         public int EventId { get; set; }
         public string Description { get; set; }
         public string LevelDisplayName { get; set; }
@@ -36,8 +35,21 @@ namespace Amazon.KinesisTap.Windows
         public string Keywords { get; set; }
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public List<object> EventData { get; set; }
-        //Used to store XML returned from EventRecord.ToXml() method
+
+        /*
+          The following fields are used to support Windows Event XML format and therefore is ignored in JSON format.
+        */
+
+        /// <summary>
+        /// Used to store XML returned from EventRecord.ToXml() method
+        /// </summary>
         [JsonIgnore]
         public string Xml { get; set; }
+
+        [JsonIgnore]
+        public string Opcode { get; set; }
+
+        [JsonIgnore]
+        public string Task { get; set; }
     }
 }

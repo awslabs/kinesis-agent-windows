@@ -16,6 +16,7 @@ namespace Amazon.KinesisTap.Windows
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Diagnostics.Eventing.Reader;
     using System.IO;
     using System.Linq;
@@ -277,6 +278,11 @@ namespace Amazon.KinesisTap.Windows
             {
                 Task.Run(() => this.watcher.Enabled = true).Wait(1000);
 
+#if DEBUG
+                total = 0;
+                _ = SamplingTask();
+#endif
+
                 this._metrics?.InitializeCounters(this.Id, MetricsConstants.CATEGORY_SOURCE, CounterTypeEnum.Increment,
                     new Dictionary<string, MetricValue>()
                     {
@@ -399,6 +405,35 @@ namespace Amazon.KinesisTap.Windows
             this.watcher.EventRecordWritten += this.OnEventRecordWritten;
         }
 
+#if DEBUG
+        private long total = 0;
+        private async Task SamplingTask()
+        {
+            var sw = new Stopwatch();
+            sw.Start();
+            var old = Interlocked.Read(ref this.total);
+            var elapsed = sw.ElapsedMilliseconds;
+            while (this.watcher.Enabled)
+            {
+                try
+                {
+                    await Task.Delay(1000);
+                    var newCount = Interlocked.Read(ref this.total);
+                    var newEl = sw.ElapsedMilliseconds;
+                    var rate = (newCount - old) * 1000 / (newEl - elapsed);
+                    _logger.LogDebug("Read rate {0} msg/s", rate);
+                    elapsed = newEl;
+                    old = newCount;
+                }
+                catch (TaskCanceledException ex)
+                {
+                    this._logger.LogWarning(0, ex, "Error sampling, operation was canceled.");
+                    break;
+                }
+            }
+        }
+#endif
+
         private void OnEventRecordWritten(object sender, EventRecordWrittenEventArgs args)
         {
             try
@@ -414,7 +449,9 @@ namespace Amazon.KinesisTap.Windows
                 }
 
                 if (args.EventRecord == null) return;
-
+#if DEBUG
+                Interlocked.Increment(ref total);
+#endif
                 this.LastEventLatency = DateTime.Now.Subtract(args.EventRecord.TimeCreated ?? DateTime.Now);
                 this.ProcessRecord(args.EventRecord);
             }
@@ -477,7 +514,7 @@ namespace Amazon.KinesisTap.Windows
                 envelope = new EventRecordEnvelope(eventRecord, true, this.bookmarkId); //Need event data for filtering
 
                 //Don't send if any filter return false
-                if (this.customFilters.Any(name => !EventInfoFilters.GetFilter(name)(envelope.Data))) return;
+                if (this.customFilters.Any(name => !EventInfoFilters.GetFilter(name)(eventRecord))) return;
 
                 //Strip off Event Data if not configured
                 if (!this.includeEventData)

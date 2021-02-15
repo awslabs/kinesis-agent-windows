@@ -56,6 +56,8 @@ namespace Amazon.KinesisTap.Core
             }
         }
 
+        protected BookmarkManager BookmarkManager => _context.BookmarkManager;
+
         /// <summary>
         /// Gets or Sets the Id of the EventSource
         /// </summary>
@@ -183,7 +185,9 @@ namespace Amazon.KinesisTap.Core
         /// <returns></returns>
         protected string GetBookmarkFilePath()
         {
-            return Path.Combine(Utility.GetKinesisTapProgramDataPath(), ConfigConstants.BOOKMARKS, $"{this.Id}.bm");
+            var sessionId = _context.SessionId;
+            string multipleConfigurationSuffix = sessionId == 0 ? string.Empty : $"_{sessionId}";
+            return Path.Combine(Utility.GetKinesisTapProgramDataPath(), ConfigConstants.BOOKMARKS, $"{$"{Id}"}{multipleConfigurationSuffix}.bm");
         }
 
         public Type GetOutputType() => typeof(T);

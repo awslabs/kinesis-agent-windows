@@ -14,18 +14,18 @@
  */
 using Amazon.KinesisTap.Core.Metrics;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.Memory;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Xunit;
 
 namespace Amazon.KinesisTap.Core.Test
 {
     public class SimpleMetricsSinkTest
     {
+        private readonly BookmarkManager _bookmarkManager = new BookmarkManager();
+
         [Fact]
         public void TestMetricsFilterSingleInstance()
         {
@@ -117,7 +117,7 @@ namespace Amazon.KinesisTap.Core.Test
         {
             string id = "TextDecoration";
             MemoryLogger logger = new MemoryLogger(null);
-            KinesisTapMetricsSource metrics = new KinesisTapMetricsSource(new PluginContext(null, null, null, null, null));
+            KinesisTapMetricsSource metrics = new KinesisTapMetricsSource(new PluginContext(null, null, null, _bookmarkManager, null, null));
             MockMetricsSink sink = CreateMetricsSink(id, logger, metrics);
             metrics.Subscribe(sink);
 
@@ -137,7 +137,7 @@ namespace Amazon.KinesisTap.Core.Test
         {
             string id = "TextDecoration";
             MemoryLogger logger = new MemoryLogger(null);
-            KinesisTapMetricsSource metrics = new KinesisTapMetricsSource(new PluginContext(null, null, null, null, null));
+            KinesisTapMetricsSource metrics = new KinesisTapMetricsSource(new PluginContext(null, null, null, _bookmarkManager, null, null));
             MockMetricsSink sink = CreateMetricsSink(id, logger, metrics);
 
             metrics.InitializeCounters(id, "Sinks", CounterTypeEnum.Increment,
@@ -157,19 +157,19 @@ namespace Amazon.KinesisTap.Core.Test
         public void TestDirectorySourceMetricsOnSubscribe()
         {
             IConfiguration config = GetConfig("directorySourceTest");
-            string id = config[ConfigConstants.ID];
+            config[ConfigConstants.ID] = "TestDirectorySourceMetricsOnSubscribe";
 
             MemoryLogger logger = new MemoryLogger(null);
-            KinesisTapMetricsSource metrics = new KinesisTapMetricsSource(new PluginContext(null, null, null, null, null));
+            KinesisTapMetricsSource metrics = new KinesisTapMetricsSource(new PluginContext(null, null, null, _bookmarkManager, null, null));
 
             DirectorySource<string, LogContext> source = new DirectorySource<string, LogContext>(
                 TestUtility.GetTestHome(),
-                "*.*",
+                "*.log",
                 1000,
-                new PluginContext(config, logger, metrics),
+                new PluginContext(config, logger, metrics, _bookmarkManager),
                 new SingleLineRecordParser());
 
-            MockMetricsSink metricsSink = new MockMetricsSink(3600, new PluginContext(config, logger, metrics));
+            MockMetricsSink metricsSink = new MockMetricsSink(3600, new PluginContext(config, logger, metrics, _bookmarkManager));
 
             source.Start();
             metrics.Subscribe(metricsSink);
@@ -183,22 +183,21 @@ namespace Amazon.KinesisTap.Core.Test
         public void TestDirectorySourceMetricsStart()
         {
             IConfiguration config = GetConfig("directorySourceTest");
-            string id = config[ConfigConstants.ID];
+            config[ConfigConstants.ID] = "TestDirectorySourceMetricsStart";
 
             MemoryLogger logger = new MemoryLogger(null);
-            KinesisTapMetricsSource metrics = new KinesisTapMetricsSource(new PluginContext(null, null, null, null, null));
+            KinesisTapMetricsSource metrics = new KinesisTapMetricsSource(new PluginContext(null, null, null, _bookmarkManager, null, null));
 
             DirectorySource<string, LogContext> source = new DirectorySource<string, LogContext>(
                 TestUtility.GetTestHome(),
-                "*.*",
+                "*.log",
                 1000,
-                new PluginContext(config, logger, metrics),
+                new PluginContext(config, logger, metrics, _bookmarkManager),
                 new SingleLineRecordParser());
 
-            MockMetricsSink metricsSink = new MockMetricsSink(3600, new PluginContext(config, logger, metrics));
+            MockMetricsSink metricsSink = new MockMetricsSink(3600, new PluginContext(config, logger, metrics, _bookmarkManager));
 
             metrics.Subscribe(metricsSink);
-
             source.Start();
             source.Stop();
             metricsSink.Stop();
@@ -247,10 +246,10 @@ namespace Amazon.KinesisTap.Core.Test
                 }));
         }
 
-        private static MockMetricsSink CreateMetricsSink(string id, ILogger logger, IMetrics metrics = null)
+        private MockMetricsSink CreateMetricsSink(string id, ILogger logger, IMetrics metrics = null)
         {
             var config = TestUtility.GetConfig("Sinks", id);
-            var sink = new MockMetricsSink(3600, new PluginContext(config, logger, metrics));
+            var sink = new MockMetricsSink(3600, new PluginContext(config, logger, metrics, _bookmarkManager));
             return sink;
         }
 

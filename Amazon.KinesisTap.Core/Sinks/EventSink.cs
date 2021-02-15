@@ -100,15 +100,16 @@ namespace Amazon.KinesisTap.Core
             string record = envelope.GetMessage(_format);
             switch ((_format ?? string.Empty).ToLower())
             {
-                case "json":
+                case ConfigConstants.FORMAT_JSON:
                     if (_objectDecorationEvaluator != null)
                     {
                         IDictionary<string, string> attributes = _objectDecorationEvaluator.Evaluate(envelope);
                         record = JsonUtility.DecorateJson(record, attributes);
                     }
                     break;
-                case "xml":
-                case "xml2":
+                case ConfigConstants.FORMAT_XML:
+                case ConfigConstants.FORMAT_XML_2:
+                case ConfigConstants.FORMAT_RENDERED_XML:
                     //Do nothing until someone request this to be implemented
                     break;
                 default:
@@ -151,13 +152,15 @@ namespace Amazon.KinesisTap.Core
         private void ValidateConfig()
         {
             if (string.IsNullOrWhiteSpace(_format)
-                || _format.Equals("json", StringComparison.CurrentCultureIgnoreCase)
-                || _format.Equals("xml", StringComparison.CurrentCultureIgnoreCase)
-                || _format.Equals("xml2", StringComparison.CurrentCultureIgnoreCase))
+                 || _format.Equals(ConfigConstants.FORMAT_JSON, StringComparison.CurrentCultureIgnoreCase)
+                 || _format.Equals(ConfigConstants.FORMAT_XML, StringComparison.CurrentCultureIgnoreCase)
+                 || _format.Equals(ConfigConstants.FORMAT_XML_2, StringComparison.CurrentCultureIgnoreCase)
+                 || _format.Equals(ConfigConstants.FORMAT_RENDERED_XML, StringComparison.CurrentCultureIgnoreCase)
+                 || _format.Equals(ConfigConstants.FORMAT_SUSHI, StringComparison.CurrentCultureIgnoreCase))
             {
                 return;
             }
-            _logger?.LogError($"Unexpected format {_format}");
+            _logger?.LogError($"Unexpected format '{_format}'");
         }
     }
 }

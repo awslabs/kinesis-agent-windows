@@ -40,7 +40,7 @@ namespace Amazon.KinesisTap.AutoUpdate
             switch (entry.ToLower())
             {
                 case PACKAGE_UPDATE:
-                    return new PackageUpdater(context, new AutoUpdateServiceHttpClient());
+                    return new PackageUpdater(context, new AutoUpdateServiceHttpClient(), new PackageInstaller(context));
                 case CONFIG_UPDATE:
                     return new ConfigurationFileUpdater(context);
                 default:

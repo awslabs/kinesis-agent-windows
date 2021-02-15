@@ -9,11 +9,12 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="1.1.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="1.1.1" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="1.1.2" />
-	<PackageReference Include="Microsoft.Extensions.Logging.Console" Version="1.1.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="1.1.2" />
     <PackageReference Include="NLog.Extensions.Logging" Version="1.4.0" />
   </ItemGroup>
-
+  
   <ItemGroup>
+    <ProjectReference Include="..\Amazon.KinesisTap.AutoUpdate\Amazon.KinesisTap.AutoUpdate.csproj" />
     <ProjectReference Include="..\Amazon.KinesisTap.Core\Amazon.KinesisTap.Core.csproj" />
   </ItemGroup>
 

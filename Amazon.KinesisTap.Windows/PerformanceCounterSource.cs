@@ -14,15 +14,12 @@
  */
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Core.Metrics;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.Windows
@@ -34,22 +31,29 @@ namespace Amazon.KinesisTap.Windows
         private static readonly string[] TIME_KEYWORDS = new[] { "Milliseconds", "Seconds", "100 ns", "Latency", "sec/" };
         private static readonly string[] PERCENT_KEYWORDS = new[] { "%", "Percent" };
 
-        private IPlugInContext _context;
-        //Capture all the single-instance categories and underlying Performance Counters
-        private IDictionary<string, List<PerformanceCounter>> _singleInstanceCategoryCounters;
-        //Capture all the multiple-instance categories, underlying instances and performance counters
-        private IDictionary<string, IDictionary<string, List<PerformanceCounter>>> _multipleInstanceCategoryCounters;
+        private readonly IPlugInContext _context;
+
         //Capture the performance counter source configurations
-        private IList<CategoryInfo> _categoryInfos;
+        private readonly IList<CategoryInfo> _categoryInfos;
+
         //Cache the units for each category/counter pair
-        private IDictionary<(string category, string counter), MetricUnit> _counterUnitsCache;
-        private bool started;
+        private readonly IDictionary<(string category, string counter), MetricUnit> _counterUnitsCache
+            = new Dictionary<(string, string), MetricUnit>();
+        private bool _started;
         private readonly object _lockObject = new object();
+        private readonly Dictionary<MetricKey, PerformanceCounter> _metricCounters = new Dictionary<MetricKey, PerformanceCounter>();
 
         public PerformanceCounterSource(IPlugInContext context)
         {
             _context = context;
-            _counterUnitsCache = new Dictionary<(string, string), MetricUnit>();
+
+            var categoriesSection = _context.Configuration.GetSection("Categories");
+            _categoryInfos = new PerformanceCounterSourceConfigLoader(_context, _counterUnitsCache)
+                .LoadCategoriesConfig(categoriesSection);
+            if (_categoryInfos == null || _categoryInfos.Count == 0)
+            {
+                throw new InvalidOperationException("WindowsPerformanceCounterSource missing required attribute 'Categories'.");
+            }
         }
 
         #region public members
@@ -59,15 +63,7 @@ namespace Amazon.KinesisTap.Windows
         {
             lock (_lockObject)
             {
-                var categoriesSection = _context.Configuration.GetSection("Categories");
-                _categoryInfos = new PerformanceCounterSourceConfigLoader(_context, _counterUnitsCache)
-                    .LoadCategoriesConfig(categoriesSection);
-                if (_categoryInfos == null || _categoryInfos.Count == 0)
-                {
-                    throw new InvalidOperationException("WindowsPerformanceCounterSource missing required attribute 'Categories'.");
-                }
-                LoadPerformanceCounters();
-                started = true;
+                _started = true;
             }
         }
 
@@ -75,28 +71,13 @@ namespace Amazon.KinesisTap.Windows
         {
             lock (_lockObject)
             {
-                started = false;
-                //Capture a copy of counters and set _categoryCounters to null so it can no longer be used
-                var singleInstanceCategoryCounters = _singleInstanceCategoryCounters;
-                _singleInstanceCategoryCounters = null;
-                //Dispose the counters
-                foreach (var categoryCounters in singleInstanceCategoryCounters.Values)
+                _started = false;
+                foreach (var kvp in _metricCounters)
                 {
-                    foreach (var counter in categoryCounters)
-                    {
-                        counter?.Dispose();
-                    }
+                    kvp.Value.Dispose();
                 }
 
-                var multipleInstanceCategoryCounters = _multipleInstanceCategoryCounters;
-                _multipleInstanceCategoryCounters = null;
-                foreach (var categoryInstances in multipleInstanceCategoryCounters.Values)
-                {
-                    foreach (var instanceCounters in categoryInstances.Values)
-                    {
-                        DisposeInstanceCounters(instanceCounters);
-                    }
-                }
+                _metricCounters.Clear();
             }
         }
 
@@ -104,23 +85,21 @@ namespace Amazon.KinesisTap.Windows
         {
             lock (_lockObject)
             {
-                if (!started) return null;
+                if (!_started)
+                {
+                    return null;
+                }
 
                 try
                 {
-                    RefreshInstances();
-
+                    RefreshCounters();
                     List<KeyValuePair<MetricKey, MetricValue>> metrics = new List<KeyValuePair<MetricKey, MetricValue>>();
-
-                    ReadSingleInstanceCategoryCounters(metrics);
-
-                    ReadMultipleInstanceCategoryCounters(metrics);
-
+                    ReadCounterMetrics(metrics);
                     return new Envelope<ICollection<KeyValuePair<MetricKey, MetricValue>>>(metrics, DateTime.UtcNow);
                 }
                 catch (Exception ex)
                 {
-                    _context.Logger?.LogError($"Error querying performance counter source {this.Id}: {ex.ToMinimized()}");
+                    _context.Logger?.LogError($"Error querying performance counter source {Id}: {ex.ToMinimized()}");
                 }
                 return null;
             }
@@ -202,147 +181,6 @@ namespace Amazon.KinesisTap.Windows
 
 
         #region private members for managing performance counters
-        private void LoadPerformanceCounters()
-        {
-            _singleInstanceCategoryCounters = new Dictionary<string, List<PerformanceCounter>>();
-            _multipleInstanceCategoryCounters = new Dictionary<string, IDictionary<string, List<PerformanceCounter>>>();
-
-            foreach (var categoryInfo in _categoryInfos)
-            {
-                try
-                {
-                    LoadPerformanceCountersForCategory(categoryInfo);
-                }
-                catch (Exception ex)
-                {
-                    _context.Logger?.LogError($"Error loading category {categoryInfo.CategoryName}: {ex.ToMinimized()}");
-                }
-            }
-        }
-
-        private void LoadPerformanceCountersForCategory(CategoryInfo categoryInfo)
-        {
-            string categoryName = categoryInfo.CategoryName;
-            var performanceCounterCategory = new PerformanceCounterCategory(categoryName);
-            (HashSet<string> counterNames, IList<Regex> counterPatterns) =
-                GetNamesAndPatterns(categoryInfo.CounterFilters);
-
-            foreach (var counterName in counterNames)
-            {
-                if (!performanceCounterCategory.CounterExists(counterName))
-                {
-                    _context.Logger?.LogError($"Counter does not exist for category {categoryName} and counter {counterName}");
-                }
-            }
-
-            if (performanceCounterCategory.CategoryType == PerformanceCounterCategoryType.MultiInstance)
-            {
-                LoadInstancesForCategory(categoryInfo, categoryName, performanceCounterCategory, counterNames, counterPatterns, true);
-            }
-            else //single instance
-            {
-                LoadPerformanceCountersForSingleInstanceCategory(categoryName, performanceCounterCategory, counterNames, counterPatterns);
-            }
-        }
-
-        //This method is responsible for both initial load and refresh of instances
-        private void LoadInstancesForCategory(CategoryInfo categoryInfo,
-            string categoryName,
-            PerformanceCounterCategory performanceCounterCategory,
-            HashSet<string> counterNames,
-            IList<Regex> counterPatterns,
-            bool isInitialLoad)
-        {
-            (HashSet<string> instanceNames, IList<Regex> instancePatterns) = GetNamesAndPatterns(categoryInfo.InstanceFilters, categoryInfo.InstanceRegex);
-            if (isInitialLoad)
-            {
-                foreach (var instanceName in instanceNames)
-                {
-                    if (!performanceCounterCategory.InstanceExists(instanceName))
-                    {
-                        _context.Logger?.LogError($"Instance does not exist for category {categoryName} and instance {instanceName}");
-                    }
-                }
-            }
-
-            if (!_multipleInstanceCategoryCounters.TryGetValue(categoryName, out IDictionary<string, List<PerformanceCounter>> categoryInstances))
-            {
-                categoryInstances = new Dictionary<string, List<PerformanceCounter>>();
-                _multipleInstanceCategoryCounters[categoryName] = categoryInstances;
-            }
-
-            //Create a check list of currently cached instances.
-            ISet<string> cachedInstances = new HashSet<string>(categoryInstances.Keys);
-            var filteredNames = performanceCounterCategory.GetInstanceNames()
-                .Where(instanceName => instanceNames.Contains(instanceName) || instancePatterns.Any(p => p.IsMatch(instanceName)));
-            foreach (var instanceName in filteredNames)
-            {
-                if (cachedInstances.Contains(instanceName))
-                {
-                    //Remove each verified instance name from the check list.
-                    cachedInstances.Remove(instanceName);
-                }
-                else
-                {
-                    LoadPerformanceCounterForCategoryInstance(performanceCounterCategory, counterNames, counterPatterns, categoryInstances, instanceName);
-                }
-            }
-
-            //Remove from cache and dispose all the instances remain in the check list
-            foreach (var instanceName in cachedInstances)
-            {
-                _context.Logger?.LogInformation($"Remove performance counter instance: category {categoryName} instance {instanceName}.");
-                var instanceCounters = categoryInstances[instanceName];
-                categoryInstances.Remove(instanceName);
-                DisposeInstanceCounters(instanceCounters);
-            }
-        }
-
-        private void LoadPerformanceCounterForCategoryInstance(PerformanceCounterCategory performanceCounterCategory,
-            HashSet<string> counterNames,
-            IList<Regex> counterPatterns,
-            IDictionary<string,
-            List<PerformanceCounter>> categoryInstances,
-            string instanceName)
-        {
-            if (!categoryInstances.TryGetValue(instanceName, out List<PerformanceCounter> instanceCounters))
-            {
-                instanceCounters = new List<PerformanceCounter>();
-                categoryInstances[instanceName] = instanceCounters;
-
-            }
-
-            var countersToAdd = performanceCounterCategory.GetCounters(instanceName)
-                .Where(counter => counterNames.Contains(counter.CounterName) || counterPatterns.Any(p => p.IsMatch(counter.CounterName)));
-            instanceCounters.AddRange(countersToAdd);
-            LogCountersToAdd(countersToAdd);
-        }
-
-        private void LoadPerformanceCountersForSingleInstanceCategory(string categoryName,
-            PerformanceCounterCategory performanceCounterCategory,
-            HashSet<string> counterNames,
-            IList<Regex> counterPatterns)
-        {
-            if (!_singleInstanceCategoryCounters.TryGetValue(categoryName, out List<PerformanceCounter> counters))
-            {
-                counters = new List<PerformanceCounter>();
-                _singleInstanceCategoryCounters[categoryName] = counters;
-                var countersToAdd = performanceCounterCategory.GetCounters()
-                    .Where(counter => counterNames.Contains(counter.CounterName) || counterPatterns.Any(p => p.IsMatch(counter.CounterName)));
-                counters.AddRange(countersToAdd);
-                LogCountersToAdd(countersToAdd);
-            }
-        }
-
-        private void LogCountersToAdd(IEnumerable<PerformanceCounter> countersToAdd)
-        {
-            foreach (var counter in countersToAdd)
-            {
-                string instancePhrase = string.IsNullOrEmpty(counter.InstanceName) ? string.Empty
-                    : $" instance {counter.InstanceName}";
-                _context.Logger?.LogInformation($"Added performance counter: category {counter.CategoryName}{instancePhrase} counter {counter.CounterName}.");
-            }
-        }
 
         private static (HashSet<string> names, IList<Regex> patterns) GetNamesAndPatterns(string[] nameOrPatterns)
         {
@@ -375,91 +213,183 @@ namespace Amazon.KinesisTap.Windows
             return (names, patterns);
         }
 
-        private static void DisposeInstanceCounters(IList<PerformanceCounter> instanceCounters)
-        {
-            foreach (var counter in instanceCounters)
-            {
-                counter?.Dispose();
-            }
-        }
-
         /// <summary>
-        /// Number of instances could change since we use wildcard for instances
+        /// Refresh the list of counters for querying.
+        /// We need to do this because the number of instances could change since we use wildcard for instances.
         /// </summary>
-        /// <remarks>The signature is made virtual for testing purpose.</remarks>
-        public virtual void RefreshInstances()
+        public virtual void RefreshCounters()
         {
-            //Only need to do this this for multiple-instance categories
-            var multipleInstanceCategoryConfigs = _categoryInfos
-                .Where(ci => _multipleInstanceCategoryCounters.ContainsKey(ci.CategoryName))
-                .ToList();
-            foreach (var categoryInfo in multipleInstanceCategoryConfigs)
+            var newCounters = new HashSet<MetricKey>();
+            foreach (var categoryInfo in _categoryInfos)
             {
-                string categoryName = categoryInfo.CategoryName;
-                var performanceCounterCategory = new PerformanceCounterCategory(categoryName);
-                (HashSet<string> counterNames, IList<Regex> counterPatterns) =
-                    GetNamesAndPatterns(categoryInfo.CounterFilters);
-                LoadInstancesForCategory(categoryInfo,
-                    categoryInfo.CategoryName,
-                    performanceCounterCategory,
-                    counterNames,
-                    counterPatterns,
-                    false);
-            }
-        }
-
-        private void ReadSingleInstanceCategoryCounters(IList<KeyValuePair<MetricKey, MetricValue>> metrics)
-        {
-            foreach (var category in _singleInstanceCategoryCounters.Keys)
-            {
-                var counters = _singleInstanceCategoryCounters[category];
-                foreach (var counter in counters)
+                try
                 {
-                    var counterName = counter.CounterName;
-                    try
-                    {
-                        metrics.Add(new KeyValuePair<MetricKey, MetricValue>
-                            (
-                                new MetricKey { Name = counterName, Category = category },
-                                new MetricValue((long)counter.NextValue(), GetMetricUnit(category, counterName))
-                            ));
-                    }
-                    catch (Exception ex)
-                    {
-                        _context.Logger?.LogError($"Error reading performance counter {category}.{counterName}: {ex.ToMinimized()}");
-                    }
+                    // add the counters available in the category to the set
+                    AddCategoryCountersToSet(categoryInfo, newCounters);
+                }
+                catch (Exception ex)
+                {
+                    _context.Logger?.LogWarning(0, ex, $"Could not add counters for category {categoryInfo.CategoryName}.");
+                }
+            }
+
+            // now we run a 'diff' between the new and the current set of counters
+            // first we check to see what counters are stale
+            var stale = new List<MetricKey>();
+            foreach (var counterKey in _metricCounters.Keys)
+            {
+                if (!newCounters.Contains(counterKey))
+                {
+                    stale.Add(counterKey);
+                }
+            }
+
+            // remove the stale counters
+            foreach (var staleCounter in stale)
+            {
+                _metricCounters[staleCounter].Dispose();
+                _metricCounters.Remove(staleCounter);
+                _context.Logger?.LogInformation($"Removed performance counter: category {staleCounter.Category} instance {staleCounter.Id} counter {staleCounter.Name}.");
+            }
+
+            // add in the new counters
+            foreach (var newCounterKey in newCounters)
+            {
+                if (_metricCounters.ContainsKey(newCounterKey))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var counter = new PerformanceCounter(newCounterKey.Category, newCounterKey.Name, newCounterKey.Id);
+                    _metricCounters[newCounterKey] = counter;
+                    var instancePhrase = string.IsNullOrEmpty(counter.InstanceName)
+                        ? string.Empty
+                        : $" instance {counter.InstanceName}";
+                    _context.Logger?.LogInformation($"Added performance counter: category {counter.CategoryName}{instancePhrase} counter {counter.CounterName}.");
+                }
+                catch (Exception ex) when (ex is InvalidOperationException || ex is ArgumentNullException || ex is UnauthorizedAccessException || ex is Win32Exception)
+                {
+                    // catch the exception caused by the performance counter constructor
+                    // this should not happen, because the counter key is obtained from the system's API
+                    // however we want to make sure that failure in creating one counter does not impact others.
+                    _context.Logger?.LogError(0, ex,
+                        $"Error adding counter: category {newCounterKey.Category} instance {newCounterKey.Id} counter {newCounterKey.Name}.");
                 }
             }
         }
-        private void ReadMultipleInstanceCategoryCounters(IList<KeyValuePair<MetricKey, MetricValue>> metrics)
+
+        private void AddCategoryCountersToSet(CategoryInfo categoryInfo, HashSet<MetricKey> counters)
         {
-            foreach (var category in _multipleInstanceCategoryCounters.Keys)
+            // figure out what instances to load for the category
+            var category = new PerformanceCounterCategory(categoryInfo.CategoryName);
+            switch (category.CategoryType)
             {
-                var instances = _multipleInstanceCategoryCounters[category];
-                foreach (var instanceName in instances.Keys)
+                case PerformanceCounterCategoryType.SingleInstance:
+                    AddInstanceCountersToSet(category, categoryInfo.CounterFilters, string.Empty, counters);
+                    return;
+                case PerformanceCounterCategoryType.MultiInstance:
+                    break;
+                default:
+                    return;
+            }
+
+            (HashSet<string> instanceNames, IList<Regex> instancePatterns) = GetNamesAndPatterns(categoryInfo.InstanceFilters, categoryInfo.InstanceRegex);
+
+            foreach (var instanceName in instanceNames)
+            {
+                if (!category.InstanceExists(instanceName))
                 {
-                    try
+                    _context.Logger?.LogError($"Instance does not exist for category {categoryInfo.CategoryName} and instance {instanceName}");
+                }
+            }
+
+            var filteredNames = category
+                .GetInstanceNames()
+                .Where(i => instanceNames.Contains(i) || instancePatterns.Any(p => p.IsMatch(i)));
+            foreach (var instanceName in filteredNames)
+            {
+                AddInstanceCountersToSet(category, categoryInfo.CounterFilters, instanceName, counters);
+            }
+        }
+
+        private void AddInstanceCountersToSet(PerformanceCounterCategory category, string[] counterFilter,
+            string instanceName, HashSet<MetricKey> counters)
+        {
+            (HashSet<string> counterNames, IList<Regex> counterPatterns) = GetNamesAndPatterns(counterFilter);
+
+            if (counterPatterns.Count == 0)
+            {
+                // fast path when we have no wildcard for counters, just get the counter names
+                foreach (var counterName in counterNames)
+                {
+                    counters.Add(new MetricKey
                     {
-                        var counters = instances[instanceName];
-                        foreach (var counter in counters)
-                        {
-                            var counterName = counter.CounterName;
-                            metrics.Add(new KeyValuePair<MetricKey, MetricValue>
-                                (
-                                    new MetricKey { Name = counterName, Id = instanceName, Category = category },
-                                    new MetricValue((long)counter.NextValue(), GetMetricUnit(category, counterName))
-                                ));
-                        }
-                    }
-                    catch (InvalidOperationException ioex)
+                        Category = category.CategoryName,
+                        Id = instanceName,
+                        Name = counterName
+                    });
+                }
+
+                return;
+            }
+
+            // there are patterns for counter names, so we need to get all the counters and match them with the patter
+            // unfortunately, there's no GetCounterNames() API, so we need to create all the counters, get their names,
+            // and discard them.
+            var countersToAdd = category
+                .GetCounters(instanceName)
+                .Select(c =>
+                {
+                    var name = c.CounterName;
+                    c.Dispose();
+                    return name;
+                })
+                .Where(c => counterNames.Contains(c) || counterPatterns.Any(p => p.IsMatch(c)));
+
+            foreach (var counterName in countersToAdd)
+            {
+                counters.Add(new MetricKey
+                {
+                    Category = category.CategoryName,
+                    Id = instanceName,
+                    Name = counterName
+                });
+            }
+        }
+
+        private void ReadCounterMetrics(IList<KeyValuePair<MetricKey, MetricValue>> metrics)
+        {
+            foreach (var kvp in _metricCounters)
+            {
+                try
+                {
+                    var counter = kvp.Value;
+                    var value = (long)counter.NextValue();
+                    if (string.IsNullOrEmpty(kvp.Key.Id))
                     {
-                        //Instance no longer exist
-                        _context.Logger?.LogInformation($"Instance no longer exists for category {category} instance {instanceName}: {ioex}");
+                        // if the instance name is empty, it means this is a single-instance counter
+                        metrics.Add(new KeyValuePair<MetricKey, MetricValue>
+                        (
+                            new MetricKey { Name = counter.CounterName, Category = counter.CategoryName },
+                            new MetricValue(value, GetMetricUnit(counter.CategoryName, counter.CounterName))
+                        ));
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        _context.Logger?.LogError($"Error reading performance counter {category} instance {instanceName}: {ex.ToMinimized()}");
+                        // multiple-instance counter
+                        metrics.Add(new KeyValuePair<MetricKey, MetricValue>
+                        (
+                            new MetricKey { Name = counter.CounterName, Id = counter.InstanceName, Category = counter.CategoryName },
+                            new MetricValue(value, GetMetricUnit(counter.CategoryName, counter.CounterName))
+                        ));
                     }
+                }
+                catch (Exception ex) when (ex is InvalidOperationException || ex is Win32Exception || ex is UnauthorizedAccessException)
+                {
+                    _context.Logger?.LogWarning(0, ex, $"Encountered expcetion when reading performance counter");
+                    continue;
                 }
             }
         }

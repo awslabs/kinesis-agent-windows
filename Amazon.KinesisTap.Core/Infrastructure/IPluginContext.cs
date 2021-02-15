@@ -15,27 +15,61 @@
 using Amazon.KinesisTap.Core.Metrics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace Amazon.KinesisTap.Core
 {
     public interface IPlugInContext
     {
+        /// <summary>
+        /// Configuration for the Plugin
+        /// </summary>
         IConfiguration Configuration { get; }
 
+        /// <summary>
+        /// Plugin's logger
+        /// </summary>
         ILogger Logger { get; }
 
+        /// <summary>
+        /// Plugin's metrics publisher
+        /// </summary>
         IMetrics Metrics { get; }
 
+        /// <summary>
+        /// <see cref="BookmarkManager"/> instance for the Plugin
+        /// </summary>
+        BookmarkManager BookmarkManager { get; }
+
+        /// <summary>
+        /// Returns the Credential Provider instance from its ID
+        /// </summary>
+        /// <param name="id">Credential Provider's ID</param>
         ICredentialProvider GetCredentialProvider(string id);
 
+        /// <summary>
+        /// KinesisTap ParameterStore
+        /// </summary>
         IParameterStore ParameterStore { get; }
 
         /// <summary>
         /// Place to store other context data
         /// </summary>
         IDictionary<string, object> ContextData { get; }
+
+        /// <summary>
+        /// Allow plugins to check for network's status. This property could be null.
+        /// </summary>
+        NetworkStatus NetworkStatus { get; }
+
+        /// <summary>
+        /// Id of the session.
+        /// </summary>
+        int SessionId { get; }
+
+        /// <summary>
+        /// Whether the configuration file that the plugin configuration comes from has been validated or not.
+        /// </summary>
+        bool Validated { get; set; }
     }
 }

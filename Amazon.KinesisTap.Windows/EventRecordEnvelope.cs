@@ -17,7 +17,11 @@ namespace Amazon.KinesisTap.Windows
     using System;
     using System.Collections.Generic;
     using System.Diagnostics.Eventing.Reader;
+    using System.Globalization;
+    using System.IO;
     using System.Linq;
+    using System.Xml;
+    using System.Xml.Linq;
     using Amazon.KinesisTap.Core;
     using Microsoft.Extensions.Logging;
     using Newtonsoft.Json.Linq;
@@ -39,16 +43,76 @@ namespace Amazon.KinesisTap.Windows
 
         public override string GetMessage(string format)
         {
-            if ("xml2".Equals(format, StringComparison.CurrentCultureIgnoreCase))
+            if (ConfigConstants.FORMAT_XML_2.Equals(format, StringComparison.CurrentCultureIgnoreCase))
             {
                 return _data.Xml;
             }
-            else if ("sushi".Equals(format, StringComparison.CurrentCultureIgnoreCase))
+            else if (ConfigConstants.FORMAT_SUSHI.Equals(format, StringComparison.CurrentCultureIgnoreCase))
             {
                 return FormatSushiMessage();
             }
+            else if (ConfigConstants.FORMAT_RENDERED_XML.Equals(format, StringComparison.CurrentCultureIgnoreCase))
+            {
+                return FormatRenderedXml();
+            }
 
             return base.GetMessage(format);
+        }
+
+        private string FormatRenderedXml()
+        {
+            try
+            {
+                var eventNode = XElement.Parse(_data.Xml);
+                var renderingInfo = new XElement("RenderingInfo");
+                renderingInfo.Add(new XAttribute("Culture", CultureInfo.CurrentCulture.Name));
+                AddXElementWithoutNamespace(eventNode, renderingInfo);
+
+                AddXElementWithoutNamespace(renderingInfo, new XElement("Message", _data.Description));
+                AddXElementWithoutNamespace(renderingInfo, new XElement("Level", _data.LevelDisplayName));
+                AddXElementWithoutNamespace(renderingInfo, new XElement("Task", _data.Task));
+                AddXElementWithoutNamespace(renderingInfo, new XElement("Opcode", _data.Opcode));
+                AddXElementWithoutNamespace(renderingInfo, new XElement("Channel", _data.LogName));
+                AddXElementWithoutNamespace(renderingInfo, new XElement("Provider", _data.ProviderName));
+
+                var keywordElement = new XElement("Keywords");
+                AddXElementWithoutNamespace(renderingInfo, keywordElement);
+
+                foreach (var keyword in _data.Keywords.Split(EventInfo.KeywordSeparator, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    AddXElementWithoutNamespace(keywordElement, new XElement("Keyword", keyword));
+                }
+
+                using (var sw = new StringWriter())
+                using (var xtw = new XmlTextWriter(sw)
+                {
+                    Formatting = Formatting.Indented,
+                    QuoteChar = '\''
+                })
+                {
+                    eventNode.WriteTo(xtw);
+                    xtw.Flush();
+
+                    return sw.ToString();
+                }
+            }
+            catch (XmlException xmlException)
+            {
+                // fall back to default xml
+                PluginContext.ServiceLogger?.LogError(0, xmlException, "Error encountered while formatting RenderedXml");
+                return _data.Xml;
+            }
+        }
+
+        /// <summary>
+        /// Append <paramref name="child"/> to the list of child node of <paramref name="parent"/> without adding 'xmlns'.
+        /// </summary>
+        private static void AddXElementWithoutNamespace(XElement parent, XElement child)
+        {
+            parent.Add(child);
+            child.Attributes("xmlns").Remove();
+            // Inherit the parent namespace instead
+            child.Name = child.Parent.Name.Namespace + child.Name.LocalName;
         }
 
         private string FormatSushiMessage()
@@ -109,13 +173,13 @@ namespace Amazon.KinesisTap.Windows
                 IEnumerable<string> names = record.KeywordsDisplayNames;
                 if (names != null)
                 {
-                    return string.Join(",", names.ToArray());
+                    return string.Join(",", names);
                 }
             }
-            catch(EventLogNotFoundException)
+            catch (EventLogNotFoundException)
             {
                 //Some but not all events with eventId 0 throws EventLogNotFoundException when accessing the KeywordsDisplayNames property
-                PluginContext.ApplicationContext?.Logger?.LogDebug($"Unable to get KeywordsDisplayNames for event Id {record.Id} and provider {record.ProviderName}");
+                PluginContext.ServiceLogger?.LogDebug($"Unable to get KeywordsDisplayNames for event Id {record.Id} and provider {record.ProviderName}");
             }
             return string.Empty;
         }

@@ -39,15 +39,11 @@ namespace Amazon.KinesisTap.AutoUpdate
         {
             HttpRequestMessage message = new HttpRequestMessage(HttpMethod.Post, url)
             {
-                Content = HttpClientExtensions.GetStringContent(request),
-                Headers = {
-                    { "X-Api-Key", request.ProductKey }, // API Gateway API Key
-                    { "AgentId", request.AgentId } // For potential future use by API Gateway
-                }
+                Content = HttpClientExtensions.GetStringContent(request)
             };
 
             // Current AutoUpdate service only has US-WEST-2 endpoint
-            await AWSV4SignerExtensions.SignRequestAsync(message,  RegionEndpoint.USWest2.SystemName, SERVICE_NAME, creds);
+            await AWSV4SignerExtensions.SignRequestAsync(message, RegionEndpoint.USWest2.SystemName, SERVICE_NAME, creds);
             using (var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5)))
             {
                 return await this.httpClient.SendRequest(message, cts.Token);

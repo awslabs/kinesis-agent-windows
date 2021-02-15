@@ -12,20 +12,12 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
-
 namespace Amazon.KinesisTap.AutoUpdate
 {
     public class GetVersionRequest
     {
-        public string ProductKey { get; set; }
+        public string TenantId { get; set; }
 
-        public string AgentId { get; set; }
-
-        public string DeploymentStage { get; set; }
-
-        public string Version { get; set; }
+        public string AutoUpdateLane { get; set; }
     }
 }

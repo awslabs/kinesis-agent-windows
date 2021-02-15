@@ -23,6 +23,10 @@ namespace Amazon.KinesisTap.Core.Metrics
 {
     public class KinesisTapMetricsSource : EventSource<IDictionary<string, MetricValue>>, IMetrics
     {
+        private static KinesisTapMetricsSource _instance = null;
+        // mutex lock used forthread-safety.
+        private static readonly object mutex = new object();
+
         private ISubject<IEnvelope<IDictionary<string, MetricValue>>> _subject;
         private readonly IDictionary<string, MetricValue> _currentCounters;
         private readonly IDictionary<MetricKey, IDictionary<string, MetricValue>> _incrementalCounters;
@@ -33,6 +37,21 @@ namespace Amazon.KinesisTap.Core.Metrics
             _currentCounters = new Dictionary<string, MetricValue>();
             _incrementalCounters = new Dictionary<MetricKey, IDictionary<string, MetricValue>> ();
         }
+
+        public static KinesisTapMetricsSource GetInstance (IPlugInContext context)
+        {
+            lock (mutex)
+            {
+                if (_instance == null)
+                {
+                    _instance = new KinesisTapMetricsSource(context);
+                }
+
+                return _instance;
+            }
+        }
+
+        public static bool PerformanceCounterSinkLoaded { get; set; }
 
         public void PublishCounter(string id, string category, CounterTypeEnum counterType, string counter, long value, MetricUnit unit)
         {

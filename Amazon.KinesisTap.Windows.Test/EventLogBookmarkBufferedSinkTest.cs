@@ -39,6 +39,7 @@ namespace Amazon.KinesisTap.Windows.Test
     {
         private const string LogName = "Application";
         private const string LogSource = nameof(EventLogBookmarkBufferedSinkTest);
+        private readonly BookmarkManager _bookmarkManager = new BookmarkManager();
 
         public EventLogBookmarkBufferedSinkTest()
         {
@@ -62,6 +63,7 @@ namespace Amazon.KinesisTap.Windows.Test
             for (int i = 0; i < 3; i++)
                 EventLog.WriteEntry(LogSource, msg, EventLogEntryType.Information, eventId);
 
+            Thread.Sleep(1000);
             var now = DateTime.UtcNow;
             using (var source = CreateSource(sourceId, eventId))
             {
@@ -78,8 +80,8 @@ namespace Amazon.KinesisTap.Windows.Test
                 if (acknowledge)
                 {
                     // Send the acknowledgements as if they had come from sources.
-                    var bookmark = Assert.IsType<BookmarkInfo>(BookmarkManager.GetBookmark(sourceId));
-                    BookmarkManager.SaveBookmark(bookmark.Id, records.Last().Position, null);
+                    var bookmark = Assert.IsType<BookmarkInfo>(_bookmarkManager.GetBookmark(sourceId));
+                    _bookmarkManager.SaveBookmark(bookmark.Id, records.Last().Position, null);
                 }
 
                 source.Stop();
@@ -149,8 +151,8 @@ namespace Amazon.KinesisTap.Windows.Test
                 if (acknowledge)
                 {
                     // Send the acknowledgements as if they had come from sources.
-                    var bookmark = Assert.IsType<BookmarkInfo>(BookmarkManager.GetBookmark(sourceId));
-                    BookmarkManager.SaveBookmark(bookmark.Id, records.Last().Position, null);
+                    var bookmark = Assert.IsType<BookmarkInfo>(_bookmarkManager.GetBookmark(sourceId));
+                    _bookmarkManager.SaveBookmark(bookmark.Id, records.Last().Position, null);
                 }
 
                 source.Stop();
@@ -196,7 +198,7 @@ namespace Amazon.KinesisTap.Windows.Test
             var localSinkconfig = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string> { ["FilePath"] = localSinkPath, ["Id"] = "LocalSink" })
                 .Build();
-            var localSink = new FileSystemEventSink(new PluginContext(localSinkconfig, NullLogger.Instance, null, null, null), 100, 1, 5, 5);
+            var localSink = new FileSystemEventSink(new PluginContext(localSinkconfig, NullLogger.Instance, null, _bookmarkManager, null, null), 100, 1, 5, 5);
 
             var sourceId = nameof(TestBookmarkFlushedAfterSourceStops);
             var eventId = (int)(DateTime.Now.Ticks % ushort.MaxValue);
@@ -246,16 +248,16 @@ namespace Amazon.KinesisTap.Windows.Test
             }
         }
 
-        private static EventLogSource CreateSource(string sourceId, int eventId)
+        private EventLogSource CreateSource(string sourceId, int eventId)
         {
             DeleteExistingBookmarkFile(sourceId);
-            BookmarkManager.RemoveBookmark(sourceId);
+            _bookmarkManager.RemoveBookmark(sourceId);
 
             var config = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string> { ["BookmarkOnBufferFlush"] = "true", ["Id"] = sourceId })
                 .Build();
 
-            return new EventLogSource(LogName, $"*[System[EventID={eventId}]]", new PluginContext(config, null, null));
+            return new EventLogSource(LogName, $"*[System[EventID={eventId}]]", new PluginContext(config, null, null, _bookmarkManager));
         }
 
         private static void DeleteExistingBookmarkFile(string sourceId)

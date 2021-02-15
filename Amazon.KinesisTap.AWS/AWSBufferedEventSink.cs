@@ -12,25 +12,20 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Reactive.Linq;
-using System.Threading.Tasks;
-using System.Reactive.Threading.Tasks;
-using System.Diagnostics;
-using System.Linq;
-using System.Net;
-
-using Amazon.Runtime;
-using Amazon.CognitoIdentity.Model;
-using Microsoft.Extensions.Logging;
-
-using Amazon.KinesisTap.Core;
-using Amazon.KinesisTap.Core.Metrics;
-
 namespace Amazon.KinesisTap.AWS
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Net;
+    using System.Reactive.Linq;
+    using System.Threading.Tasks;
+    using Amazon.CognitoIdentity.Model;
+    using Amazon.KinesisTap.Core;
+    using Amazon.KinesisTap.Core.Metrics;
+    using Amazon.Runtime;
+    using Microsoft.Extensions.Logging;
+
     public abstract class AWSBufferedEventSink<TRecord> : BatchEventSink<TRecord>
     {
         protected readonly int _maxAttempts;
@@ -55,7 +50,7 @@ namespace Amazon.KinesisTap.AWS
 
         public AWSBufferedEventSink(
             IPlugInContext context,
-            int defaultInterval, 
+            int defaultInterval,
             int defaultRecordCount,
             long maxBatchSize
         ) : base(context, defaultInterval, defaultRecordCount, maxBatchSize)
@@ -91,10 +86,15 @@ namespace Amazon.KinesisTap.AWS
             }
         }
 
+        protected BookmarkManager BookmarkManager => _context.BookmarkManager;
+
+        protected NetworkStatus NetworkStatus => _context.NetworkStatus;
+
         protected override void OnNextBatch(List<Envelope<TRecord>> records)
         {
             if (records?.Count > 0)
             {
+                this._logger?.LogTrace("[{0}] Waiting for new batch to be processed...", nameof(AWSBufferedEventSink<TRecord>.OnNextBatch));
                 ThrottledOnNextAsync(records).Wait();
             }
         }
@@ -106,12 +106,12 @@ namespace Amazon.KinesisTap.AWS
             long delay = GetDelayMilliseconds(recordCount, batchBytes);
             if (delay > 0)
             {
-                await Task.Delay((int)(delay * (1.0d 
-                    + Utility.Random.NextDouble() * _jittingFactor))) ;
+                await Task.Delay((int)(delay * (1.0d
+                    + Utility.Random.NextDouble() * _jittingFactor)));
             }
 
             //Implement the network check after the throttle in case that the network becomes unavailable after throttle delay
-            if (NetworkStatus.CurrentNetwork != null)
+            if (!(NetworkStatus?.DefaultProvider is null))
             {
                 int waitCount = 0;
                 while (!NetworkStatus.CanUpload(_uploadNetworkPriority))
@@ -124,6 +124,8 @@ namespace Amazon.KinesisTap.AWS
                     await Task.Delay(10000); //Wait 10 seconds
                 }
             }
+
+            this._logger?.LogTrace("[{0}] Sending {1} records to sink...", nameof(AWSBufferedEventSink<TRecord>.ThrottledOnNextAsync), records.Count);
             await OnNextAsync(records, batchBytes);
         }
 
@@ -141,9 +143,9 @@ namespace Amazon.KinesisTap.AWS
             {
                 return AWSUtilities.EvaluateAWSVariable(evaluated);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                _logger.LogError(ex.ToMinimized());
+                _logger?.LogError(ex.ToMinimized());
                 throw;
             }
         }
@@ -175,7 +177,11 @@ namespace Amazon.KinesisTap.AWS
             _metrics?.PublishCounters(this.Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
             {
                 { prefix + MetricsConstants.LATENCY, new MetricValue(_latency, MetricUnit.Milliseconds) },
-                { prefix + MetricsConstants.CLIENT_LATENCY, new MetricValue(_clientLatency, MetricUnit.Milliseconds) }
+                { prefix + MetricsConstants.CLIENT_LATENCY, new MetricValue(_clientLatency, MetricUnit.Milliseconds) },
+                { prefix + MetricsConstants.BATCHES_IN_MEMORY_BUFFER, new MetricValue(_buffer.GetCurrentBufferSize(), MetricUnit.Count) },
+                { prefix + MetricsConstants.BATCHES_IN_PERSISTENT_QUEUE, new MetricValue(_buffer.GetCurrentPersistentQueueSize(), MetricUnit.Count) },
+                { prefix + MetricsConstants.IN_MEMORY_BUFFER_FULL, new MetricValue(_buffer.IsBufferFull(), MetricUnit.Count) },
+                { prefix + MetricsConstants.PERSISTENT_QUEUE_FULL, new MetricValue(_buffer.IsPersistentQueueFull(), MetricUnit.Count) }
             });
             ResetIncrementalCounters();
         }

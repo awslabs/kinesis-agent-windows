@@ -39,7 +39,7 @@ namespace Amazon.KinesisTap.Core
             {
                 //If one is provided, then timestampField is required
                 Guard.ArgumentNotNullOrEmpty(timestampField, "TimestampField is required for SingleLineJsonParser");
-                TimestampExtrator timestampExtractor = new TimestampExtrator(timestampField, timestampFormat);
+                var timestampExtractor = new TimestampExtrator(timestampField, timestampFormat);
                 _getTimestamp = timestampExtractor.GetTimestamp;
             }
             else

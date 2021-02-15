@@ -20,7 +20,11 @@ namespace Amazon.KinesisTap.Core.Metrics
 {
     public class MetricsConstants
     {
-        //Manager
+        //SessionManager
+        public const string CONFIGS_LOADED = "ConfigsLoaded";
+        public const string CONFIGS_FAILED_TO_LOAD = "ConfigsFailedToLoad";
+
+        //Session
         public const string KINESISTAP_BUILD_NUMBER = "KinesisTapBuildNumber";
         public const string SOURCE_FACTORIES_LOADED = "SourceFactoriesLoaded";
         public const string SOURCE_FACTORIES_FAILED_TO_LOAD = "SourceFactoriesFailedToLoad";
@@ -74,16 +78,25 @@ namespace Amazon.KinesisTap.Core.Metrics
         public const string RECORDS_FAILED_NONRECOVERABLE = "RecordsFailedNonrecoverable";
         public const string LATENCY = "Latency";
         public const string CLIENT_LATENCY = "ClientLatency";
+        public const string BATCHES_IN_MEMORY_BUFFER = "BatchesLeftInMemoryBuffer";
+        public const string BATCHES_IN_PERSISTENT_QUEUE = "BatchesLeftInPersistentQueue";
+        public const string IN_MEMORY_BUFFER_FULL = "InMemoryBufferFull";
+        public const string PERSISTENT_QUEUE_FULL = "PersistentQueueFull";
 
         public const string CLOUDWATCHLOG_PREFIX = "CloudWatchLog";
         public const string KINESIS_FIREHOSE_PREFIX = "KinesisFirehose";
         public const string KINESIS_STREAM_PREFIX = "KinesisStream";
         public const string CLOUDWATCH_PREFIX = "CloudWatch";
 
+        //Plugins
+        public const string RESTARTED_SINCE_LAST_RUN = "RestartedSinceLastRun";
+        public const string MEMORY_MONITOR_PREFIX = "MemoryMonitor";
+
         //Categories
         public const string CATEGORY_SOURCE = "Source";
         public const string CATEGORY_SINK = "Sink";
         public const string CATEGORY_PROGRAM = "Program";
+        public const string CATEGORY_PLUGIN = "Plugin";
 
         //Generic Plugins
         public const string PLUGINS_STARTED = "PluginsStarted";

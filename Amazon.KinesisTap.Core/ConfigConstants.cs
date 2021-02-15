@@ -17,6 +17,7 @@ namespace Amazon.KinesisTap.Core
     public static class ConfigConstants
     {
         public const string ID = "Id";
+        public const string CONFIG_DESCRIPTIVE_NAME = "DescriptiveName";
         public const string SOURCE_TYPE = "SourceType";
         public const string SINK_TYPE = "SinkType";
         public const string CREDENTIAL_TYPE = "CredentialType";
@@ -40,6 +41,10 @@ namespace Amazon.KinesisTap.Core
         public const string REQUESTS_PER_SECOND = "RequestsPerSecond";
         public const string RECORD_COUNT = "RecordCount";
         public const string MAX_BATCH_SIZE = "MaxBatchSize";
+        public const string CUSTOM_AWS_CLIENT_HEADERS = "CustomAWSClientHeaders";
+
+        // Directory sources attributes
+        public const string DEFAULT_FIELD_MAPPING = "DefaultFieldMapping";
 
         // Regex filter pipe attributes
         public const string FILTER_PATTERN = "FilterPattern";
@@ -72,7 +77,7 @@ namespace Amazon.KinesisTap.Core
 
         public const string NEWLINE = "\n";
 
-        public const string KINESISTAP_EXE_NAME = "AWSKinesisTap.exe";
+        public const string KINESISTAP_EXE_NAME = "KinesisTap.exe";
         public const string DONET = "dotnet";
         public const string KINESISTAP_STANDARD_PATH = @"C:\Program Files\Amazon\KinesisTap\" + KINESISTAP_EXE_NAME;
 
@@ -82,6 +87,8 @@ namespace Amazon.KinesisTap.Core
         //Environment variables
         public const string KINESISTAP_PROGRAM_DATA = "KINESISTAP_PROGRAM_DATA";
         public const string KINESISTAP_CONFIG_PATH = "KINESISTAP_CONFIG_PATH";
+        //Environment varible for extra-config directory
+        public const string KINESISTAP_EXTRA_CONFIG_DIR_PATH = "KINESISTAP_EXTRA_CONFIG_DIR_PATH";
         public const string COMPUTER_NAME = "computername";
         public const string USER_NAME = "USERNAME";
 
@@ -98,5 +105,12 @@ namespace Amazon.KinesisTap.Core
         public const string UPLOAD_NETWORK_PRIORITY = "UploadNetworkPriority";
         public const string DOWNLOAD_NETWORK_PRIORITY = "DownloadNetworkPriority";
         public const int DEFAULT_NETWORK_PRIORITY = 3;
+
+        //Formatting
+        public const string FORMAT_JSON = "json";
+        public const string FORMAT_XML = "xml";
+        public const string FORMAT_XML_2 = "xml2";
+        public const string FORMAT_RENDERED_XML = "renderedxml";
+        public const string FORMAT_SUSHI = "sushi";
     }
 }

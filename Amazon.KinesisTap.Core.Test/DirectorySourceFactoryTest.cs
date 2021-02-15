@@ -29,7 +29,7 @@ namespace Amazon.KinesisTap.Core.Test
             string timestampField = config["TimestampField"];
             IRecordParser parser = new SingleLineJsonParser(timestampField, timetampFormat, NullLogger.Instance);
 
-            PluginContext context = new PluginContext(config, null, null);
+            PluginContext context = new PluginContext(config, null, null, new BookmarkManager());
             var source = DirectorySourceFactory.CreateEventSource(context, parser);
             Assert.NotNull(source);
             Assert.IsType<DirectorySource<JObject, LogContext>>(source);
@@ -40,7 +40,7 @@ namespace Amazon.KinesisTap.Core.Test
         {
             var config = TestUtility.GetConfig("Sources", "DHCPParsed");
             string timestampField = config["TimestampField"];
-            PluginContext context = new PluginContext(config, null, null);
+            PluginContext context = new PluginContext(config, null, null, new BookmarkManager());
             IRecordParser parser = DirectorySourceFactory.CreateDelimitedLogParser(context, timestampField, DateTimeKind.Utc);
             var source = DirectorySourceFactory.CreateEventSource(context, parser);
             Assert.NotNull(source);

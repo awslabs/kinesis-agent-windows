@@ -15,6 +15,7 @@
 namespace Amazon.KinesisTap.Core
 {
     using System;
+    using System.IO;
 
     //Wrap around the underlying data to provide additional meta data
     public interface IEnvelope
@@ -22,6 +23,19 @@ namespace Amazon.KinesisTap.Core
         DateTime Timestamp { get; }
 
         string GetMessage(string format);
+
+        /// <summary>
+        /// Serializes the data into a new <see cref="MemoryStream"/>.
+        /// </summary>
+        /// <param name="format">The format to use when writing.</param>
+        MemoryStream GetMessageStream(string format);
+
+        /// <summary>
+        /// Writes the data into an existing <see cref="MemoryStream"/>.
+        /// </summary>
+        /// <param name="format">The format to use when writing.</param>
+        /// <param name="memoryStream">The stream to write to.</param>
+        void WriteMessageToStream(string format, MemoryStream memoryStream);
 
         /// <summary>
         /// Resolve local variable. Local variable are defined as the variable only depends on the envelope. 

@@ -34,6 +34,7 @@ namespace Amazon.KinesisTap.AWS
     {
         private const long CloudWatchOverhead = 26L;
         private const long TwoHundredFiftySixKilobytes = 256 * 1024;
+        private readonly TimeSpan BatchMaximumTimeSpan = TimeSpan.FromHours(24);
 
         private readonly IAmazonCloudWatchLogs _client;
         private readonly string _logGroupName;
@@ -64,7 +65,14 @@ namespace Amazon.KinesisTap.AWS
 
         public override void Start()
         {
-            this.StartAsync().Wait();
+            try
+            {
+                this.StartAsync().Wait();
+            }
+            catch (AggregateException aex) when (aex.InnerException is AmazonCloudWatchLogsException acle && acle.Message?.Contains("Rate exceeded") == true)
+            {
+                throw new RateExceededException("CloudWatchLogs quota is exceeded", acle);
+            }
         }
 
         public async Task StartAsync()
@@ -97,9 +105,9 @@ namespace Amazon.KinesisTap.AWS
             _logger?.LogInformation("CloudWatchLogsSink id {0} for log group {1} log stream {2} stopped.", this.Id, _logGroupName, _logStreamName);
         }
 
-        protected override async Task OnNextAsync(List<Envelope<InputLogEvent>> records, long batchBytes)
+        private async Task SendBatchAsync(List<Envelope<InputLogEvent>> records)
         {
-            if (records == null || records.Count == 0) return;
+            var batchBytes = records.Sum(r => GetRecordSize(r));
 
             try
             {
@@ -122,7 +130,6 @@ namespace Amazon.KinesisTap.AWS
                     SequenceToken = _sequenceToken,
                     LogEvents = records
                         .Select(e => e.Data)
-                        .OrderBy(e => e.Timestamp) // Added sort here in case messages are from multiple streams and they are not merged in order
                         .ToList()
                 };
 
@@ -155,7 +162,7 @@ namespace Amazon.KinesisTap.AWS
                                     .AppendFormat(" TooOldLogEventEndIndex {0}", rejectedLogEventsInfo.TooOldLogEventEndIndex);
                                 _logger.LogError(sb.ToString());
                             }
-                            
+
                             var recordCount = records.Count - rejectedLogEventsInfo.ExpiredLogEventEndIndex - rejectedLogEventsInfo.TooOldLogEventEndIndex;
                             if (rejectedLogEventsInfo.TooOldLogEventEndIndex > 0)
                                 recordCount -= records.Count - rejectedLogEventsInfo.TooNewLogEventStartIndex;
@@ -241,7 +248,31 @@ namespace Amazon.KinesisTap.AWS
                 _logger?.LogError("CloudWatchLogsSink client {0} exception (attempt={1}): {2}", this.Id, _throttle.ConsecutiveErrorCount, ex.ToMinimized());
             }
 
-            this.PublishMetrics(MetricsConstants.CLOUDWATCHLOG_PREFIX);
+            PublishMetrics(MetricsConstants.CLOUDWATCHLOG_PREFIX);
+        }
+
+        protected override async Task OnNextAsync(List<Envelope<InputLogEvent>> records, long batchBytes)
+        {
+            if (records == null || records.Count == 0)
+            {
+                return;
+            }
+
+            records.Sort((r1, r2) => r1.Timestamp.CompareTo(r2.Timestamp));
+            var batch = new List<Envelope<InputLogEvent>>();
+            var idx = 0;
+            while (idx < records.Count)
+            {
+                var earliestTime = records[idx].Timestamp;
+                batch.Clear();
+                while (idx < records.Count && records[idx].Timestamp - earliestTime < BatchMaximumTimeSpan)
+                {
+                    batch.Add(records[idx]);
+                    idx++;
+                }
+
+                await SendBatchAsync(batch);
+            }
         }
 
         protected override bool IsRecoverableException(Exception ex)

@@ -12,18 +12,14 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-
-using Microsoft.Extensions.Logging;
-
 namespace Amazon.KinesisTap.Core
 {
+    using System;
+    using System.Collections.Concurrent;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
+
     /// <summary>
     /// Provide a buffer.
     /// Add is blocked when the buffer is full.
@@ -32,15 +28,14 @@ namespace Amazon.KinesisTap.Core
     /// <typeparam name="T"></typeparam>
     public class Buffer<T>
     {
-        private readonly int _sizeHint;
+        protected readonly int _sizeHint;
+        protected readonly ILogger _logger;
         private readonly Action<T> _onNext;
         private readonly AutoResetEvent _sourceSideWaitHandle = new AutoResetEvent(false);
         private readonly AutoResetEvent _sinkSideWaitHandle = new AutoResetEvent(false);
         private readonly CancellationTokenSource _cancellationSource;
         private readonly CancellationToken _cancellationToken;
         private readonly ConcurrentQueue<T> _queue = new ConcurrentQueue<T>();
-        private readonly ILogger _logger;
-
         private int _pumping = 0;
 
         /// <summary>
@@ -61,12 +56,13 @@ namespace Amazon.KinesisTap.Core
         /// Add an item. If the size is exceeded, the thread is blocked.
         /// </summary>
         /// <param name="item"></param>
-        public void Add(T item)
+        public virtual void Add(T item)
         {
             if (Count >= _sizeHint)
             {
                 _sourceSideWaitHandle.WaitOne();
             }
+
             AddInternal(item);
         }
 
@@ -89,6 +85,46 @@ namespace Amazon.KinesisTap.Core
         public virtual void Stop()
         {
             _cancellationSource.Cancel();
+        }
+
+        /// <summary>
+        /// Gets the number of batches of events currently in the buffer.
+        /// </summary>
+        /// <returns>int representing the number of batches currently in the buffer.</returns>
+        public virtual int GetCurrentBufferSize()
+        {
+            return Count;
+        }
+
+        /// <summary>
+        /// Gets the number of batches of events currently in the persistent queue.
+        /// A regular Buffer doesn't have a persistent queue, so this always returns 0. Any subclasses that have a
+        /// persistent queue should override this method.
+        /// </summary>
+        /// <returns>int representing the number of batches currently in the persistent queue.</returns>
+        public virtual int GetCurrentPersistentQueueSize()
+        {
+            return 0;
+        }
+
+        /// <summary>
+        /// Returns whether or not the buffer is currently full.
+        /// </summary>
+        /// <returns>1 if the buffer is full, 0 otherwise.</returns>
+        public virtual int IsBufferFull()
+        {
+            return (Count >= _sizeHint) ? 1 : 0;
+        }
+
+        /// <summary>
+        /// Returns whether or not the persistent queue is currently full.
+        /// A regular Buffer doesn't have a persistent queue, so this always returns 0. Any subclasses that have a
+        /// persistent queue should override this method.
+        /// </summary>
+        /// <returns>0 if the persistent queue is full, 1 otherwise.</returns>
+        public virtual int IsPersistentQueueFull()
+        {
+            return 0;
         }
 
         protected virtual bool LowPriorityPumpOne(Action<T> onNext)

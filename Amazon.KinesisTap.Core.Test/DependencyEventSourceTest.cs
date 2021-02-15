@@ -13,8 +13,6 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 using Xunit;
 
@@ -84,7 +82,7 @@ namespace Amazon.KinesisTap.Core.Test
         private MockDependentEventSource<int> GetMockDependentEventSource()
         {
             var config = TestUtility.GetConfig("Sources", "JsonLog1");
-            return new MockDependentEventSource<int>(new PluginContext(config, null, null));
+            return new MockDependentEventSource<int>(new PluginContext(config, null, null, new BookmarkManager()));
         }
     }
 }

@@ -27,9 +27,9 @@ namespace Amazon.KinesisTap.Windows
 {
     public class PerformanceCounterSink : SimpleMetricsSink
     {
-        private const string KINESISTAP_PERFORMANCE_COUNTER_CATEGORY = "AWSKinesisTap";
-        private const string KINESISTAP_PERFORMANCE_COUNTER_SOURCES_CATEGORY = "AWSKinesisTap Sources";
-        private const string KINESISTAP_PERFORMANCE_COUNTER_SINKS_CATEGORY = "AWSKinesisTap Sinks";
+        private const string KINESISTAP_PERFORMANCE_COUNTER_CATEGORY = "KinesisTap";
+        private const string KINESISTAP_PERFORMANCE_COUNTER_SOURCES_CATEGORY = "KinesisTap Sources";
+        private const string KINESISTAP_PERFORMANCE_COUNTER_SINKS_CATEGORY = "KinesisTap Sinks";
 
         public PerformanceCounterSink(int defaultInterval, IPlugInContext context) : base(defaultInterval, context)
         {

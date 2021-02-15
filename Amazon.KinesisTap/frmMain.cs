@@ -1,51 +1,55 @@
-/*
- * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- * 
- *  http://aws.amazon.com/apache2.0
- * 
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Hosting;
+using Amazon.KinesisTap.Shared;
 using Amazon.KinesisTap.Windows;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.EventLog;
+using NLog.Extensions.Logging;
 
 namespace Amazon.KinesisTap
 {
     public partial class frmMain : Form
     {
-        private LogManager _logManger;
+        private KinesisTapServiceManager _serviceManager;
+        private readonly ILoggerFactory _serviceLoggerFactory;
+        private readonly IParameterStore _parameterStore = new RegistryParameterStore();
 
         public frmMain()
         {
             InitializeComponent();
+
+            // initialize service-level logging
+            if (!EventLog.SourceExists(KinesisTapServiceManager.ServiceName))
+                EventLog.CreateEventSource(KinesisTapServiceManager.ServiceName, "Application");
+            _serviceLoggerFactory = new LoggerFactory();
+            _serviceLoggerFactory.AddEventLog(new EventLogSettings
+            {
+                SourceName = KinesisTapServiceManager.ServiceName,
+                LogName = "Application",
+                Filter = (msg, level) => level >= LogLevel.Information
+            });
+#if DEBUG
+            _serviceLoggerFactory.AddConsole();
+#endif
+            _serviceLoggerFactory.AddNLog();
         }
 
         private void btnStart_Click(object sender, EventArgs e)
         {
             btnStart.Enabled = false;
-            //Off the UI thread
-            Task.Run(() =>
-            {
-                _logManger = new LogManager(new NetTypeLoader(), new RegistryParameterStore());
-                _logManger.Start();
-            }).Wait();
+            _parameterStore.StoreConventionalValues();
+            var nlogConfigPath = _parameterStore.GetParameter(HostingUtility.NLogConfigPathKey);
+            NLog.LogManager.LoadConfiguration(nlogConfigPath);
+
+            // configure logging
+            _serviceManager = new KinesisTapServiceManager(new PluginLoader(), _parameterStore,
+            _serviceLoggerFactory.CreateLogger<KinesisTapServiceManager>(), new DefaultNetworkStatusProvider());
+            _serviceManager.Start();
+
             btnStop.Enabled = true;
         }
 
@@ -55,7 +59,7 @@ namespace Amazon.KinesisTap
             //Off the UI thread
             Task.Run(() =>
             {
-                _logManger?.Stop();
+                _serviceManager?.Stop();
             }).Wait(5000);
             btnStart.Enabled = true;
         }

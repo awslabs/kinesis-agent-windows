@@ -84,6 +84,7 @@ namespace Amazon.KinesisTap.Core
                     using (var fs = new FileStream(filepath, FileMode.Open, FileAccess.Read, FileShare.None, 4096, FileOptions.DeleteOnClose))
                         item = this.serializer.Deserialize(fs);
 
+                    this.logger?.LogTrace("[{0}] Successfully dequeued item from persistent queue. {1} items left in queue.", nameof(FilePersistentQueue<T>.TryDequeue), this.Count);
                     return true;
                 }
                 catch (Exception ex)
@@ -99,6 +100,8 @@ namespace Amazon.KinesisTap.Core
                 }
             }
 
+            this.logger?.LogDebug("[{0}] No records left in persistent queue.", nameof(FilePersistentQueue<T>.TryDequeue));
+
             item = default(T);
             return false;
         }
@@ -106,7 +109,11 @@ namespace Amazon.KinesisTap.Core
         /// <inheritdoc />
         public bool TryEnqueue(T item)
         {
-            if (this.Count >= this.Capacity) return false;
+            if (this.Count >= this.Capacity)
+            {
+                this.logger?.LogDebug("[{0}] Persistent queue full, cannot enqueue new item.", nameof(FilePersistentQueue<T>.TryEnqueue));
+                return false;
+            }
 
             var path = this.GetFilePath(Tail);
             try
@@ -123,6 +130,8 @@ namespace Amazon.KinesisTap.Core
 
             this.Tail++;
             this.UpdateIndex();
+
+            this.logger?.LogTrace("[{0}] Successfully enqueued new item in persistent queue, {1} items now in queue.", nameof(FilePersistentQueue<T>.TryEnqueue), this.Count);
             return true;
         }
 

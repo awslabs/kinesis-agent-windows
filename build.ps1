@@ -1,4 +1,4 @@
-param (
+﻿param (
     [switch]$packageOnly = $false
 )
 
@@ -29,6 +29,7 @@ $stopwatch = New-Object System.Diagnostics.Stopwatch
 $stopwatch.Start()
 $VerbosePreference = "Continue"
 $InformationPreference = "Continue"
+$ErrorActionPreference = "Stop"
 
 $serviceName="AWSKinesisTap"
 Set-Location -Path "$PSScriptRoot"
@@ -42,12 +43,16 @@ if (!$packageOnly)
     if($null -eq $msbuild)
     {
         $vsVersions = "Professional", "Enterprise", "Community", "BuildTools"
-        foreach ( $vsVersion in $vsVersions ) 
-        { 
-            $msbuild = 'C:\Program Files (x86)\Microsoft Visual Studio\2017\' + $vsVersion + '\MSBuild\15.0\Bin\MSBuild'
-            if (Test-Path -Path $msbuild)
-            {
-                break
+        $yearMaps = @{ '2017' = '15.0'; '2019' = 'Current' }
+        foreach ($year in $yearMaps.Keys)
+        {
+            foreach ( $vsVersion in $vsVersions ) 
+            { 
+                $msbuild = "C:\Program Files (x86)\Microsoft Visual Studio\$year\$vsVersion\MSBuild\$($yearMaps[$year])\Bin\MSBuild"
+                if (Test-Path -Path $msbuild)
+                {
+                    break
+                }
             }
         }
     }
@@ -70,8 +75,8 @@ if (!$packageOnly)
 
     try
     {
-	    Write-Verbose 'Building agent'
-	    dotnet build $sln -c Release
+        Write-Verbose 'Building agent'
+        dotnet build $sln -c Release
 	    & "$msbuild" "$msiBuildSln" /p:Configuration=Release /p:Platform="x64"
     }
     catch
@@ -128,8 +133,6 @@ Copy-Item "$ulsPlugInDir\Amazon.KinesisTap.Uls.???" "$releaseDir"
 Write-Verbose 'Copying Amazon.KinesisTap.AutoUpdate.??? and .pdb to bin\release'
 Copy-Item "$PSScriptRoot\Amazon.KinesisTap.AutoUpdate\bin\release\netstandard1.3\Amazon.KinesisTap.AutoUpdate.???" "$releaseDir" 
 
-
-
 Write-Verbose 'Fix LastWriteTime of each file: https://github.com/PowerShell/Microsoft.PowerShell.Archive/issues/55'
 FixLastWriteTime $releaseDir
 
@@ -163,7 +166,14 @@ $nuspec.Save("$chocolateyPackageDir\KinesisTap.nuspec")
 Write-Verbose 'Create chocolatey package'
 #Compress-Archive -Path "$chocolateyPackageDir\*" -DestinationPath "$chocolateyPackageDir.zip" -CompressionLevel Fastest
 #Rename-Item "$chocolateyPackageDir.zip"  "$chocolateyPackageName.nupkg"
-& nuget.exe pack "$chocolateyPackageDir\KinesisTap.nuspec" -OutputDirectory "$outputDir" -nopackageanalysis
+try
+{
+    & nuget.exe pack "$chocolateyPackageDir\KinesisTap.nuspec" -OutputDirectory "$outputDir" -nopackageanalysis
+}
+catch
+{
+    Write-Verbose "Could not build nupkg file: $_"
+}
 
 # Birdwatcher package file build
 $birdwatcherOutputDir = Join-Path -Path $projDir -ChildPath "Birdwatcher\bin"
@@ -184,6 +194,4 @@ Copy-Item -Path "$(Join-Path -Path $chocolateyTemplateDir 'tools\chocolateyunins
 $birdwatcherZipFileName = $serviceName + ".zip"
 Compress-Archive -Path "$birdwatcherReleaseDir\*" -DestinationPath "$(Join-Path -Path $birdwatcherOutputDir -ChildPath $birdwatcherZipFileName)"
 
-$integrationTestPublishDir = "$env:TMP\KTIntegrationTest"
-
-Exit $LASTERRORCODE
+Exit $LASTEXITCODE

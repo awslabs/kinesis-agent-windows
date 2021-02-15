@@ -1,6 +1,141 @@
 ﻿{
   "Sources": [
     {
+      "Id": "NonExistingCategory",
+      "SourceType": "WindowsPerformanceCounterSource",
+      "Categories": [
+        {
+          "Category": "System",
+          "Counters": [ "System Calls/sec" ]
+        },
+        {
+          "Category": "NonSystem",
+          "Counters": [ "Processes", "Threads" ]
+        }
+      ]
+    },
+    {
+      "Id": "SystemCounter",
+      "SourceType": "WindowsPerformanceCounterSource",
+      "Categories": [
+        {
+          "Category": "System",
+          "Counters": [ "System Calls/sec" ]
+        },
+        {
+          "Category": "System",
+          "Counters": [ "Processes", "Threads" ]
+        }
+      ]
+    },
+    {
+      "Id": "ProcessorCounter",
+      "SourceType": "WindowsPerformanceCounterSource",
+      "Categories": [
+        {
+          "Category": "Processor",
+          "Instances": "*",
+          "Counters": [ "% C1 Time", "% C2 Time", "% C3 Time" ]
+        },
+        {
+          "Category": "Processor",
+          "Instances": "*",
+          "Counters": [ "% DPC Time", "% Idle Time" ]
+        }
+      ]
+    },
+    {
+      "Id": "FirstAndAllProcessorCounter",
+      "SourceType": "WindowsPerformanceCounterSource",
+      "Categories": [
+        {
+          "Category": "Processor",
+          "Instances": "0",
+          "Counters": [ "% Processor Time" ]
+        },
+        {
+          "Category": "Processor",
+          "Instances": "0;_Total",
+          "Counters": [ "Interrupts/sec" ]
+        }
+      ]
+    },
+    {
+      "Id": "NonExistingCounter",
+      "SourceType": "WindowsPerformanceCounterSource",
+      "Categories": [
+        {
+          "Category": "Processor",
+          "Instances": "0",
+          "Counters": [ "% Processor Times", "Interrupts/sec" ]
+        }
+      ]
+    },
+    {
+      "Id": "NonExistingInstance",
+      "SourceType": "WindowsPerformanceCounterSource",
+      "Categories": [
+        {
+          "Category": "Processor",
+          "Instances": "a;0",
+          "Counters": [ "% Processor Time", "Interrupts/sec" ]
+        }
+      ]
+    },
+    {
+      "Id": "ProcessorCountersWithDuplicatedRegex",
+      "SourceType": "WindowsPerformanceCounterSource",
+      "Categories": [
+        {
+          "Category": "Processor",
+          "Instances": "0",
+          "InstanceRegex": "^\\d+$",
+          "Counters": [ "% Processor Time" ]
+        }
+      ]
+    },
+    {
+      "Id": "ProcessorCountersWithDuplicatedRegexInAnotherCategory",
+      "SourceType": "WindowsPerformanceCounterSource",
+      "Categories": [
+        {
+          "Category": "Processor",
+          "Instances": "0",
+          "InstanceRegex": "^\\d+$",
+          "Counters": [ "% Processor Time" ]
+        },
+        {
+          "Category": "Processor",
+          "InstanceRegex": "^\\d+$",
+          "Counters": [ "% Processor Time" ]
+        }
+      ]
+    },
+    {
+      "Id": "SystemAndProcessorCounter",
+      "SourceType": "WindowsPerformanceCounterSource",
+      "Categories": [
+        {
+          "Category": "System",
+          "Counters": [ "Processes" ]
+        },
+        {
+          "Category": "Processor",
+          "Instances": "*",
+          "Counters": [ "% C1 Time", "% C2 Time", "% C3 Time" ]
+        },
+        {
+          "Category": "System",
+          "Counters": [ "Threads" ]
+        },
+        {
+          "Category": "Processor",
+          "Instances": "*",
+          "Counters": [ "% C1 Time", "% C2 Time" ]
+        }
+      ]
+    },
+    {
       "Id": "PerformanceCounter",
       "SourceType": "WindowsPerformanceCounterSource",
       "Categories": [
@@ -57,6 +192,12 @@
     {
       "Id": "ApplicationLogWithEventData",
       "SourceType": "WindowsEventLogSource",
+      "LogName": "Application",
+      "IncludeEventData": true
+    },
+    {
+      "Id": "ApplicationLogWithEventDataPollingSource",
+      "SourceType": "WindowsEventPollingSource",
       "LogName": "Application",
       "IncludeEventData": true
     },

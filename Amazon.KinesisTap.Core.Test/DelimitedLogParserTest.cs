@@ -16,7 +16,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using Xunit;
 
 namespace Amazon.KinesisTap.Core.Test
@@ -108,7 +107,7 @@ ID,Date,Time,Description,IP Address,Host Name,MAC Address,User Name, Transaction
         {
             string timetampFormat = config["TimestampFormat"];
 
-            var parser = DirectorySourceFactory.CreateDelimitedLogParser(new PluginContext(config, null, null), timetampFormat, DateTimeKind.Utc);
+            var parser = DirectorySourceFactory.CreateDelimitedLogParser(new PluginContext(config, null, null, new BookmarkManager()), timetampFormat, DateTimeKind.Utc);
 
             var records = parser.ParseRecords(sr, new DelimitedLogContext()).ToList();
             return records;

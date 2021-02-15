@@ -14,11 +14,9 @@
  */
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 using Amazon.KinesisTap.Core;
 
 namespace Amazon.KinesisTap.Windows
@@ -28,10 +26,11 @@ namespace Amazon.KinesisTap.Windows
     /// </summary>
     public static class EventInfoFilters
     {
-        public const string EXCLUDE_OWN_SECURITY_EVENTS = "ExcludeOwnSecurityEvents"; 
+        public const string EXCLUDE_OWN_SECURITY_EVENTS = "ExcludeOwnSecurityEvents";
+        private const string SECURITY_EVENTS_LABEL = "Security";
 
-        private static Dictionary<string, Func<EventInfo, bool>> _filters = 
-            new Dictionary<string, Func<EventInfo, bool>>(StringComparer.OrdinalIgnoreCase)
+        private static readonly Dictionary<string, Func<EventRecord, bool>> _filters =
+            new Dictionary<string, Func<EventRecord, bool>>(StringComparer.OrdinalIgnoreCase)
             {
                 { EXCLUDE_OWN_SECURITY_EVENTS,  ExcludeKinesisTapSecurityEventsFilter}
             };
@@ -41,7 +40,7 @@ namespace Amazon.KinesisTap.Windows
         /// </summary>
         /// <param name="name">Name of the filter</param>
         /// <param name="filter">Filter to add</param>
-        public static void AddFilter(string name, Func<EventInfo, bool> filter)
+        public static void AddFilter(string name, Func<EventRecord, bool> filter)
         {
             _filters.Add(name, filter);
         }
@@ -51,9 +50,9 @@ namespace Amazon.KinesisTap.Windows
         /// </summary>
         /// <param name="name">Name of the filter</param>
         /// <returns></returns>
-        public static Func<EventInfo, bool> GetFilter(string name)
+        public static Func<EventRecord, bool> GetFilter(string name)
         {
-            if (_filters.TryGetValue(name, out Func<EventInfo, bool> filter)) return filter;
+            if (_filters.TryGetValue(name, out Func<EventRecord, bool> filter)) return filter;
 
             return null;
         }
@@ -64,16 +63,14 @@ namespace Amazon.KinesisTap.Windows
         /// </summary>
         /// <param name="eventInfo"></param>
         /// <returns>false if the event should be filtered out</returns>
-        private static bool ExcludeKinesisTapSecurityEventsFilter(EventInfo eventInfo)
+        private static bool ExcludeKinesisTapSecurityEventsFilter(EventRecord eventInfo)
         {
-            if ("Security".Equals(eventInfo.LogName))
+            if (SECURITY_EVENTS_LABEL.Equals(eventInfo.LogName))
             {
-               if (eventInfo.EventData != null)
+                if (eventInfo.Properties != null)
                 {
-                    //Sometimes we get \device\harddiskvolume1\...\kinesistap.exe
-                    string exeName = Utility.MainModulePath;
-                    string exeNameNoRoot = exeName.Substring(Path.GetPathRoot(exeName).Length);
-                    if (eventInfo.EventData.Any(o => (o as string)?.EndsWith(exeNameNoRoot, StringComparison.OrdinalIgnoreCase) ?? false)) return false;
+                    if (eventInfo.Properties.Any(o => (o.Value as string)?.EndsWith(ConfigConstants.KINESISTAP_EXE_NAME, StringComparison.OrdinalIgnoreCase) ?? false))
+                        return false;
                 }
             }
             return true;

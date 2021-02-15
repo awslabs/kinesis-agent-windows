@@ -16,6 +16,7 @@ namespace Amazon.KinesisTap.AWS
 {
     using System;
     using System.Collections.Concurrent;
+    using System.Collections.Generic;
     using System.IO;
     using System.Reflection;
     using System.Runtime.InteropServices;
@@ -84,34 +85,35 @@ namespace Amazon.KinesisTap.AWS
         /// <typeparam name="TAWSClient">The type of AWS Client</typeparam>
         /// <param name="context">Plug-in context</param>
         /// <returns>AWS Client</returns>
-        public static TAWSClient CreateAWSClient<TAWSClient>(IPlugInContext context) where TAWSClient : AmazonServiceClient
+        public static TAWSClient CreateAWSClient<TAWSClient>(IPlugInContext context, RegionEndpoint regionOverride = null) where TAWSClient : AmazonServiceClient
         {
             (AWSCredentials credential, RegionEndpoint region) = GetAWSCredentialsRegion(context);
+            if (regionOverride != null)
+                region = regionOverride;
+
             var clientConfig = CreateAWSClientConfig<TAWSClient>(context, region);
             var awsClient = (TAWSClient)Activator.CreateInstance(typeof(TAWSClient), credential, clientConfig);
-            if (context.Configuration[ConfigConstants.SINK_TYPE]?.ToLower() == AWSEventSinkFactory.CLOUD_WATCH_LOG_EMF)
-            {
-                awsClient.BeforeRequestEvent += (sender, args) =>
-                {
-                    if (args is WebServiceRequestEventArgs wsArgs)
-                    {
-                        SetCommonRequestHeaders(wsArgs);
 
-                        // Add the header required for EMF parsing in CloudWatch Logs
-                        wsArgs.Headers["x-amzn-logs-format"] = "Structured";
-                    }
-                };
-            }
-            else
+            var headers = new Dictionary<string, string> { [AWSSDKUtils.UserAgentHeader] = UserAgent };
+            if (context.Configuration[ConfigConstants.SINK_TYPE]?.ToLower() == AWSEventSinkFactory.CLOUD_WATCH_LOG_EMF)
+                headers.Add("x-amzn-logs-format", "Structured");
+
+            var customHeaderSection = context.Configuration.GetSection(ConfigConstants.CUSTOM_AWS_CLIENT_HEADERS);
+            if (customHeaderSection != null)
             {
-                awsClient.BeforeRequestEvent += (sender, args) =>
-                {
-                    if (args is WebServiceRequestEventArgs wsArgs)
-                    {
-                        SetCommonRequestHeaders(wsArgs);
-                    }
-                };
+                foreach (var customHeader in customHeaderSection.GetChildren())
+                    headers.Add(customHeader.Key, ResolveConfigVariable(customHeader.Value));
             }
+
+            awsClient.BeforeRequestEvent += (sender, args) =>
+            {
+                if (args is WebServiceRequestEventArgs wsArgs)
+                {
+                    foreach (var kvp in headers)
+                        wsArgs.Headers[kvp.Key] = kvp.Value;
+                }
+            };
+
             return awsClient;
         }
 

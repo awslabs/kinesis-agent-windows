@@ -15,7 +15,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 using System.Linq;
 
 namespace Amazon.KinesisTap.Core
@@ -28,6 +27,11 @@ namespace Amazon.KinesisTap.Core
 
         protected DelimitedLogRecordBase(string[] data, DelimitedLogContext context)
         {
+            if (context?.Mapping is null)
+            {
+                throw new ArgumentNullException($"Field mapping for this record is not determined. This might be due to field mapping line not present in the log. " +
+                    $"Consider specifying '{ConfigConstants.DEFAULT_FIELD_MAPPING}' in the source configuration");
+            }
             _data = data;
             _context = context;
         }

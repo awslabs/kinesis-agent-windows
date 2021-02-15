@@ -72,8 +72,7 @@ namespace Amazon.KinesisTap.Core
                                     new RegexRecordParserOptions { RemoveUnmatchedRecord = removeUnmatched }));
                         case "syslog":
                             return CreateEventSource(context,
-                                new SysLogParser(logger, timeZoneKind,
-                                    new RegexRecordParserOptions { RemoveUnmatchedRecord = removeUnmatched }));
+                                new SyslogParser(logger, false));
                         case "delimited":
                             return CreateEventSourceWithDelimitedLogParser(context, timetampFormat, timeZoneKind);
                         case "singlelinejson":
@@ -94,9 +93,10 @@ namespace Amazon.KinesisTap.Core
                             }
                     }
                 case "w3svclogsource":
+                    var defaultMapping = config[ConfigConstants.DEFAULT_FIELD_MAPPING];
                     return CreateEventSource(
                         context,
-                        new W3SVCLogParser(context));
+                        new W3SVCLogParser(context, defaultMapping));
                 default:
                     throw new ArgumentException($"Source {entry} not recognized.");
             }

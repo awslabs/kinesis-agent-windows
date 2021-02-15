@@ -12,11 +12,8 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.NetworkInformation;
-using System.Text;
 
 namespace Amazon.KinesisTap.Core
 {
@@ -24,36 +21,41 @@ namespace Amazon.KinesisTap.Core
     /// Provide access to network status.
     /// Due to lack of library in .net standard 1.3, the concrete class is supplied by platform specific start-up.
     /// </summary>
-    public static class NetworkStatus
+    public class NetworkStatus
     {
-        private static List<INetworkStatus> _addtionalNetworkStatusProviders = new List<INetworkStatus>();
-
-        public static INetworkStatus CurrentNetwork { get; internal set; }
-
-        public static bool IsAvailable()
+        public NetworkStatus(INetworkStatusProvider defaultProvider)
         {
-            if (!CurrentNetwork.IsAvailable()) return false;
+            DefaultProvider = defaultProvider;
+        }
+
+        private readonly List<INetworkStatusProvider> _addtionalNetworkStatusProviders = new List<INetworkStatusProvider>();
+
+        public INetworkStatusProvider DefaultProvider { get; }
+
+        public bool IsAvailable()
+        {
+            if (DefaultProvider?.IsAvailable() != true) return false;
             return _addtionalNetworkStatusProviders.All(p => p.IsAvailable()); //All providers must indicate available
         }
 
-        public static bool CanUpload(int priority)
+        public bool CanUpload(int priority)
         {
-            if (!CurrentNetwork.CanUpload(priority)) return false;
+            if (DefaultProvider?.CanUpload(priority) != true) return false;
             return _addtionalNetworkStatusProviders.All(p => p.CanUpload(priority)); //All providers must indicate OK
         }
 
-        public static bool CanDownload(int priority)
+        public bool CanDownload(int priority)
         {
-            if (!CurrentNetwork.CanDownload(priority)) return false;
+            if (DefaultProvider?.CanDownload(priority) != true) return false;
             return _addtionalNetworkStatusProviders.All(p => p.CanDownload(priority)); //All providers must indicate OK
         }
 
-        internal static void RegisterNetworkStatusProvider(INetworkStatus networkStatus)
+        internal void RegisterNetworkStatusProvider(INetworkStatusProvider networkStatus)
         {
             _addtionalNetworkStatusProviders.Add(networkStatus);
         }
 
-        internal static void ResetNetworkStatusProviders()
+        internal void ResetNetworkStatusProviders()
         {
             _addtionalNetworkStatusProviders.Clear();
         }

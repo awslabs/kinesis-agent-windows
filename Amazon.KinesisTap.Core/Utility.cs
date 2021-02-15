@@ -12,6 +12,7 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -19,7 +20,6 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -29,13 +29,14 @@ namespace Amazon.KinesisTap.Core
 {
     public static class Utility
     {
-        //Cache the OS platform information
+        // Cache the OS platform information
         public static readonly bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         public static readonly bool IsMacOs = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
         public static readonly bool IsLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
         public static readonly string Platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Windows" :
             RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "Linux" :
             RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "macOS" : "Unknown";
+        public const string DefaultExtraConfigDirectoryName = "configs";
 
         public static Func<string, string> ResolveEnvironmentVariable = Environment.GetEnvironmentVariable; //Can override this function for different OS
 
@@ -52,6 +53,10 @@ namespace Amazon.KinesisTap.Core
         {
             return _stopwatch.ElapsedMilliseconds;
         }
+
+        public static string AgentId { get; set; }
+
+        public static string UserId { get; set; }
 
         public static string ComputerName
         {
@@ -284,7 +289,7 @@ namespace Amazon.KinesisTap.Core
             {
                 if (IsWindows)
                 {
-                    kinesisTapProgramDataPath = Path.Combine(Environment.GetEnvironmentVariable("ProgramData"), "Amazon\\AWSKinesisTap");
+                    kinesisTapProgramDataPath = Path.Combine(Environment.GetEnvironmentVariable("ProgramData"), "Amazon\\KinesisTap");
                 }
                 else
                 {
@@ -313,6 +318,20 @@ namespace Amazon.KinesisTap.Core
                 }
             }
             return kinesisTapConfigPath;
+        }
+
+        /// <summary>
+        /// Resolve the directory that contains the extra configuration files.
+        /// </summary>
+        public static string GetKinesisTapExtraConfigPath()
+        {
+            string kinesisTapChildConfigPath = Environment.GetEnvironmentVariable(ConfigConstants.KINESISTAP_EXTRA_CONFIG_DIR_PATH);
+            if (!string.IsNullOrWhiteSpace(kinesisTapChildConfigPath))
+            {
+                return kinesisTapChildConfigPath;
+            }
+
+            return Path.Combine(GetKinesisTapConfigPath(), DefaultExtraConfigDirectoryName);
         }
 
         public static string ProperCase(string constant)
@@ -522,6 +541,28 @@ namespace Amazon.KinesisTap.Core
             }
             while (Interlocked.CompareExchange(ref location, value, original) != original);
             return original;
+        }
+
+        /// <summary>
+        /// A helper method that will return the value of the defaultValue parameter if the value is null, empty, or whitespace.
+        /// </summary>
+        /// <param name="value">The string value that is expected to be not null or whitespace.</param>
+        /// <param name="defaultValue">The default value to return if the value parameter is null or whitespace.</param>
+        public static string ValueOrDefault(string value, string defaultValue)
+        {
+            if (!string.IsNullOrWhiteSpace(value)) return value;
+            return defaultValue;
+        }
+
+        /// <summary>
+        /// A helper method that will throw an exception if a config property is null or whitespace.
+        /// </summary>
+        /// <param name="config">The <see cref="IConfiguration"/> to retrieve the property from.</param>
+        /// <param name="propertyName">The name of the property to retrieve.</param>
+        public static string GetRequiredConfigValue(IConfiguration config, string propertyName)
+        {
+            if (!string.IsNullOrWhiteSpace(config[propertyName])) return config[propertyName];
+            throw new ArgumentException($"Configuration property '{propertyName}' cannot be null or whitespace");
         }
     }
 

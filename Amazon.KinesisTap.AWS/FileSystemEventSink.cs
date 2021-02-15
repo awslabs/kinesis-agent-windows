@@ -35,7 +35,7 @@ namespace Amazon.KinesisTap.AWS
         public FileSystemEventSink(IPlugInContext context)
             : this(
                   context,
-                  int.TryParse(context.Configuration[ConfigConstants.REQUESTS_PER_SECOND], out int rps) ? rps : 5,
+                  int.TryParse(context.Configuration[ConfigConstants.REQUESTS_PER_SECOND], out int rps) ? rps : 1000,
                   int.TryParse(context.Configuration[ConfigConstants.INTERVAL], out int interval) ? interval : 1,
                   int.TryParse(context.Configuration[ConfigConstants.RECORD_COUNT], out int recordCount) ? recordCount : 5,
                   long.TryParse(context.Configuration[ConfigConstants.MAX_BATCH_SIZE], out long maxBatchSize) ? maxBatchSize : 5)

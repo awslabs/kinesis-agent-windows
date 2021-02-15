@@ -25,6 +25,8 @@ namespace Amazon.KinesisTap.Core.Test
 {
     public class EventSinkTest
     {
+        private readonly BookmarkManager _bookmarkManager = new BookmarkManager();
+
         [Fact]
         public void TestUnsupportedFormat()
         {
@@ -98,7 +100,7 @@ namespace Amazon.KinesisTap.Core.Test
 
         private class testClass
         {
-            public string myvar1 { get; set;}
+            public string myvar1 { get; set; }
             public string myvar2 { get; set; }
         }
 
@@ -135,11 +137,11 @@ namespace Amazon.KinesisTap.Core.Test
             MockEventSource<object> mockEventSource = CreateEventsource<object>("InitialPositionUnspecified");
             MockEventSink sink = CreateEventSink(sinkId, logger); //"TextDecoration": "{$myvar2}"
             mockEventSource.Subscribe(sink);
-            var data1 = new 
+            var data1 = new
             {
                 myvar1 = "myval1"
             };
-            var data2 = new 
+            var data2 = new
             {
                 myvar2 = "myval2"
             };
@@ -211,7 +213,7 @@ namespace Amazon.KinesisTap.Core.Test
             MockEventSink sink = CreateEventSink(id, logger);
             mockEventSource.Subscribe(sink);
             string text = "some text";
-            Dictionary<string, string> data = new Dictionary<string, string>() { {"data", text } };
+            Dictionary<string, string> data = new Dictionary<string, string>() { { "data", text } };
             DateTime timestamp = DateTime.UtcNow;
             string filePath = Path.Combine(TestUtility.GetTestHome(), "test.log");
             long position = 11;
@@ -269,17 +271,17 @@ namespace Amazon.KinesisTap.Core.Test
             Assert.ThrowsAny<Exception>(() => CreateEventSink(sinkId, logger));
         }
 
-        private static MockEventSink CreateEventSink(string id, ILogger logger)
+        private MockEventSink CreateEventSink(string id, ILogger logger)
         {
             var config = TestUtility.GetConfig("Sinks", id);
-            var source = new MockEventSink(new PluginContext(config, logger, null));
+            var source = new MockEventSink(new PluginContext(config, logger, null, _bookmarkManager));
             return source;
         }
 
-        private static MockEventSource<T> CreateEventsource<T>(string id)
+        private MockEventSource<T> CreateEventsource<T>(string id)
         {
             var config = TestUtility.GetConfig("Sources", id);
-            var source = new MockEventSource<T>(new PluginContext(config, null, null));
+            var source = new MockEventSource<T>(new PluginContext(config, null, null, _bookmarkManager));
             EventSource<T>.LoadCommonSourceConfig(config, source);
             return source;
         }
