@@ -1,0 +1,140 @@
+Mar 10 00:00:23 ip-172-31-0-207 systemd[1]: man-db.service: Succeeded.
+Mar 10 00:00:23 ip-172-31-0-207 systemd[1]: Finished Daily man-db regeneration.
+Mar 10 00:09:01 ip-172-31-0-207 CRON[1031414]: (root) CMD (   test -x /etc/cron.daily/popularity-contest && /etc/cron.daily/popularity-contest --crond)
+Mar 10 00:17:01 ip-172-31-0-207 CRON[1031621]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 00:56:54 ip-172-31-0-207 snapd[839431]: storehelpers.go:551: cannot refresh: snap has no updates available: "amazon-ssm-agent", "core", "core18", "lxd"
+Mar 10 00:56:54 ip-172-31-0-207 snapd[839431]: autorefresh.go:479: auto-refresh: all snaps are up-to-date
+Mar 10 01:12:23 ip-172-31-0-207 systemd[1]: fwupd.service: Succeeded.
+Mar 10 01:17:01 ip-172-31-0-207 CRON[1032890]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 02:15:21 ip-172-31-0-207 systemd[1]: Starting Message of the Day...
+Mar 10 02:15:22 ip-172-31-0-207 50-motd-news[1034174]:  * Introducing self-healing high availability clusters in MicroK8s.
+Mar 10 02:15:22 ip-172-31-0-207 50-motd-news[1034174]:    Simple, hardened, Kubernetes for production, from RaspberryPi to DC.
+Mar 10 02:15:22 ip-172-31-0-207 50-motd-news[1034174]:      https://microk8s.io/high-availability
+Mar 10 02:15:22 ip-172-31-0-207 systemd[1]: motd-news.service: Succeeded.
+Mar 10 02:15:22 ip-172-31-0-207 systemd[1]: Finished Message of the Day.
+Mar 10 02:17:01 ip-172-31-0-207 CRON[1034222]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 03:10:01 ip-172-31-0-207 CRON[1035370]: (root) CMD (test -e /run/systemd/system || SERVICE_MODE=1 /sbin/e2scrub_all -A -r)
+Mar 10 03:17:01 ip-172-31-0-207 CRON[1035532]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 04:17:01 ip-172-31-0-207 CRON[1036813]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 05:17:01 ip-172-31-0-207 CRON[1038065]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 06:17:01 ip-172-31-0-207 CRON[1040023]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 06:25:01 ip-172-31-0-207 CRON[1040191]: (root) CMD (test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.daily ))
+Mar 10 06:31:34 ip-172-31-0-207 systemd[1]: Starting Daily apt upgrade and clean activities...
+Mar 10 06:31:36 ip-172-31-0-207 systemd[1]: apt-daily-upgrade.service: Succeeded.
+Mar 10 06:31:36 ip-172-31-0-207 systemd[1]: Finished Daily apt upgrade and clean activities.
+Mar 10 07:17:01 ip-172-31-0-207 CRON[1041473]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 08:17:01 ip-172-31-0-207 CRON[1042704]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 09:17:01 ip-172-31-0-207 CRON[1043983]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 10:17:01 ip-172-31-0-207 CRON[1045257]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 10:44:22 ip-172-31-0-207 systemd[1]: Starting Daily apt download activities...
+Mar 10 10:44:23 ip-172-31-0-207 systemd-resolved[407]: Server returned error NXDOMAIN, mitigating potential DNS violation DVE-2018-0001, retrying transaction with reduced feature level UDP.
+Mar 10 10:44:23 ip-172-31-0-207 systemd-resolved[407]: message repeated 2 times: [ Server returned error NXDOMAIN, mitigating potential DNS violation DVE-2018-0001, retrying transaction with reduced feature level UDP.]
+Mar 10 10:44:24 ip-172-31-0-207 dbus-daemon[448]: [system] Activating via systemd: service name='org.freedesktop.PackageKit' unit='packagekit.service' requested by ':1.1231' (uid=0 pid=1046216 comm="/usr/bin/gdbus call --system --dest org.freedeskto" label="unconfined")
+Mar 10 10:44:24 ip-172-31-0-207 systemd[1]: Starting PackageKit Daemon...
+Mar 10 10:44:24 ip-172-31-0-207 PackageKit: daemon start
+Mar 10 10:44:24 ip-172-31-0-207 dbus-daemon[448]: [system] Successfully activated service 'org.freedesktop.PackageKit'
+Mar 10 10:44:24 ip-172-31-0-207 systemd[1]: Started PackageKit Daemon.
+Mar 10 10:44:32 ip-172-31-0-207 systemd-resolved[407]: Server returned error NXDOMAIN, mitigating potential DNS violation DVE-2018-0001, retrying transaction with reduced feature level UDP.
+Mar 10 10:44:32 ip-172-31-0-207 systemd[1]: apt-daily.service: Succeeded.
+Mar 10 10:44:32 ip-172-31-0-207 systemd[1]: Finished Daily apt download activities.
+Mar 10 10:49:30 ip-172-31-0-207 PackageKit: daemon quit
+Mar 10 10:49:30 ip-172-31-0-207 systemd[1]: packagekit.service: Succeeded.
+Mar 10 11:17:01 ip-172-31-0-207 CRON[1047016]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 11:46:54 ip-172-31-0-207 snapd[839431]: storehelpers.go:551: cannot refresh: snap has no updates available: "amazon-ssm-agent", "core", "core18", "lxd"
+Mar 10 11:46:54 ip-172-31-0-207 snapd[839431]: autorefresh.go:479: auto-refresh: all snaps are up-to-date
+Mar 10 12:17:01 ip-172-31-0-207 CRON[1048279]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 12:31:54 ip-172-31-0-207 snapd[839431]: storehelpers.go:551: cannot refresh: snap has no updates available: "amazon-ssm-agent", "core", "core18", "lxd"
+Mar 10 12:31:54 ip-172-31-0-207 snapd[839431]: autorefresh.go:479: auto-refresh: all snaps are up-to-date
+Mar 10 13:17:01 ip-172-31-0-207 CRON[1049521]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 14:17:01 ip-172-31-0-207 CRON[1050815]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 15:07:34 ip-172-31-0-207 systemd[1]: Starting Refresh fwupd metadata and update motd...
+Mar 10 15:07:34 ip-172-31-0-207 dbus-daemon[448]: [system] Activating via systemd: service name='org.freedesktop.fwupd' unit='fwupd.service' requested by ':1.1235' (uid=62803 pid=1051912 comm="/usr/bin/fwupdmgr refresh --no-metadata-check " label="unconfined")
+Mar 10 15:07:34 ip-172-31-0-207 systemd[1]: Starting Firmware update daemon...
+Mar 10 15:07:34 ip-172-31-0-207 dbus-daemon[448]: [system] Successfully activated service 'org.freedesktop.fwupd'
+Mar 10 15:07:34 ip-172-31-0-207 systemd[1]: Started Firmware update daemon.
+Mar 10 15:07:34 ip-172-31-0-207 fwupdmgr[1051912]: Fetching metadata https://cdn.fwupd.org/downloads/firmware.xml.gz
+Mar 10 15:07:35 ip-172-31-0-207 fwupdmgr[1051912]: Fetching signature https://cdn.fwupd.org/downloads/firmware.xml.gz.asc
+Mar 10 15:07:35 ip-172-31-0-207 fwupdmgr[1051912]: Successfully downloaded new metadata: 0 local devices supported
+Mar 10 15:07:35 ip-172-31-0-207 systemd[1]: fwupd-refresh.service: Succeeded.
+Mar 10 15:07:35 ip-172-31-0-207 systemd[1]: Finished Refresh fwupd metadata and update motd.
+Mar 10 15:17:01 ip-172-31-0-207 CRON[1052142]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Mar 10 15:31:53 ip-172-31-0-207 systemd[1]: Starting Cleanup of Temporary Directories...
+Mar 10 15:31:53 ip-172-31-0-207 systemd[1]: systemd-tmpfiles-clean.service: Succeeded.
+Mar 10 15:31:53 ip-172-31-0-207 systemd[1]: Finished Cleanup of Temporary Directories.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1]: Created slice User Slice of UID 1000.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1]: Starting User Runtime Directory /run/user/1000...
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1]: Finished User Runtime Directory /run/user/1000.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1]: Starting User Manager for UID 1000...
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Reached target Paths.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Reached target Timers.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Starting D-Bus User Message Bus Socket.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Listening on GnuPG network certificate management daemon.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Listening on GnuPG cryptographic agent and passphrase cache (access for web browsers).
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Listening on GnuPG cryptographic agent and passphrase cache (restricted).
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Listening on GnuPG cryptographic agent (ssh-agent emulation).
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Listening on GnuPG cryptographic agent and passphrase cache.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Listening on debconf communication socket.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Listening on REST API socket for snapd user session agent.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Listening on D-Bus User Message Bus Socket.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Reached target Sockets.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Reached target Basic System.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Reached target Main User Target.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1052886]: Startup finished in 37ms.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1]: Started User Manager for UID 1000.
+Mar 10 15:49:59 ip-172-31-0-207 systemd[1]: Started Session 960 of user ubuntu.
+Mar 10 15:51:29 ip-172-31-0-207 systemd[1]: session-960.scope: Succeeded.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1]: Stopping User Manager for UID 1000...
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Stopped target Main User Target.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Stopped target Basic System.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Stopped target Paths.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Stopped target Sockets.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Stopped target Timers.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: dbus.socket: Succeeded.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Closed D-Bus User Message Bus Socket.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: dirmngr.socket: Succeeded.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Closed GnuPG network certificate management daemon.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: gpg-agent-browser.socket: Succeeded.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Closed GnuPG cryptographic agent and passphrase cache (access for web browsers).
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: gpg-agent-extra.socket: Succeeded.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Closed GnuPG cryptographic agent and passphrase cache (restricted).
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: gpg-agent-ssh.socket: Succeeded.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Closed GnuPG cryptographic agent (ssh-agent emulation).
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: gpg-agent.socket: Succeeded.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Closed GnuPG cryptographic agent and passphrase cache.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: pk-debconf-helper.socket: Succeeded.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Closed debconf communication socket.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: snapd.session-agent.socket: Succeeded.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Closed REST API socket for snapd user session agent.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Reached target Shutdown.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: systemd-exit.service: Succeeded.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Finished Exit the Session.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1052886]: Reached target Exit the Session.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1]: user@1000.service: Succeeded.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1]: Stopped User Manager for UID 1000.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1]: Stopping User Runtime Directory /run/user/1000...
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1]: run-user-1000.mount: Succeeded.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1]: user-runtime-dir@1000.service: Succeeded.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1]: Stopped User Runtime Directory /run/user/1000.
+Mar 10 15:51:39 ip-172-31-0-207 systemd[1]: Removed slice User Slice of UID 1000.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1]: Created slice User Slice of UID 1000.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1]: Starting User Runtime Directory /run/user/1000...
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1]: Finished User Runtime Directory /run/user/1000.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1]: Starting User Manager for UID 1000...
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Reached target Paths.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Reached target Timers.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Starting D-Bus User Message Bus Socket.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Listening on GnuPG network certificate management daemon.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Listening on GnuPG cryptographic agent and passphrase cache (access for web browsers).
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Listening on GnuPG cryptographic agent and passphrase cache (restricted).
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Listening on GnuPG cryptographic agent (ssh-agent emulation).
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Listening on GnuPG cryptographic agent and passphrase cache.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Listening on debconf communication socket.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Listening on REST API socket for snapd user session agent.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Listening on D-Bus User Message Bus Socket.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Reached target Sockets.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Reached target Basic System.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Reached target Main User Target.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1053178]: Startup finished in 37ms.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1]: Started User Manager for UID 1000.
+Mar 10 15:52:08 ip-172-31-0-207 systemd[1]: Started Session 962 of user ubuntu.
+Mar 10 15:54:51 ip-172-31-0-207 systemd[1]: Started Session 964 of user ubuntu.
