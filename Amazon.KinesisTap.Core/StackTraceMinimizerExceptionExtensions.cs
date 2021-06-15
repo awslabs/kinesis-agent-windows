@@ -13,27 +13,23 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-
 using Microsoft.Extensions.Caching.Memory;
-
-using AsyncFriendlyStackTrace;
 
 namespace Amazon.KinesisTap.Core
 {
     public static class StackTraceMinimizerExceptionExtensions
     {
-        private static IMemoryCache memoryCache = new MemoryCache(new MemoryCacheOptions());
+        private static IMemoryCache _memoryCache = new MemoryCache(new MemoryCacheOptions());
 
         //Try to minimize the stacktrace with 2 strategies
         //1. Minimize async stacktrace
         //2. Suppress stacktrace seen before for the configured period
         public static string ToMinimized(this Exception ex)
         {
-            string stacktrace = NeedToMinimizeStackTrace() ? ex.ToAsyncString() : ex.ToString();
+            string stacktrace = ex.ToString();
             return DoCompressStackTrace ? CompressStackTrace(stacktrace) : stacktrace;
         }
 
@@ -59,7 +55,7 @@ namespace Amazon.KinesisTap.Core
             if (indexOfLineFeed < 0) return trimmedTrace;
 
             //Windows linefeed is \r\n while Linux is just \n
-            string firstline = indexOfLineFeed > 0 && trimmedTrace[indexOfLineFeed - 1] == '\r' ? trimmedTrace.Substring(0, indexOfLineFeed - 1) 
+            string firstline = indexOfLineFeed > 0 && trimmedTrace[indexOfLineFeed - 1] == '\r' ? trimmedTrace.Substring(0, indexOfLineFeed - 1)
                 : trimmedTrace.Substring(0, indexOfLineFeed);
             string remaining = trimmedTrace.Substring(indexOfLineFeed + 1);
 
@@ -85,16 +81,16 @@ namespace Amazon.KinesisTap.Core
         {
             bool inCache;
 
-            lock (memoryCache)
+            lock (_memoryCache)
             {
-                if (memoryCache.TryGetValue(key, out object value))
+                if (_memoryCache.TryGetValue(key, out object value))
                 {
                     inCache = true;
                 }
                 else
                 {
                     inCache = false;
-                    memoryCache.Set(key, new object(), StackTraceCompressionKeyExpiration);
+                    _memoryCache.Set(key, new object(), StackTraceCompressionKeyExpiration);
                 }
             }
             return inCache;

@@ -23,13 +23,13 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
     /// </summary>
     public class RecordParserValidatorCommand : ICommand
     {
-        private IDictionary<String, ISourceValidator> _sourceValidators;
-        private Func<String, String, IConfigurationRoot> _loadConfigFile;
+        private readonly IDictionary<string, ISourceValidator> _sourceValidators;
+        private readonly Func<string, string, IConfigurationRoot> _loadConfigFile;
 
-        public RecordParserValidatorCommand(IDictionary<String, ISourceValidator> sourceValidators, Func<string, string, IConfigurationRoot> loadConfigFile)
+        public RecordParserValidatorCommand(IDictionary<string, ISourceValidator> sourceValidators, Func<string, string, IConfigurationRoot> loadConfigFile)
         {
-            this._sourceValidators = sourceValidators;
-            this._loadConfigFile = loadConfigFile;
+            _sourceValidators = sourceValidators;
+            _loadConfigFile = loadConfigFile;
         }
 
         /// <summary>
@@ -41,7 +41,7 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         {
             if (args.Length == 2 || args.Length == 3)
             {
-                RecordParserValidator validator = new RecordParserValidator(AppContext.BaseDirectory, this._sourceValidators, this._loadConfigFile);
+                RecordParserValidator validator = new RecordParserValidator(AppContext.BaseDirectory, _sourceValidators, _loadConfigFile);
 
                 try
                 {

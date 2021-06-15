@@ -50,18 +50,18 @@ namespace Amazon.KinesisTap.AutoUpdate
         {
             int minuteInterval = Utility.ParseInteger(_config[ConfigConstants.INTERVAL], 60); //Default to 60 minutes
             if (minuteInterval < 1) minuteInterval = 1; //Set minimum to 1 minutes
-            this.Interval = TimeSpan.FromMinutes(minuteInterval);
+            Interval = TimeSpan.FromMinutes(minuteInterval);
 
             this.httpClient = httpClient;
             this.packageInstaller = packageInstaller;
-            this.PackageVersion = Utility.ResolveVariables(_config[PACKAGE_VERSION], Utility.ResolveVariable);
-            (this.credential, this.region) = AWSUtilities.GetAWSCredentialsRegion(context);
-            this.productKey = _config[PRODUCT_KEY];
-            this.deploymentStage = _config[DEPLOYMENT_STAGE];
+            PackageVersion = Utility.ResolveVariables(_config[PACKAGE_VERSION], Utility.ResolveVariable);
+            (credential, region) = AWSUtilities.GetAWSCredentialsRegion(context);
+            productKey = _config[PRODUCT_KEY];
+            deploymentStage = _config[DEPLOYMENT_STAGE];
 
-            if (this.PackageVersion.Contains("execute-api")) // check if using AutoUpdate service
+            if (PackageVersion.Contains("execute-api")) // check if using AutoUpdate service
             {
-                if (this.credential == null || string.IsNullOrWhiteSpace(this.productKey) || string.IsNullOrWhiteSpace(this.deploymentStage))
+                if (credential == null || string.IsNullOrWhiteSpace(productKey) || string.IsNullOrWhiteSpace(deploymentStage))
                 {
                     _logger.LogError("credential, productKey and deploymentStage can't be empty.");
                     throw new Exception("credential, productKey and deploymentStage can't be empty.");
@@ -85,11 +85,11 @@ namespace Amazon.KinesisTap.AutoUpdate
                     return;
                 }
 
-                await this.CheckAgentUpdates();
+                await CheckAgentUpdates();
             }
             catch (Exception ex)
             {
-                _logger?.LogError($"Error download {this.PackageVersion}. Exception: {ex.ToMinimized()}");
+                _logger?.LogError($"Error download {PackageVersion}. Exception: {ex.ToMinimized()}");
             }
         }
 
@@ -98,14 +98,14 @@ namespace Amazon.KinesisTap.AutoUpdate
         /// </summary>
         internal async Task CheckAgentUpdates()
         {
-            _logger?.LogDebug($"Running package updater. Downloading {this.PackageVersion}.");
+            _logger?.LogDebug($"Running package updater. Downloading {PackageVersion}.");
             PackageVersionInfo packageVersion = await GetPackageVersionInformation();
             var desiredVersion = UpdateUtility.ParseVersion(packageVersion.Version);
             Version installedVersion = GetInstalledVersion();
             if (desiredVersion.CompareTo(installedVersion) != 0)
             {
                 _logger?.LogInformation($"The desired version of {desiredVersion} is different to installed version {installedVersion}.");
-                await this.packageInstaller.DownloadAndInstallNewVersionAsync(packageVersion);
+                await packageInstaller.DownloadAndInstallNewVersionAsync(packageVersion);
             }
         }
 
@@ -116,21 +116,21 @@ namespace Amazon.KinesisTap.AutoUpdate
         internal async Task<PackageVersionInfo> GetPackageVersionInformation()
         {
             string packageVersionString;
-            if (!this.PackageVersion.Contains("execute-api")) // check if using AutoUpdate service
+            if (!PackageVersion.Contains("execute-api")) // check if using AutoUpdate service
             {
-                var packageVersionDownloader = UpdateUtility.CreateDownloaderFromUrl(this.PackageVersion, _context);
-                packageVersionString = await packageVersionDownloader.ReadFileAsStringAsync(this.PackageVersion);
+                var packageVersionDownloader = UpdateUtility.CreateDownloaderFromUrl(PackageVersion, _context);
+                packageVersionString = await packageVersionDownloader.ReadFileAsStringAsync(PackageVersion);
             }
             else
             {
-                var autoUpdateServiceClient = new AutoUpdateServiceClient(this.httpClient);
+                var autoUpdateServiceClient = new AutoUpdateServiceClient(httpClient);
                 var request = new GetVersionRequest
                 {
-                    TenantId = this.productKey,
-                    AutoUpdateLane = this.deploymentStage
+                    TenantId = productKey,
+                    AutoUpdateLane = deploymentStage
                 };
 
-                packageVersionString = await autoUpdateServiceClient.GetVersionAsync(this.PackageVersion, request, this.region, this.credential);
+                packageVersionString = await autoUpdateServiceClient.GetVersionAsync(PackageVersion, request, region, credential);
             }
 
             var packageVersion = UpdateUtility.ParsePackageVersion(packageVersionString);
@@ -143,7 +143,7 @@ namespace Amazon.KinesisTap.AutoUpdate
             {
                 //Enhance this method if we want to use it to install program other than KinesisTap.
                 //We will need a new mechanism to check if the package is installed and get the installed version
-                return UpdateUtility.ParseVersion(ProgramInfo.GetKinesisTapVersion().FileVersion);
+                return UpdateUtility.ParseVersion(ProgramInfo.GetVersionNumber());
             }
             catch (Exception e)
             {

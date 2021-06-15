@@ -19,5 +19,11 @@ namespace Amazon.KinesisTap.AWS
         public const string SecurityTokenExpiredError = "The security token included in the request is expired";
 
         public const string NullString = "null";
+
+        public const string BucketName = "BucketName";
+
+        public const string FileName = "FileName";
+
+        public const string FilePath = "FilePath";
     }
 }

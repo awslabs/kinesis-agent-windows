@@ -14,8 +14,6 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Amazon.KinesisTap.Core;
@@ -25,12 +23,14 @@ using Microsoft.Diagnostics.Tracing.Session;
 using Microsoft.Diagnostics.Tracing.Parsers;
 using System.Reactive.Subjects;
 using Microsoft.Extensions.Logging;
+using System.Runtime.Versioning;
 
 namespace Amazon.KinesisTap.Windows
 {
     /// <summary>
     /// A KinesisTap event source which captures ETW events from Windows.
     /// </summary>
+    [SupportedOSPlatform("windows")]
     public class EtwEventSource : EventSource<EtwEvent>, IDisposable
     {
         private readonly string _providerName;
@@ -39,7 +39,7 @@ namespace Amazon.KinesisTap.Windows
         private string _sessionName;
         private TraceEventSession _session;
         private ETWTraceEventSource _source;
-        private CancellationTokenSource _cancelTokenSource = new CancellationTokenSource();
+        private readonly CancellationTokenSource _cancelTokenSource = new CancellationTokenSource();
         private CancellationToken _cancelToken;
         private Task _etwTask;
         private ISubject<IEnvelope<EtwEvent>> _eventSubject = new Subject<IEnvelope<EtwEvent>>();
@@ -56,7 +56,7 @@ namespace Amazon.KinesisTap.Windows
             envelope.Data.ExecutingThreadID = traceData.ThreadID;
             return envelope;
         }
-        
+
 
         public EtwEventSource(string providerName, TraceEventLevel traceLevel, ulong matchAnyKeywords, IPlugInContext context) : base(context)
         {
@@ -86,7 +86,7 @@ namespace Amazon.KinesisTap.Windows
 
             try
             {
-                _metrics?.InitializeCounters(this.Id, MetricsConstants.CATEGORY_SOURCE, CounterTypeEnum.Increment,
+                _metrics?.InitializeCounters(Id, MetricsConstants.CATEGORY_SOURCE, CounterTypeEnum.Increment,
                     new Dictionary<string, MetricValue>()
                     {
                         { MetricsConstants.ETWEVENT_SOURCE_EVENTS_READ, MetricValue.ZeroCount },
@@ -103,12 +103,12 @@ namespace Amazon.KinesisTap.Windows
                             _cancelToken.ThrowIfCancellationRequested();
                         }
 
-                       GatherSourceEvents();
+                        GatherSourceEvents();
                     }
                 });
 
                 _etwTask.Wait(TimeSpan.FromSeconds(1));  //See if there are any initial exceptions we need to handle.
-                _logger?.LogInformation($"EtwEvent source id {this.Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} started.");
+                _logger?.LogInformation($"EtwEvent source id {Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} started.");
 
 
             }
@@ -117,11 +117,11 @@ namespace Amazon.KinesisTap.Windows
                 DisposeSourceAndSession();
                 if (ContainsOperationCancelled(ae))
                 {
-                    _logger?.LogWarning("EtwEventSource id {this.Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} encountered task cancellation during start.");
+                    _logger?.LogWarning($"EtwEventSource id {Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} encountered task cancellation during start.");
                 }
                 ae.Handle((exception) =>
                 {
-                    _logger?.LogError($"EtwEventSource id {this.Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} encountered exception {exception.ToMinimized()} during start");
+                    _logger?.LogError($"EtwEventSource id {Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} encountered exception {exception.ToMinimized()} during start");
                     return true;
                 });
             }
@@ -158,13 +158,13 @@ namespace Amazon.KinesisTap.Windows
             try
             {
                 _eventSubject.OnNext(WrapTraceEvent(traceData));
-                _metrics?.PublishCounter(this.Id, MetricsConstants.CATEGORY_SOURCE, CounterTypeEnum.Increment,
+                _metrics?.PublishCounter(Id, MetricsConstants.CATEGORY_SOURCE, CounterTypeEnum.Increment,
                     MetricsConstants.ETWEVENT_SOURCE_EVENTS_READ, 1, MetricUnit.Count);
             }
             catch (Exception exception)
             {
-                _logger?.LogError($"EtwEvent source id {this.Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} encountered exception {exception} during event processing.");
-                _metrics?.PublishCounter(this.Id, MetricsConstants.CATEGORY_SOURCE, CounterTypeEnum.Increment,
+                _logger?.LogError($"EtwEvent source id {Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} encountered exception {exception} during event processing.");
+                _metrics?.PublishCounter(Id, MetricsConstants.CATEGORY_SOURCE, CounterTypeEnum.Increment,
                     MetricsConstants.ETWEVENT_SOURCE_EVENTS_ERROR, 1, MetricUnit.Count);
             }
 
@@ -224,18 +224,18 @@ namespace Amazon.KinesisTap.Windows
                 _cancelTokenSource.Cancel();
                 DisposeSourceAndSession();
                 _etwTask.Wait(TimeSpan.FromSeconds(1));
-                _logger?.LogInformation($"EtwEvent source id {this.Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} stopped.");
+                _logger?.LogInformation($"EtwEvent source id {Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} stopped.");
             }
             catch (AggregateException ae)
             {
                 if (ContainsOperationCancelled(ae))
                 {
-                    _logger?.LogInformation($"EtwEvent source id {this.Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} stopped.");
+                    _logger?.LogInformation($"EtwEvent source id {Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} stopped.");
                     return;
                 }
                 ae.Handle((exception) =>
                 {
-                    _logger?.LogError($"EtwEventSource id {this.Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} encountered exception {exception.ToMinimized()} during stop.");
+                    _logger?.LogError($"EtwEventSource id {Id} for provider {_providerName} with match any keywords {_matchAnyKeywords} encountered exception {exception.ToMinimized()} during stop.");
                     return true;
                 });
             }
@@ -248,7 +248,7 @@ namespace Amazon.KinesisTap.Windows
         /// <returns></returns>
         public override IDisposable Subscribe(IObserver<IEnvelope<EtwEvent>> observer)
         {
-            return this._eventSubject.Subscribe(observer);
+            return _eventSubject.Subscribe(observer);
         }
 
         /// <summary>

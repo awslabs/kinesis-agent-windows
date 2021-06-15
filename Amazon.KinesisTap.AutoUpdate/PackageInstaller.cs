@@ -57,7 +57,7 @@ namespace Amazon.KinesisTap.AutoUpdate
             }
             _logger?.LogInformation($"Downloading {packageVersion.Name} version {packageVersion.Version} from {packageUrl}...");        
             
-            IFileDownloader downloader = UpdateUtility.CreateDownloaderFromUrl(packageUrl, this._context);
+            IFileDownloader downloader = UpdateUtility.CreateDownloaderFromUrl(packageUrl, _context);
   
             string updateDirectory = Path.Combine(Utility.GetKinesisTapProgramDataPath(), "update");
             if (!Directory.Exists(updateDirectory))

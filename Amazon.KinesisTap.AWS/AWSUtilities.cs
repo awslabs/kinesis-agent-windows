@@ -12,27 +12,76 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Net.Http;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
+using Amazon.CloudWatchLogs.Model;
+using Amazon.KinesisTap.Core;
+using Amazon.Runtime;
+using Amazon.Runtime.CredentialManagement;
+using Amazon.Util;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+
 namespace Amazon.KinesisTap.AWS
 {
-    using System;
-    using System.Collections.Concurrent;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Reflection;
-    using System.Runtime.InteropServices;
-    using Amazon.CloudWatchLogs.Model;
-    using Amazon.KinesisTap.Core;
-    using Amazon.Runtime;
-    using Amazon.Runtime.CredentialManagement;
-    using Amazon.Util;
-    using Microsoft.DotNet.PlatformAbstractions;
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.Logging;
-
     public static class AWSUtilities
     {
-        private static readonly ConcurrentDictionary<Type, Type> awsClientConfigTypeCache = new ConcurrentDictionary<Type, Type>();
+        private static readonly ConcurrentDictionary<Type, Type> _awsClientConfigTypeCache = new ConcurrentDictionary<Type, Type>();
         private static string _userAgent;
+
+        /// <summary>
+        /// Cache the result of <see cref="GetIsEC2Instance"/>. Possible values: 1: is EC2; 0: is not EC2; -1: unknown.
+        /// </summary>
+        private static int _isEC2 = -1;
+
+        /// <summary>
+        /// Determines if this system is an EC2 instance with an option to cancel.
+        /// </summary>
+        /// <param name="cancellationToken">Cancel the request.</param>
+        /// <returns>True iff this system is an EC2 instance.</returns>
+        /// <remarks>
+        /// The Telemetric sinks post the EC2 instance metadata. Problem is if the machine is not EC2, the EC2InstanceMetadata.InstanceId
+        /// method takes very long to complete, which blocks one of the threads and can lead to delayed shutdown.
+        /// This method can determine if the machine is EC2 with a "cancel" option so we can cancel the request quickly.
+        /// </remarks>
+        public static async ValueTask<bool> GetIsEC2Instance(CancellationToken cancellationToken)
+        {
+            // return the cache value if possible
+            if (_isEC2 >= 0)
+            {
+                return _isEC2 > 0;
+            }
+
+            // try to fetch the EC2 identity document
+            // see https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-identity-documents.html
+
+            const string documentEndpoint = "http://169.254.169.254/latest/dynamic/instance-identity";
+            using var client = new HttpClient();
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+            // allow 2 seconds for the request to complete, if this is EC2 instance that should be way more than enough
+            cts.CancelAfter(2000);
+
+            try
+            {
+                _ = await client.GetStringAsync(documentEndpoint, cts.Token);
+                Interlocked.Exchange(ref _isEC2, 1);
+                return true;
+            }
+            catch (Exception)
+            {
+                Interlocked.Exchange(ref _isEC2, 0);
+            }
+
+            return false;
+        }
 
         public static string EvaluateAWSVariable(string variable)
         {
@@ -82,15 +131,29 @@ namespace Amazon.KinesisTap.AWS
         /// <summary>
         /// Create AWS Client from plug-in context
         /// </summary>
-        /// <typeparam name="TAWSClient">The type of AWS Client</typeparam>
-        /// <param name="context">Plug-in context</param>
-        /// <returns>AWS Client</returns>
+        /// <typeparam name="TAWSServiceClient">The type of AWS Client.</typeparam>
+        /// <param name="context">Instance of <see cref="IPlugInContext"/> class.</param>
+        /// <param name="regionOverride">Instance of <see cref="RegionEndpoint"/> class.</param>
+        /// <returns>Instance of <see cref="AmazonServiceClient"/> class.</returns>
         public static TAWSClient CreateAWSClient<TAWSClient>(IPlugInContext context, RegionEndpoint regionOverride = null) where TAWSClient : AmazonServiceClient
         {
             (AWSCredentials credential, RegionEndpoint region) = GetAWSCredentialsRegion(context);
             if (regionOverride != null)
                 region = regionOverride;
 
+            return CreateAWSClient<TAWSClient>(context, credential, region);
+        }
+
+        /// <summary>
+        /// Create AWS Client from plug-in context
+        /// </summary>
+        /// <typeparam name="TAWSServiceClient">The type of AWS Client.</typeparam>
+        /// <param name="context">Instance of <see cref="IPlugInContext"/> class.</param>
+        /// <param name="credentials">Instance of <see cref="AWSCredentials"/> class.</param>
+        /// <param name="region">Instance of <see cref="RegionEndpoint"/> class.</param>
+        /// <returns>Instance of <see cref="AmazonServiceClient"/> class.</returns>
+        public static TAWSClient CreateAWSClient<TAWSClient>(IPlugInContext context, AWSCredentials credential, RegionEndpoint region = null) where TAWSClient : AmazonServiceClient
+        {
             var clientConfig = CreateAWSClientConfig<TAWSClient>(context, region);
             var awsClient = (TAWSClient)Activator.CreateInstance(typeof(TAWSClient), credential, clientConfig);
 
@@ -266,7 +329,7 @@ namespace Amazon.KinesisTap.AWS
                 if (_userAgent == null)
                 {
                     string programName = Path.GetFileNameWithoutExtension(ConfigConstants.KINESISTAP_EXE_NAME);
-                    string version = ProgramInfo.GetKinesisTapVersion().ProductVersion;
+                    string version = ProgramInfo.GetVersionNumber();
                     string osDescription = RuntimeInformation.OSDescription + " " + Environment.GetEnvironmentVariable("OS");
                     string dotnetFramework = RuntimeInformation.FrameworkDescription;
                     _userAgent = $"{programName}/{version} | {osDescription} | {dotnetFramework}";
@@ -289,7 +352,7 @@ namespace Amazon.KinesisTap.AWS
             // assemblies when multiple instances of the same client are created. Since each client
             // may be configured differently, we can't cache the clients (or the configs) themselves,
             // but we can cache the ClientConfig types, since they are readonly objects.
-            var configType = awsClientConfigTypeCache.GetOrAdd(typeof(TAWSClient), (type) =>
+            var configType = _awsClientConfigTypeCache.GetOrAdd(typeof(TAWSClient), (type) =>
             {
                 // Identify the "ClientConfig" for the requested SDK client. We can use the SDK's class naming
                 // convention to identify this type, replacing the word "Client" with "Config" in the client's

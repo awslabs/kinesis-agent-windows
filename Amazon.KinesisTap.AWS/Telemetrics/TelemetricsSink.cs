@@ -12,65 +12,150 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Core.Metrics;
 using Amazon.Util;
-using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using System.Linq;
-using System.Net.Http;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.AWS.Telemetrics
 {
-    public class TelemetricsSink : AWSMetricsSink<IDictionary<string, object>, HttpResponseMessage, long>
+    /// <summary>
+    /// Default implementation of <see cref="ITelemetricSink"/>.
+    /// </summary>
+    public class TelemetricsSink : AsyncTimingPlugin, IEventSink
     {
-        private ITelemetricsClient<HttpResponseMessage> _telemetricsClient;
-        private string _clientId;
+        /// <summary>
+        /// Store current-value counters.
+        /// </summary>
+        private readonly ConcurrentDictionary<MetricKey, MetricValue> _currentMetrics = new();
 
-        private const int ATTEMPT_LIMIT = 3;
-        private const int FLUSH_QUEUE_DELAY = 100; //Throttle at about 10 TPS
+        /// <summary>
+        /// Store incremental counters.
+        /// </summary>
+        private readonly ConcurrentDictionary<MetricKey, MetricValue> _incrementalMetrics = new();
 
-        protected override int AttemptLimit => ATTEMPT_LIMIT;
+        /// <summary>
+        /// Client used to send metrics.
+        /// </summary>
+        private readonly ITelemetricsClient _telemetricsClient;
 
-        protected override int FlushQueueDelay => FLUSH_QUEUE_DELAY;
-
-        public TelemetricsSink(int defaultInterval, IPlugInContext context, ITelemetricsClient<HttpResponseMessage> telemetricsClient) : base(defaultInterval, context)
+        /// <summary>
+        /// Initialize <see cref="TelemetricsSink"/>.
+        /// </summary>
+        /// <param name="id">Sink ID.</param>
+        /// <param name="intervalMs">Reporting interval in milliseconds.</param>
+        /// <param name="logger">Logger.</param>
+        public TelemetricsSink(
+            string id,
+            int intervalMs,
+            ITelemetricsClient telemetricsClient,
+            ILogger logger) : base(id, intervalMs, true, logger)
         {
             _telemetricsClient = telemetricsClient;
         }
 
-        public override void Start()
+        public override async ValueTask StartAsync(CancellationToken stopToken)
         {
-            base.Start();
-            _clientId = _context.ParameterStore.GetParameter(_telemetricsClient.ClientIdParameterName);
-            if (string.IsNullOrWhiteSpace(_clientId))
-            {
-                _clientId = _telemetricsClient.CreateClientIdAsync().Result;
-                _context.ParameterStore.SetParameter(_telemetricsClient.ClientIdParameterName, _clientId);
-            }
-            _telemetricsClient.ClientId = _clientId;
+            await base.StartAsync(stopToken);
+
+            _logger.LogInformation("Started");
         }
 
-        protected override void OnFlush(IDictionary<MetricKey, MetricValue> accumlatedValues, IDictionary<MetricKey, MetricValue> lastValues)
+        public override async ValueTask StopAsync(CancellationToken stopToken)
         {
-            Dictionary<string, object> data = new Dictionary<string, object>
+            await base.StopAsync(stopToken);
+            _logger.LogInformation("Stopped");
+        }
+
+        /// <inheritdoc/>
+        public void OnCompleted() => _logger.LogInformation("Completed");
+
+        /// <inheritdoc/>
+        public void OnError(Exception error) => _logger.LogCritical(error, "Telemetric sink error");
+
+        /// <inheritdoc/>
+        public void OnNext(IEnvelope value)
+        {
+            if (value is not MetricsEnvelope counterData)
             {
-                ["ClientId"] = _clientId,
+                _logger.LogError("Telemetric sink can process MetricsEnvelope.");
+                return;
+            }
+
+            switch (counterData.CounterType)
+            {
+                case CounterTypeEnum.CurrentValue:
+                    ProcessCurrentValue(counterData);
+                    break;
+                case CounterTypeEnum.Increment:
+                    ProcessIncrementalValue(counterData);
+                    break;
+                default:
+                    throw new NotImplementedException($"{counterData} not implemented.");
+            }
+        }
+
+        private void ProcessIncrementalValue(MetricsEnvelope counterData)
+        {
+            foreach (var name in counterData.Data?.Keys)
+            {
+                var value = counterData.Data[name];
+                var key = GetMetrickKey(counterData, name);
+                _incrementalMetrics.AddOrUpdate(
+                    key: key,
+                    addValue: value,
+                    updateValueFactory: (k, old) =>
+                    {
+                        old.Increment(value);
+                        return old;
+                    });
+            }
+        }
+
+        private void ProcessCurrentValue(MetricsEnvelope counterData)
+        {
+            foreach (var name in counterData.Data?.Keys)
+            {
+                var value = counterData.Data[name];
+                var key = GetMetrickKey(counterData, name);
+                _currentMetrics[key] = value;
+            }
+        }
+
+        private static MetricKey GetMetrickKey(MetricsEnvelope counterData, string name)
+            => new MetricKey { Name = name, Id = counterData.Id, Category = counterData.Category };
+
+        /// <inheritdoc/>
+        protected async override ValueTask ExecuteActionAsync(CancellationToken stopToken)
+        {
+            var clientId = await _telemetricsClient.GetClientIdAsync(stopToken);
+            var (memoryUsage, cpuUsage) = ProgramInfo.GetMemoryAndCpuUsage();
+
+            var data = new Dictionary<string, object>
+            {
+                ["ClientId"] = clientId,
                 ["ComputerName"] = Utility.ComputerName,
                 ["ClientTimestamp"] = DateTime.UtcNow.Round(),
-                ["OSDescription"] = RuntimeInformation.OSDescription + " " + Environment.GetEnvironmentVariable("OS"),
+                ["OSDescription"] = $"{RuntimeInformation.OSDescription} {Environment.GetEnvironmentVariable("OS")}",
                 ["DotnetFramework"] = RuntimeInformation.FrameworkDescription,
-                ["MemoryUsage"] = ProgramInfo.GetMemoryUsage(),
-                ["CPUUsage"] = ProgramInfo.GetCpuUsage(),
-                ["InstanceId"] = EC2InstanceMetadata.InstanceId,
-                ["InstanctType"] = EC2InstanceMetadata.InstanceType,
+                ["MemoryUsage"] = memoryUsage,
+                ["CPUUsage"] = cpuUsage,
                 ["FQDN"] = Utility.HostName,
-                ["IPAddress"] = EC2InstanceMetadata.PrivateIpAddress,
                 ["KinesisTapVersionNumber"] = ProgramInfo.GetVersionNumber()
             };
+
+            if (await AWSUtilities.GetIsEC2Instance(stopToken))
+            {
+                data["InstanceId"] = EC2InstanceMetadata.InstanceId;
+                data["InstanctType"] = EC2InstanceMetadata.InstanceType;
+            }
 
             if (!string.IsNullOrEmpty(Utility.AgentId))
             {
@@ -82,41 +167,28 @@ namespace Amazon.KinesisTap.AWS.Telemetrics
                 data.Add("UserId", Utility.UserId);
             }
 
-            if (accumlatedValues != null)
-            {
-                AggregateMetrics(accumlatedValues, data, list => list.Sum(l => l.Value));
-            }
+            // aggregate the incremental metrics using their sum
+            AggregateMetrics(_incrementalMetrics.ToArray(), data, list => list.Sum(l => l.Value));
 
-            if (lastValues != null)
-            {
-                AggregateMetrics(lastValues, data, list => (long)list.Average(l => l.Value));
-            }
-            PutMetricDataAsync(data).Wait();
-            Task.Run(FlushQueueAsync)
-                .ContinueWith(t =>
-                {
-                    if (t.IsFaulted && t.Exception is AggregateException aex)
-                    {
-                        aex.Handle(ex => 
-                        {
-                            _logger?.LogError($"FlushQueueAsync Exception {ex}");
-                            return true;
-                        });
-                    }
-                });
+            // aggregate the current-value metrics using the average of the metrics with the same name
+            AggregateMetrics(_currentMetrics.ToArray(), data, list => (long)list.Average(l => l.Value));
+
+            _logger.LogDebug("Sending {0} metrics", data.Count);
+            await _telemetricsClient.PutMetricsAsync(data, stopToken);
         }
 
-        protected override bool IsRecoverable(Exception ex)
+        protected void AggregateMetrics(KeyValuePair<MetricKey, MetricValue>[] sourceMetrics,
+            Dictionary<string, object> destinationData,
+            Func<IEnumerable<MetricValue>, object> aggregator)
         {
-            return !(ex is ArgumentException
-                || ex is ArgumentNullException
-                || ex is InvalidOperationException);
-        }
-
-        protected override async Task<HttpResponseMessage> SendRequestAsync(IDictionary<string, object> data)
-        {
-            var response = await _telemetricsClient.PutMetricsAsync(data);
-            return response;
+            foreach (var group in sourceMetrics.GroupBy(
+                    kv => kv.Key.Name,
+                    (k, g) => new KeyValuePair<string, object>(k, aggregator(g.Select(kv => kv.Value)))
+                )
+            )
+            {
+                destinationData[group.Key] = group.Value;
+            }
         }
     }
 }

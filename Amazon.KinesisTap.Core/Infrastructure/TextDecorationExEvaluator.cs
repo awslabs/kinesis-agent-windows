@@ -13,13 +13,11 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Text;
-
-using Amazon.KinesisTap.Expression;
-using Amazon.KinesisTap.Expression.Ast;
-using Amazon.KinesisTap.Expression.Binder;
-using Amazon.KinesisTap.Expression.TextDecoration;
+using Amazon.KinesisTap.Shared;
+using Amazon.KinesisTap.Shared.Ast;
+using Amazon.KinesisTap.Shared.Binder;
+using Amazon.KinesisTap.Shared.TextDecoration;
+using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.Core
 {
@@ -32,6 +30,12 @@ namespace Amazon.KinesisTap.Core
             Func<string, string> evaluateVariable,
             Func<string, IEnvelope, object> evaluateRecordVariable,
             IPlugInContext context
+        ) : this(objectDecoration, evaluateVariable, evaluateRecordVariable, context?.Logger) { }
+
+        public TextDecorationExEvaluator(string objectDecoration,
+            Func<string, string> evaluateVariable,
+            Func<string, IEnvelope, object> evaluateRecordVariable,
+            ILogger logger
         )
         {
             _tree = TextDecorationParserFacade.ParseTextDecoration(objectDecoration);
@@ -40,7 +44,7 @@ namespace Amazon.KinesisTap.Core
                 evaluateVariable,
                 evaluateRecordVariable,
                 binder,
-                context?.Logger
+                logger
             );
             var validator = new TextDecorationValidator<IEnvelope>(evalContext);
             validator.Visit(_tree, null); //Should throw if cannot resolve function

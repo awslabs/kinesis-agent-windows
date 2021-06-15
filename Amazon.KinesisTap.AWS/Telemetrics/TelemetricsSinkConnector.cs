@@ -14,64 +14,61 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Net;
-using System.Net.Http;
 using System.Reactive.Subjects;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-
 using Amazon.KinesisTap.Core;
 
 namespace Amazon.KinesisTap.AWS.Telemetrics
 {
     /// <summary>
-    /// Used to send telemetry data to a sink
+    /// Used to forward telemetry data to a sink.
     /// </summary>
-    public class TelemetricsSinkConnector :  EventSource<IDictionary<string, object>>, ITelemetricsClient<HttpResponseMessage>
+    public class TelemetricsSinkConnector : EventSource<IDictionary<string, object>>, ITelemetricsClient
     {
-        private ISubject<IEnvelope<IDictionary<string, object>>> _eventSubject = new Subject<IEnvelope<IDictionary<string, object>>>();
+        private const string ClientIdParameterName = "CLIENT_GUID";
+        private readonly ISubject<IEnvelope<IDictionary<string, object>>> _eventSubject
+            = new Subject<IEnvelope<IDictionary<string, object>>>();
+        private readonly IParameterStore _parameterStore;
 
-        public TelemetricsSinkConnector(IPlugInContext context) : base(context) { }
+        private string _clientId;
 
-        public string ClientId { get; set; }
-
-        public string ClientIdParameterName => "CLIENT_GUID";
-
-        public Task<string> CreateClientIdAsync()
+        public TelemetricsSinkConnector(IPlugInContext context) : base(context)
         {
-            return Task.FromResult(Guid.NewGuid().ToString());
+            _parameterStore = context.ParameterStore;
+            _clientId = _parameterStore.GetParameter(ClientIdParameterName);
         }
 
-        public Task<HttpResponseMessage> PutMetricsAsync(IDictionary<string, object> data)
+        /// <inheritdoc/>
+        public ValueTask<string> GetClientIdAsync(CancellationToken cancellationToken)
         {
-            //Since OnNext is asynchronous and we are getting the response back, we simulate a response to satisfy the caller
-            HttpResponseMessage response = null;
-            try
+            if (string.IsNullOrWhiteSpace(_clientId))
             {
-                _eventSubject.OnNext(new Envelope<IDictionary<string, object>>(data, DateTime.UtcNow));
-                response = new HttpResponseMessage(HttpStatusCode.OK);
+                _clientId = Guid.NewGuid().ToString();
+                _parameterStore.SetParameter(ClientIdParameterName, _clientId);
             }
-            catch(Exception ex)
-            {
-                response = new HttpResponseMessage(HttpStatusCode.InternalServerError)
-                {
-                    Content = new StringContent(ex.ToString())
-                };
-            }
-            return Task.FromResult(response);
+
+            return ValueTask.FromResult(_clientId);
         }
 
+        /// <inheritdoc/>
+        public Task PutMetricsAsync(IDictionary<string, object> data, CancellationToken cancellationToken = default)
+        {
+            _eventSubject.OnNext(new Envelope<IDictionary<string, object>>(data, DateTime.UtcNow));
+            return Task.CompletedTask;
+        }
+
+        /// <inheritdoc/>
         public override void Start()
         {
         }
 
+        /// <inheritdoc/>
         public override void Stop()
         {
         }
 
-        public override IDisposable Subscribe(IObserver<IEnvelope<IDictionary<string, object>>> observer)
-        {
-            return _eventSubject.Subscribe(observer);
-        }
+        /// <inheritdoc/>
+        public override IDisposable Subscribe(IObserver<IEnvelope<IDictionary<string, object>>> observer) => _eventSubject.Subscribe(observer);
     }
 }

@@ -12,7 +12,6 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
 
@@ -24,7 +23,7 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
     public class DirectorySourceValidator : ISourceValidator
     {
         // The list of record parsers for Directory source
-        private readonly HashSet<String> recordParsers = new HashSet<String>() { "timestamp", "singleline", "regex", "syslog", "delimited", "singlelinejson" };
+        private readonly HashSet<string> _recordParsers = new HashSet<string>() { "timestamp", "singleline", "regex", "syslog", "delimited", "singlelinejson" };
 
         /// <summary>
         /// Validate the source section
@@ -36,7 +35,7 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         public bool ValidateSource(IConfigurationSection sourceSection, string id, IList<string> messages)
         {
             string recordParser = sourceSection["RecordParser"].ToLower();
-            if (!recordParsers.Contains(recordParser))
+            if (!_recordParsers.Contains(recordParser))
             {
                 messages.Add($"RecordParser {recordParser} is not valid in source ID: {id}.");
                 return false;
@@ -75,24 +74,10 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
             else if (recordParser.Equals("delimited"))
             {
                 string delimiter = sourceSection["Delimiter"];
-                string timestampField = sourceSection["TimestampField"];
-                string timestampFormat = sourceSection["TimestampFormat"];
 
                 if (string.IsNullOrEmpty(delimiter))
                 {
                     messages.Add($"Attribute 'Delimiter' is required in source ID: {id}.");
-                    return false;
-                }
-
-                if (string.IsNullOrEmpty(timestampField))
-                {
-                    messages.Add($"Attribute 'TimestampField' is required in source ID: {id}.");
-                    return false;
-                }
-
-                if (string.IsNullOrEmpty(timestampFormat))
-                {
-                    messages.Add($"Attribute 'TimestampFormat' is required in source ID: {id}.");
                     return false;
                 }
             }

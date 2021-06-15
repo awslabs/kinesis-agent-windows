@@ -17,8 +17,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Amazon.KinesisTap.Core
 {
@@ -38,28 +38,28 @@ namespace Amazon.KinesisTap.Core
             _logger = context.Logger;
             _config = context.Configuration;
             _metrics = context.Metrics;
-            this.Id = _config[ConfigConstants.ID];
-            _format = _config[ConfigConstants.FORMAT];
+            Id = _config?[ConfigConstants.ID];
+            _format = _config?[ConfigConstants.FORMAT];
 
-            string textDecoration = _config[ConfigConstants.TEXT_DECORATION];
+            string textDecoration = _config?[ConfigConstants.TEXT_DECORATION];
             if (!string.IsNullOrWhiteSpace(textDecoration))
             {
                 _textDecorationEvaluator = new TextDecorationEvaluator(textDecoration, ResolveRecordVariables);
             }
 
-            string textDecorationEx = _config[ConfigConstants.TEXT_DECORATION_EX];
+            string textDecorationEx = _config?[ConfigConstants.TEXT_DECORATION_EX];
             if (!string.IsNullOrWhiteSpace(textDecorationEx))
             {
                 _textDecorationEvaluator = new TextDecorationExEvaluator(textDecorationEx, EvaluateVariable, ResolveRecordVariable, context);
             }
 
-            string objectDecoration = _config[ConfigConstants.OBJECT_DECORATION];
+            string objectDecoration = _config?[ConfigConstants.OBJECT_DECORATION];
             if (!string.IsNullOrWhiteSpace(objectDecoration))
             {
                 _objectDecorationEvaluator = new ObjectDecorationEvaluator(objectDecoration, ResolveRecordVariables);
             }
 
-            string objectDecorationEx = _config[ConfigConstants.OBJECT_DECORATION_EX];
+            string objectDecorationEx = _config?[ConfigConstants.OBJECT_DECORATION_EX];
             if (!string.IsNullOrWhiteSpace(objectDecorationEx))
             {
                 _objectDecorationEvaluator = new ObjectDecorationExEvaluator(objectDecorationEx, EvaluateVariable, ResolveRecordVariable, context);
@@ -71,15 +71,27 @@ namespace Amazon.KinesisTap.Core
 
         public virtual void OnCompleted()
         {
-            _logger?.LogInformation($"{this.GetType()} {this.Id} completed.");
+            _logger?.LogInformation($"{GetType()} {Id} completed.");
         }
 
         public virtual void OnError(Exception error)
         {
-            _logger?.LogCritical($"{this.GetType()} {this.Id} error: {error}.");
+            _logger?.LogCritical(error, $"{GetType()} {Id} error");
         }
 
         public abstract void OnNext(IEnvelope envelope);
+
+        public virtual ValueTask StartAsync(CancellationToken stopToken)
+        {
+            Start();
+            return ValueTask.CompletedTask;
+        }
+
+        public virtual ValueTask StopAsync(CancellationToken gracefulStopToken)
+        {
+            Stop();
+            return ValueTask.CompletedTask;
+        }
 
         public abstract void Start();
 

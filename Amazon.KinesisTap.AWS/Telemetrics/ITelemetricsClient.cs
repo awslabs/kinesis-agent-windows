@@ -12,24 +12,39 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Amazon.KinesisTap.AWS.Telemetrics
 {
-    public interface ITelemetricsClient<TResponse>
+    /// <summary>
+    /// Used to work send the telemetric data to a particular endpoint. 
+    /// </summary>
+    public interface ITelemetricsClient
     {
-        //An unique ID to Identify the installation. This could be a Cognito User pool ClientID
-        string ClientId { get; set; }
+        ////An unique ID to Identify the installation. This could be a Cognito User pool ClientID
+        //string ClientId { get; set; }
 
-        //Send metrics to telemetry
-        Task<TResponse> PutMetricsAsync(IDictionary<string, object> data);
+        /// <summary>
+        /// Send the telemetric data, in the form of key-value pairs.
+        /// </summary>
+        /// <param name="data">Telemetric data.</param>
+        /// <param name="cancellationToken">Stop the request.</param>
+        /// <returns>Task that completes when data is sent.</returns>
+        Task PutMetricsAsync(IDictionary<string, object> data, CancellationToken cancellationToken = default);
 
-        //Generate a new unique ID
-        Task<string> CreateClientIdAsync();
+        ////Generate a new unique ID
+        //Task<string> CreateClientIdAsync();
 
-        //Allow each client to use its own parameter name to avoid conflict
-        string ClientIdParameterName { get; }
+        ////Allow each client to use its own parameter name to avoid conflict
+        //string ClientIdParameterName { get; }
+
+        /// <summary>
+        /// Retrieve the Client ID for this telemetric client.
+        /// </summary>
+        /// <param name="cancellationToken">Cancel this call.</param>
+        /// <returns>Client ID.</returns>
+        ValueTask<string> GetClientIdAsync(CancellationToken cancellationToken);
     }
 }

@@ -1,7 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net46</TargetFramework>
-    <LangVersion>8.0</LangVersion>
+    <TargetFramework>net5.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <NoWarn>CA1416</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <None Include="testSettings.json">
@@ -9,17 +10,26 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-	<PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.6.1" />
-	<PackageReference Include="Moq" Version="4.13.0" />
-	<PackageReference Include="xunit" Version="2.4.1" />
-	<PackageReference Include="xunit.runner.visualstudio" Version="2.4.1">
-	  <PrivateAssets>all</PrivateAssets>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.1" />
+    <PackageReference Include="Moq" Version="4.16.1" />
+    <PackageReference Include="xunit" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
+      <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-	</PackageReference>
+    </PackageReference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Amazon.KinesisTap.AWS\Amazon.KinesisTap.AWS.csproj" />
     <ProjectReference Include="..\Amazon.KinesisTap.Test.Common\Amazon.KinesisTap.Test.Common.csproj" />
     <ProjectReference Include="..\Amazon.KinesisTap.Windows\Amazon.KinesisTap.Windows.csproj" />
   </ItemGroup>
+
+  <!--<Target Name="SetupEventLog" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <ScriptLocation Condition=" '$(ScriptLocation)'=='' ">
+        $(ProjectDir)SetupLog.ps1
+      </ScriptLocation>
+    </PropertyGroup>
+    <Exec Command="powershell.exe -NonInteractive -executionpolicy Unrestricted  -command &quot;&amp; { &amp;&apos;$(ProjectDir)SetupLog.ps1&apos; } &quot;" />
+  </Target>-->
 </Project>

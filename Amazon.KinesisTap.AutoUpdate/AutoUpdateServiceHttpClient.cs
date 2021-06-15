@@ -30,7 +30,7 @@ namespace Amazon.KinesisTap.AutoUpdate
             var handler = new HttpClientHandler();
 
             // handler.Proxy
-            this.http = new HttpClient(handler, true)
+            http = new HttpClient(handler, true)
             {
                 Timeout = TimeSpan.FromMinutes(60)
             };
@@ -52,7 +52,7 @@ namespace Amazon.KinesisTap.AutoUpdate
             if (disposing)
             {
                 // Free any other managed objects here.
-                this.http?.Dispose();
+                http?.Dispose();
             }
 
             disposed = true;
@@ -60,7 +60,7 @@ namespace Amazon.KinesisTap.AutoUpdate
 
         public async Task<string> SendRequest(HttpRequestMessage request, CancellationToken ct)
         {
-            using (var resp = await this.http.SendAsync(request, ct))
+            using (var resp = await http.SendAsync(request, ct))
             {
                 if (resp.IsSuccessStatusCode)
                 {

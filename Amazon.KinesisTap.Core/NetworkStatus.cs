@@ -50,12 +50,12 @@ namespace Amazon.KinesisTap.Core
             return _addtionalNetworkStatusProviders.All(p => p.CanDownload(priority)); //All providers must indicate OK
         }
 
-        internal void RegisterNetworkStatusProvider(INetworkStatusProvider networkStatus)
+        public void RegisterNetworkStatusProvider(INetworkStatusProvider networkStatus)
         {
             _addtionalNetworkStatusProviders.Add(networkStatus);
         }
 
-        internal void ResetNetworkStatusProviders()
+        public void ResetNetworkStatusProviders()
         {
             _addtionalNetworkStatusProviders.Clear();
         }

@@ -12,21 +12,19 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using Amazon.KinesisTap.Core;
+using Amazon.KinesisTap.Core.Test;
+using Amazon.KinesisTap.Test.Common;
+using Microsoft.Extensions.Logging.Abstractions;
+using Xunit;
+
 namespace Amazon.KinesisTap.Windows.Test
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Diagnostics;
-    using System.IO;
-    using System.Linq;
-    using System.Threading;
-    using Amazon.KinesisTap.AWS;
-    using Amazon.KinesisTap.Core;
-    using Amazon.KinesisTap.Core.Test;
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.Logging.Abstractions;
-    using Xunit;
-
     /// <summary>
     /// Tests that verify the behavior of the eventlog watcher and bookmarks when BookmarkOnBufferFlush is enabled.
     /// 
@@ -35,244 +33,298 @@ namespace Amazon.KinesisTap.Windows.Test
     /// When it is "false", we are simulating the situation when the sink has NOT acknowledged the sending of events.
     /// This allows us to verify that the callbacks in the sinks are updating the bookmarks as expected.
     /// </summary>
+    [Collection(nameof(EventLogBookmarkBufferedSinkTest))]
     public class EventLogBookmarkBufferedSinkTest : IDisposable
     {
         private const string LogName = "Application";
-        private const string LogSource = nameof(EventLogBookmarkBufferedSinkTest);
-        private readonly BookmarkManager _bookmarkManager = new BookmarkManager();
+        private readonly string _bookmarkDir = Path.Combine(TestUtility.GetTestHome(), Guid.NewGuid().ToString());
+        private readonly string _logSource = $"{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}-{Guid.NewGuid()}";
 
         public EventLogBookmarkBufferedSinkTest()
         {
-            if (!EventLog.SourceExists(LogSource))
+            if (!EventLog.SourceExists(_logSource))
             {
-                EventLog.CreateEventSource(LogSource, LogName);
+                EventLog.CreateEventSource(_logSource, LogName);
             }
-        }
-
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public void TestInitialPositionBOS(bool acknowledge)
-        {
-            var records = new ListEventSink();
-            var sourceId = "TestEvtInitialPositionTimeStamp";
-            var eventId = (int)(DateTime.Now.Ticks % ushort.MaxValue);
-            var msg = "A fresh message";
-
-            // Write some events before the source is created
-            for (int i = 0; i < 3; i++)
-                EventLog.WriteEntry(LogSource, msg, EventLogEntryType.Information, eventId);
-
-            Thread.Sleep(1000);
-            var now = DateTime.UtcNow;
-            using (var source = CreateSource(sourceId, eventId))
-            {
-                source.Subscribe(records);
-                source.Id = sourceId;
-                source.InitialPosition = InitialPositionEnum.BOS;
-                source.Start();
-
-                for (int i = 0; i < 5; i++)
-                    EventLog.WriteEntry(LogSource, msg, EventLogEntryType.Information, eventId);
-
-                Thread.Sleep(5000);
-
-                if (acknowledge)
-                {
-                    // Send the acknowledgements as if they had come from sources.
-                    var bookmark = Assert.IsType<BookmarkInfo>(_bookmarkManager.GetBookmark(sourceId));
-                    _bookmarkManager.SaveBookmark(bookmark.Id, records.Last().Position, null);
-                }
-
-                source.Stop();
-                Thread.Sleep(1000);
-
-                Assert.True(records[0].Timestamp < now, $"First record should have been written before {now}, but was written at {records[0].Timestamp}");
-
-                var lastRecordTimestamp = records.Last().Timestamp;
-                Assert.True(lastRecordTimestamp > now, $"Last record should have been written after {now}, but was written at {records.Last().Timestamp}");
-
-                records.Clear();
-
-                //Write some new logs after the source stop
-                var newmsg = "A fresh message after source stop";
-                EventLog.WriteEntry(LogSource, newmsg, EventLogEntryType.Information, eventId);
-                Thread.Sleep(1000);
-                source.Start();
-                Thread.Sleep(3000);
-
-                IEnvelope lastRecord;
-                if (acknowledge)
-                {
-                    lastRecord = Assert.Single(records);
-                }
-                else
-                {
-                    Assert.Equal(9, records.Count);
-                    lastRecord = records.Last();
-                }
-
-                Assert.True(lastRecord.Timestamp > lastRecordTimestamp);
-                Assert.Matches("after source stop", lastRecord.GetMessage("string"));
-            }
-        }
-
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public void TestInitialPositionBookMark(bool acknowledge)
-        {
-            var records = new ListEventSink();
-            var sourceId = "TestEvtInitialPositionBookMark";
-            var eventId = (int)(DateTime.Now.Ticks % ushort.MaxValue);
-            var msg = "A fresh message";
-
-            // Write some events before the source is created
-            for (int i = 0; i < 3; i++)
-                EventLog.WriteEntry(LogSource, msg, EventLogEntryType.Information, eventId);
-
-            var now = DateTime.UtcNow;
-            using (var source = CreateSource(sourceId, eventId))
-            {
-                source.Subscribe(records);
-                source.Id = sourceId;
-                source.InitialPosition = InitialPositionEnum.Bookmark;
-                source.Start();
-
-                Thread.Sleep(2000);
-
-                // When using Bookmark as Initial position, and there is no bookmark, it should not process old events.
-                Assert.Empty(records);
-
-                EventLog.WriteEntry(LogSource, msg, EventLogEntryType.Information, eventId);
-
-                Thread.Sleep(1000);
-
-                if (acknowledge)
-                {
-                    // Send the acknowledgements as if they had come from sources.
-                    var bookmark = Assert.IsType<BookmarkInfo>(_bookmarkManager.GetBookmark(sourceId));
-                    _bookmarkManager.SaveBookmark(bookmark.Id, records.Last().Position, null);
-                }
-
-                source.Stop();
-                Thread.Sleep(1000);
-
-                var lastRecordTimestamp = Assert.Single(records).Timestamp;
-                Assert.True(lastRecordTimestamp > now);
-
-                records.Clear();
-
-                //Write some new logs after the source stop
-                var newmsg = "A fresh message after source stop";
-                EventLog.WriteEntry(LogSource, newmsg, EventLogEntryType.Information, eventId);
-                Thread.Sleep(1000);
-                source.Start();
-                Thread.Sleep(1000);
-
-                // If it's a clean shutdown (i.e. config reload), the bookmark isn't removed from BookmarkManager,
-                // so the source should pick up where it left off according to the previous bookmark value.
-                if (acknowledge)
-                {
-                    var lastRecord = Assert.Single(records);
-                    Assert.True(lastRecord.Timestamp > lastRecordTimestamp);
-                    Assert.Matches("after source stop", lastRecord.GetMessage("string"));
-                }
-                else
-                {
-                    // When using Bookmark as Initial position, and there is no bookmark, it should not process old events.
-                    // Since we didn't commit the bookmark in this theory, no records should be returned.
-                    Assert.Empty(records);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Tests that when EventLogSource stops, the connected sink is able to flush the bookmark immediately,
-        /// so that buffered events in the sink are not duplicated next time the source starts.
-        /// </summary>
-        [Fact]
-        public void TestBookmarkFlushedAfterSourceStops()
-        {
-            var localSinkPath = Path.Combine(TestUtility.GetTestHome(), $"{nameof(TestBookmarkFlushedAfterSourceStops)}-{Guid.NewGuid()}");
-            var localSinkconfig = new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string> { ["FilePath"] = localSinkPath, ["Id"] = "LocalSink" })
-                .Build();
-            var localSink = new FileSystemEventSink(new PluginContext(localSinkconfig, NullLogger.Instance, null, _bookmarkManager, null, null), 100, 1, 5, 5);
-
-            var sourceId = nameof(TestBookmarkFlushedAfterSourceStops);
-            var eventId = (int)(DateTime.Now.Ticks % ushort.MaxValue);
-            var msg = $"{nameof(TestBookmarkFlushedAfterSourceStops)} message";
-            var bookmarkFilePath = Path.Combine(Utility.GetKinesisTapProgramDataPath(), ConfigConstants.BOOKMARKS, $"{sourceId}.bm");
-
-            using (var source = CreateSource(sourceId, eventId))
-            {
-                source.Subscribe(localSink);
-                source.Id = sourceId;
-                source.InitialPosition = InitialPositionEnum.Bookmark;
-                source.Start();
-                localSink.Start();
-
-                // generate an event
-                EventLog.WriteEntry(LogSource, msg, EventLogEntryType.Information, eventId);
-                Thread.Sleep(1000);
-
-                // assert sure that the event exists in the sink and the first bookmark is always flushed
-                Assert.True(File.Exists(localSinkPath));
-                Assert.True(File.Exists(bookmarkFilePath));
-
-                var bookmarkFileWriteTime = File.GetLastWriteTime(bookmarkFilePath);
-
-                // we now create a situation where the sink has records in the buffer while the source stops
-                // we do so by acquiring a lock on the local sink file
-                var sinkFileStream = File.OpenWrite(localSinkPath);
-                // generate an event
-                EventLog.WriteEntry(LogSource, msg, EventLogEntryType.Information, eventId);
-                Thread.Sleep(1000);
-
-                // stop the source
-                source.Stop();
-                // now release the file lock
-                sinkFileStream.Close();
-                Thread.Sleep(3000);
-
-                // assert that the bookmark file is updated.
-                Assert.True(File.GetLastWriteTime(bookmarkFilePath) > bookmarkFileWriteTime);
-                source.Start();
-                Thread.Sleep(1000);
-
-                // assert that the sink contains exactly 2 records, meaning no duplicate event is streamed
-                Assert.Equal(2, File.ReadAllLines(localSinkPath).Length);
-
-                File.Delete(localSinkPath);
-            }
-        }
-
-        private EventLogSource CreateSource(string sourceId, int eventId)
-        {
-            DeleteExistingBookmarkFile(sourceId);
-            _bookmarkManager.RemoveBookmark(sourceId);
-
-            var config = new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string> { ["BookmarkOnBufferFlush"] = "true", ["Id"] = sourceId })
-                .Build();
-
-            return new EventLogSource(LogName, $"*[System[EventID={eventId}]]", new PluginContext(config, null, null, _bookmarkManager));
-        }
-
-        private static void DeleteExistingBookmarkFile(string sourceId)
-        {
-            var bookmarkFile = Path.Combine(Utility.GetKinesisTapProgramDataPath(), ConfigConstants.BOOKMARKS, $"{sourceId}.bm");
-            if (File.Exists(bookmarkFile))
-                File.Delete(bookmarkFile);
         }
 
         public void Dispose()
         {
-            if (EventLog.SourceExists(LogSource))
+            if (EventLog.SourceExists(_logSource))
             {
-                EventLog.DeleteEventSource(LogSource);
+                EventLog.DeleteEventSource(_logSource);
             }
+            if (Directory.Exists(_bookmarkDir))
+            {
+                Directory.Delete(_bookmarkDir, true);
+            }
+        }
+
+        [WindowsOnlyTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task InitialPositionBOS(bool polling)
+        {
+            var sink = new ListEventSink();
+            var msg = "A fresh message";
+
+            // Write some events before the source is created
+            for (var i = 0; i < 3; i++)
+            {
+                EventLog.WriteEntry(_logSource, msg, EventLogEntryType.Information);
+            }
+
+            await Task.Delay(100);
+            var bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+
+            var cts = new CancellationTokenSource();
+            var source = CreateSource(polling, LogName, bm, InitialPositionEnum.BOS);
+
+            var subscription = source.Subscribe(sink);
+
+            await bm.StartAsync(cts.Token);
+            await source.StartAsync(cts.Token);
+
+            await Task.Delay(1000);
+            Assert.Equal(3, sink.Count);
+
+            cts.Cancel();
+            await source.StopAsync(default);
+            await bm.StopAsync(default);
+            subscription.Dispose();
+
+            for (var i = 0; i < 5; i++)
+            {
+                EventLog.WriteEntry(_logSource, msg, EventLogEntryType.Information);
+            }
+
+            sink.Clear();
+            bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+            cts = new CancellationTokenSource();
+            source = CreateSource(polling, LogName, bm, InitialPositionEnum.BOS);
+            source.Subscribe(sink);
+
+            await bm.StartAsync(cts.Token);
+            await source.StartAsync(cts.Token);
+
+            await Task.Delay(1000);
+            Assert.Equal(5, sink.Count);
+
+            cts.Cancel();
+            await source.StopAsync(default);
+            await bm.StopAsync(default);
+        }
+
+        [WindowsOnlyTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task InitialPositionBookmark(bool polling)
+        {
+            var sink = new ListEventSink();
+            var msg = "A fresh message";
+
+            // Write some events before the source is created
+            for (var i = 0; i < 3; i++)
+            {
+                EventLog.WriteEntry(_logSource, msg, EventLogEntryType.Information);
+            }
+            await Task.Delay(100);
+
+            var bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+
+            var cts = new CancellationTokenSource();
+            var source = CreateSource(polling, LogName, bm, InitialPositionEnum.Bookmark);
+
+            var subscription = source.Subscribe(sink);
+
+            await bm.StartAsync(cts.Token);
+            await source.StartAsync(cts.Token);
+
+            await Task.Delay(1000);
+            Assert.Empty(sink);
+
+            for (var i = 0; i < 5; i++)
+            {
+                EventLog.WriteEntry(_logSource, msg, EventLogEntryType.Information);
+            }
+
+            await Task.Delay(1000);
+            Assert.Equal(5, sink.Count);
+
+            cts.Cancel();
+            await source.StopAsync(default);
+            await bm.StopAsync(default);
+            subscription.Dispose();
+
+            for (var i = 0; i < 7; i++)
+            {
+                EventLog.WriteEntry(_logSource, msg, EventLogEntryType.Information);
+            }
+
+            bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+            cts = new CancellationTokenSource();
+            source = CreateSource(polling, LogName, bm, InitialPositionEnum.Bookmark);
+
+            source.Subscribe(sink);
+
+            await bm.StartAsync(cts.Token);
+            await source.StartAsync(cts.Token);
+
+            await Task.Delay(1000);
+            Assert.Equal(12, sink.Count);
+
+            cts.Cancel();
+            await source.StopAsync(default);
+            await bm.StopAsync(default);
+        }
+
+        [WindowsOnlyTheory]
+        [InlineData(true, InitialPositionEnum.Bookmark)]
+        [InlineData(false, InitialPositionEnum.Bookmark)]
+        [InlineData(true, InitialPositionEnum.BOS)]
+        [InlineData(false, InitialPositionEnum.BOS)]
+        public async Task BookmarkOnBufferFlush(bool polling, InitialPositionEnum initialPosition)
+        {
+            const string msg = "BookmarkOnBufferFlush";
+            var bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+            var sink = new ThrottledListEventSink(bm);
+
+            // Write 3 events before the source is created
+            for (var i = 0; i < 3; i++)
+            {
+                EventLog.WriteEntry(_logSource, msg, EventLogEntryType.Information);
+            }
+            await Task.Delay(100);
+
+            var cts = new CancellationTokenSource();
+            var source = CreateSource(polling, LogName, bm, initialPosition, true);
+
+            var subscription = source.Subscribe(sink);
+            await bm.StartAsync(cts.Token);
+            await source.StartAsync(cts.Token);
+
+            // write 5 events
+            for (var i = 0; i < 5; i++)
+            {
+                EventLog.WriteEntry(_logSource, msg, EventLogEntryType.Information);
+            }
+
+            await Task.Delay(1000);
+            Assert.Empty(sink);
+
+            // stop the pipeline
+            cts.Cancel();
+            await source.StopAsync(default);
+            await bm.StopAsync(default);
+            subscription.Dispose();
+
+            // re-start the pipeline
+            cts = new CancellationTokenSource();
+            bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+            sink = new ThrottledListEventSink(bm);
+            source = CreateSource(polling, LogName, bm, initialPosition, true);
+            subscription = source.Subscribe(sink);
+            await bm.StartAsync(cts.Token);
+            await source.StartAsync(cts.Token);
+
+            await Task.Delay(1000);
+            await sink.AllowEvents();
+            // the sink now should collect all the existing items since position should not have been bookmarked before
+            Assert.Equal(initialPosition == InitialPositionEnum.Bookmark ? 5 : 8, sink.Count);
+
+            // stop the pipeline
+            cts.Cancel();
+            await source.StopAsync(default);
+            await bm.StopAsync(default);
+            subscription.Dispose();
+
+            // re-start the pipeline one more time
+            cts = new CancellationTokenSource();
+            bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+            sink = new ThrottledListEventSink(bm);
+            source = CreateSource(polling, LogName, bm, initialPosition, true);
+            subscription = source.Subscribe(sink);
+            await bm.StartAsync(cts.Token);
+            await source.StartAsync(cts.Token);
+
+            // write 7 events
+            for (var i = 0; i < 7; i++)
+            {
+                EventLog.WriteEntry(_logSource, msg, EventLogEntryType.Information);
+            }
+            await Task.Delay(1000);
+            await sink.AllowEvents();
+
+            // last position should be bookmarked, so only records from this session is collected
+            Assert.Equal(7, sink.Count);
+
+            // stop the pipeline
+            cts.Cancel();
+            await source.StopAsync(default);
+            await bm.StopAsync(default);
+            subscription.Dispose();
+        }
+
+        private IEventSource CreateSource(bool polling, string logName,
+            IBookmarkManager bookmarkManager,
+            InitialPositionEnum initialPosition = InitialPositionEnum.Bookmark,
+            bool bookmarkOnFlush = false,
+            DateTime initialPositionTimestamp = default)
+        {
+            IEventSource source;
+            if (polling)
+            {
+                source = CreatePollingSource(logName, bookmarkManager, initialPosition, bookmarkOnFlush, initialPositionTimestamp);
+            }
+            else
+            {
+                source = CreateNotificationSource(logName, bookmarkManager, initialPosition, bookmarkOnFlush, initialPositionTimestamp);
+            }
+
+            return source;
+        }
+
+        private WindowsEventPollingSource CreatePollingSource(string logName,
+            IBookmarkManager bookmarkManager,
+            InitialPositionEnum initialPosition,
+            bool bookmarkOnFlush,
+            DateTime initialPositionTimestamp)
+        {
+            var query = $"*[System/Provider/@Name='{_logSource}']";
+            if (initialPositionTimestamp.Kind == DateTimeKind.Unspecified)
+            {
+                initialPositionTimestamp = DateTime.SpecifyKind(initialPositionTimestamp, DateTimeKind.Utc);
+            }
+            return new WindowsEventPollingSource(nameof(EventLogBookmarkBufferedSinkTest), logName, query, bookmarkManager, new WindowsEventLogPollingSourceOptions
+            {
+                MaxReaderDelayMs = 500,
+                InitialPosition = initialPosition,
+                InitialPositionTimestamp = initialPositionTimestamp.ToUniversalTime(),
+                BookmarkOnBufferFlush = bookmarkOnFlush
+            }, new PluginContext(null, NullLogger.Instance, null));
+        }
+
+        private EventLogSource CreateNotificationSource(string logName,
+            IBookmarkManager bookmarkManager,
+            InitialPositionEnum initialPosition,
+            bool bookmarkOnFlush,
+            DateTime initialPositionTimestamp)
+        {
+            var query = $"*[System/Provider/@Name='{_logSource}']";
+            if (initialPositionTimestamp.Kind == DateTimeKind.Unspecified)
+            {
+                initialPositionTimestamp = DateTime.SpecifyKind(initialPositionTimestamp, DateTimeKind.Utc);
+            }
+
+            var source = new EventLogSource(nameof(EventLogBookmarkBufferedSinkTest), LogName, query, bookmarkManager,
+                new WindowsEventLogSourceOptions
+                {
+                    InitialPosition = initialPosition,
+                    BookmarkOnBufferFlush = bookmarkOnFlush,
+                    InitialPositionTimestamp = initialPositionTimestamp.ToUniversalTime()
+                },
+                new PluginContext(null, NullLogger.Instance, null));
+            return source;
         }
     }
 }

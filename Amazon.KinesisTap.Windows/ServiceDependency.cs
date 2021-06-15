@@ -14,64 +14,70 @@
  */
 using Amazon.KinesisTap.Core;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Runtime.Versioning;
 using System.ServiceProcess;
 
 namespace Amazon.KinesisTap.Windows
 {
+    /// <summary>
+    /// Represents dependency on a Windows Service
+    /// </summary>
+    [SupportedOSPlatform("windows")]
     public class ServiceDependency : Dependency
     {
-        public string DependentServiceName { get; private set; }
+        /// <summary>
+        /// Name of the service.
+        /// </summary>
+        private readonly string _dependentServiceName;
 
-        public override string Name => $"Service {DependentServiceName}";
+        /// <inheritdoc/>
+        public override string Name => $"Service {_dependentServiceName}";
 
-        private ServiceController _controller = null;
+        private readonly ServiceController _controller;
 
-
+        /// <summary>
+        /// Initialize a <see cref="ServiceDependency"/> object.
+        /// </summary>
+        /// <param name="dependentServiceName"></param>
         public ServiceDependency(string dependentServiceName)
         {
-            this.DependentServiceName = dependentServiceName;
+            _dependentServiceName = dependentServiceName;
+            _controller = new ServiceController(dependentServiceName);
         }
 
+        /// <inheritdoc/>
         public override bool IsDependencyAvailable()
         {
-            for (int i = 0; i < 2; i++)
+            try
             {
-                try
-                {
-                    if (_controller == null)
-                    {
-                        _controller = new ServiceController(DependentServiceName);
-                    }
-                    else
-                    {
-                        _controller.Refresh();
-                    }
-                    _controller.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromMilliseconds(200));
-                    _controller.Refresh();
-                    return _controller.Status.Equals(ServiceControllerStatus.Running);
-                }
-                catch (Exception)
-                {
-                    _controller = null;
-                }
+                _controller.Refresh();
+                _controller.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromMilliseconds(200));
+                return _controller.Status.Equals(ServiceControllerStatus.Running);
             }
-            return false;
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
         }
 
+        // To detect redundant calls
+        private bool _disposed = false;
+
+        // Protected implementation of Dispose pattern.
         protected override void Dispose(bool disposing)
         {
+            if (_disposed)
+            {
+                return;
+            }
+
             if (disposing)
             {
-                if (_controller != null)
-                {
-                    _controller.Dispose();
-                    _controller = null;
-                }
+                // Dispose managed state (managed objects).
+                _controller.Dispose();
             }
+
+            _disposed = true;
         }
     }
 }

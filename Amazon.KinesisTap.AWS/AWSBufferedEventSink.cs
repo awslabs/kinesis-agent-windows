@@ -12,20 +12,21 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
+using System.Reactive.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Amazon.CognitoIdentity.Model;
+using Amazon.KinesisTap.Core;
+using Amazon.KinesisTap.Core.Metrics;
+using Amazon.Runtime;
+using Microsoft.Extensions.Logging;
+
 namespace Amazon.KinesisTap.AWS
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Net;
-    using System.Reactive.Linq;
-    using System.Threading.Tasks;
-    using Amazon.CognitoIdentity.Model;
-    using Amazon.KinesisTap.Core;
-    using Amazon.KinesisTap.Core.Metrics;
-    using Amazon.Runtime;
-    using Microsoft.Extensions.Logging;
-
     public abstract class AWSBufferedEventSink<TRecord> : BatchEventSink<TRecord>
     {
         protected readonly int _maxAttempts;
@@ -46,7 +47,7 @@ namespace Amazon.KinesisTap.AWS
         protected long _latency;
         protected long _clientLatency;
 
-        protected bool? _hasBookmarkableSource;
+        protected int _hasBookmarkableSource = -1;
 
         public AWSBufferedEventSink(
             IPlugInContext context,
@@ -86,20 +87,22 @@ namespace Amazon.KinesisTap.AWS
             }
         }
 
-        protected BookmarkManager BookmarkManager => _context.BookmarkManager;
-
         protected NetworkStatus NetworkStatus => _context.NetworkStatus;
 
         protected override void OnNextBatch(List<Envelope<TRecord>> records)
         {
             if (records?.Count > 0)
             {
-                this._logger?.LogTrace("[{0}] Waiting for new batch to be processed...", nameof(AWSBufferedEventSink<TRecord>.OnNextBatch));
-                ThrottledOnNextAsync(records).Wait();
+                _logger?.LogTrace("[{0}] Waiting for new batch to be processed...", nameof(AWSBufferedEventSink<TRecord>.OnNextBatch));
+                try
+                {
+                    ThrottledOnNextAsync(records, _stopToken).GetAwaiter().GetResult();
+                }
+                catch (OperationCanceledException) { }
             }
         }
 
-        protected virtual async Task ThrottledOnNextAsync(List<Envelope<TRecord>> records)
+        protected virtual async Task ThrottledOnNextAsync(List<Envelope<TRecord>> records, CancellationToken cancellationToken)
         {
             int recordCount = records.Count;
             long batchBytes = records.Select(r => GetRecordSize(r)).Sum();
@@ -114,18 +117,18 @@ namespace Amazon.KinesisTap.AWS
             if (!(NetworkStatus?.DefaultProvider is null))
             {
                 int waitCount = 0;
-                while (!NetworkStatus.CanUpload(_uploadNetworkPriority))
+                while (!NetworkStatus.CanUpload(_uploadNetworkPriority) && !_stopToken.IsCancellationRequested)
                 {
                     if (waitCount % 30 == 0) //Reduce the log entries
                     {
                         _logger?.LogInformation("Network not available. Will retry.");
                     }
                     waitCount++;
-                    await Task.Delay(10000); //Wait 10 seconds
+                    await Task.Delay(10000, cancellationToken); //Wait 10 seconds
                 }
             }
 
-            this._logger?.LogTrace("[{0}] Sending {1} records to sink...", nameof(AWSBufferedEventSink<TRecord>.ThrottledOnNextAsync), records.Count);
+            _logger?.LogTrace("[{0}] Sending {1} records to sink...", nameof(AWSBufferedEventSink<TRecord>.ThrottledOnNextAsync), records.Count);
             await OnNextAsync(records, batchBytes);
         }
 
@@ -163,9 +166,9 @@ namespace Amazon.KinesisTap.AWS
 
         protected void PublishMetrics(string prefix)
         {
-            _metrics?.PublishCounters(this.Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.Increment, new Dictionary<string, MetricValue>()
+            _metrics?.PublishCounters(Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.Increment, new Dictionary<string, MetricValue>()
             {
-                { prefix + MetricsConstants.BYTES_ATTEMPTED, new MetricValue(_bytesAttempted, MetricUnit.Bytes) },
+                { prefix + MetricsConstants.BYTES_ACCEPTED, new MetricValue(_bytesAttempted, MetricUnit.Bytes) },
                 { prefix + MetricsConstants.RECORDS_ATTEMPTED, new MetricValue(_recordsAttempted) },
                 { prefix + MetricsConstants.RECORDS_FAILED_NONRECOVERABLE, new MetricValue(_recordsFailedNonrecoverable) },
                 { prefix + MetricsConstants.RECORDS_FAILED_RECOVERABLE, new MetricValue(_recordsFailedRecoverable) },
@@ -174,7 +177,7 @@ namespace Amazon.KinesisTap.AWS
                 { prefix + MetricsConstants.NONRECOVERABLE_SERVICE_ERRORS, new MetricValue(_nonrecoverableServiceErrors) }
             });
 
-            _metrics?.PublishCounters(this.Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
+            _metrics?.PublishCounters(Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
             {
                 { prefix + MetricsConstants.LATENCY, new MetricValue(_latency, MetricUnit.Milliseconds) },
                 { prefix + MetricsConstants.CLIENT_LATENCY, new MetricValue(_clientLatency, MetricUnit.Milliseconds) },
@@ -202,7 +205,7 @@ namespace Amazon.KinesisTap.AWS
         protected virtual bool IsRecoverableException(Exception ex)
         {
             return (ex is AmazonServiceException
-                && ex?.InnerException is WebException)
+                && ex?.InnerException is HttpRequestException)
                 || ex is NotAuthorizedException;
         }
 
@@ -213,31 +216,34 @@ namespace Amazon.KinesisTap.AWS
         /// </summary>
         /// <typeparam name="T">Any object</typeparam>
         /// <param name="envelopes">A list of <see cref="Envelope{T}"/> objects that will be scanned for bookmark information.</param>
-        protected void SaveBookmarks<T>(List<Envelope<T>> envelopes)
+        protected async ValueTask SaveBookmarks<T>(List<Envelope<T>> envelopes)
         {
             // Ordering records is computationally expensive, so we only want to do it if bookmarking is enabled.
             // It's much cheaper to check a boolean property than to order the records and check if they have a bookmarkId.
             // Unfortunately, we don't know if the source is bookmarkable until we get some records, so we have to set this up
             // as a nullable property and set it's value on the first incoming batch of records.
-            if (!this._hasBookmarkableSource.HasValue)
-                this._hasBookmarkableSource = envelopes.Any(i => i.BookmarkId.HasValue && i.BookmarkId.Value > 0);
+            if (_hasBookmarkableSource < 0)
+            {
+                var hasBookmarkableSource = envelopes.Any(e => e.BookmarkData is not null);
+                Interlocked.Exchange(ref _hasBookmarkableSource, hasBookmarkableSource ? 1 : 0);
+            }
 
             // If this is not a bookmarkable source, return immediately.
-            if (!this._hasBookmarkableSource.Value) return;
+            if (_hasBookmarkableSource == 0)
+            {
+                return;
+            }
 
             // The events may not be in order, and we might have records from multiple sources, so we need to do a grouping.
             var bookmarks = envelopes
-                .GroupBy(i => i.BookmarkId)
-                .Select(i => new { BookmarkId = i.Key ?? 0, Position = i.Max(j => j.Position) });
+                .Select(e => e.BookmarkData)
+                .Where(b => b is not null)
+                .GroupBy(b => b.SourceKey);
 
-            // Start each new task asynchronously so that it doesn't block the sink.
-            // We'll pass the sink's logger to the BookmarkManager so that the log entries can be
-            // traced back to the sink that triggered the Update callback.
             foreach (var bm in bookmarks)
             {
                 // If the bookmarkId is 0 then bookmarking isn't enabled on the source, so we'll drop it.
-                if (bm.BookmarkId == 0) continue;
-                Task.Run(() => BookmarkManager.SaveBookmark(bm.BookmarkId, bm.Position, this._logger));
+                await _context.BookmarkManager.BookmarkCallback(bm.Key, bm);
             }
         }
     }

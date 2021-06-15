@@ -12,33 +12,36 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.Eventing.Reader;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Runtime.Versioning;
+using System.Xml;
+using System.Xml.Linq;
+using Amazon.KinesisTap.Core;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
+
 namespace Amazon.KinesisTap.Windows
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Diagnostics.Eventing.Reader;
-    using System.Globalization;
-    using System.IO;
-    using System.Linq;
-    using System.Xml;
-    using System.Xml.Linq;
-    using Amazon.KinesisTap.Core;
-    using Microsoft.Extensions.Logging;
-    using Newtonsoft.Json.Linq;
-
+    [SupportedOSPlatform("windows")]
     public class EventRecordEnvelope : Envelope<EventInfo>
     {
-        public EventRecordEnvelope(EventRecord record, bool includeEventData, int bookmarkId) : base(ConvertEventRecordToEventInfo(record, includeEventData))
+        public EventRecordEnvelope(EventRecord record, bool includeEventData, IntegerPositionRecordBookmark bookmarkData)
+            : base(ConvertEventRecordToEventInfo(record, includeEventData))
         {
-            this.BookmarkId = bookmarkId;
-            this.Position = record.RecordId ?? 0;
+            BookmarkData = bookmarkData;
+            Position = record.RecordId ?? 0;
         }
 
         public override DateTime Timestamp => _data.TimeCreated ?? _timeStamp;
 
         public override string ToString()
         {
-            return $"[{_data.LogName}] [{_data.LevelDisplayName}] [{_data.EventId}] [{_data.ProviderName}] [{ _data.MachineName}] [{_data.Description}]";
+            return $"[{Environment.GetEnvironmentVariable(ConfigConstants.UNIQUE_CLIENT_ID)}] [{_data.LogName}] [{_data.LevelDisplayName}] [{_data.EventId}] [{_data.ProviderName}] [{ _data.MachineName}] [{_data.Description}]";
         }
 
         public override string GetMessage(string format)

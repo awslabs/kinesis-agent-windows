@@ -14,18 +14,17 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Diagnostics.Tracing;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Runtime.Versioning;
 
 namespace Amazon.KinesisTap.Windows
 {
     /// <summary>
     /// The data we return to KinesisTap when an ETW event occurs.
     /// </summary>
+    [SupportedOSPlatform("windows")]
     public class EtwEvent
     {
         /// <summary>

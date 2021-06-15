@@ -12,27 +12,28 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.IO;
+
 namespace Amazon.KinesisTap.Core
 {
-    using System;
-    using System.IO;
-
     public class LogEnvelope<TData> : Envelope<TData>, ILogEnvelope
     {
         protected string _rawRecord;
 
-        public LogEnvelope(TData data, DateTime timestamp, string rawRecord, string filePath, long position, long lineNumber, int? bookmarkId = null) : base(data, timestamp, bookmarkId, position)
+        public LogEnvelope(TData data, DateTime timestamp, string rawRecord, string filePath, long position, long lineNumber)
+            : base(data, timestamp, null, position)
         {
             _rawRecord = rawRecord;
-            this.LineNumber = lineNumber;
-            this.FilePath = filePath;
+            LineNumber = lineNumber;
+            FilePath = filePath;
         }
 
         public string FilePath { get; set; }
 
         public long LineNumber { get; set; }
 
-        public string FileName => Path.GetFileName(this.FilePath);
+        public string FileName => Path.GetFileName(FilePath);
 
         public override string ToString()
         {
@@ -41,18 +42,18 @@ namespace Amazon.KinesisTap.Core
 
         public override object ResolveMetaVariable(string variable)
         {
-            string lowerVariable = variable.ToLower();
+            var lowerVariable = variable.ToLower();
 
             switch (lowerVariable)
             {
                 case "_filepath":
-                    return this.FilePath;
+                    return FilePath;
                 case "_filename":
-                    return this.FileName;
+                    return FileName;
                 case "_position":
-                    return this.Position;
+                    return Position;
                 case "_linenumber":
-                    return this.LineNumber;
+                    return LineNumber;
                 default:
                     return base.ResolveMetaVariable(variable);
             }

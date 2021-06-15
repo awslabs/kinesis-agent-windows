@@ -13,9 +13,7 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 
 using Amazon.Runtime.CredentialManagement;
 using Microsoft.Extensions.Logging;
@@ -40,7 +38,7 @@ namespace Amazon.KinesisTap.AWS.CredentialProvider
             string refreshInterval = config?["refreshinterval"];
             if (!string.IsNullOrWhiteSpace(refreshInterval))
             {
-                this.RefreshInterval = int.Parse(refreshInterval);
+                RefreshInterval = int.Parse(refreshInterval);
             }
 
             string warningIntervalSeconds = config?["warninginterval"];
@@ -52,9 +50,9 @@ namespace Amazon.KinesisTap.AWS.CredentialProvider
 
         protected override CredentialsRefreshState GenerateNewCredentials()
         {
-            if (_warningIntervalSeconds > 0 && File.GetLastWriteTimeUtc(this._profileFilePath).AddSeconds(_warningIntervalSeconds) < DateTime.UtcNow)
+            if (_warningIntervalSeconds > 0 && File.GetLastWriteTimeUtc(_profileFilePath).AddSeconds(_warningIntervalSeconds) < DateTime.UtcNow)
             {
-                _context?.Logger?.LogWarning($"Credential file {this._profileFilePath} maybe have expired. Please check your credential rotator.");
+                _context?.Logger?.LogWarning($"Credential file {_profileFilePath} maybe have expired. Please check your credential rotator.");
             }
 
             return base.GenerateNewCredentials();

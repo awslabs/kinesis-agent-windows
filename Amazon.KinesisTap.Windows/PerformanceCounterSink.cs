@@ -15,21 +15,20 @@
 using Amazon.KinesisTap.Core.Metrics;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Amazon.KinesisTap.Core;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using System.Threading;
+using System.Runtime.Versioning;
 
 namespace Amazon.KinesisTap.Windows
 {
+    [SupportedOSPlatform("windows")]
     public class PerformanceCounterSink : SimpleMetricsSink
     {
-        private const string KINESISTAP_PERFORMANCE_COUNTER_CATEGORY = "KinesisTap";
-        private const string KINESISTAP_PERFORMANCE_COUNTER_SOURCES_CATEGORY = "KinesisTap Sources";
-        private const string KINESISTAP_PERFORMANCE_COUNTER_SINKS_CATEGORY = "KinesisTap Sinks";
+        private const string KINESISTAP_PERFORMANCE_COUNTER_CATEGORY = "AWSKinesisTap";
+        private const string KINESISTAP_PERFORMANCE_COUNTER_SOURCES_CATEGORY = "AWSKinesisTap Sources";
+        private const string KINESISTAP_PERFORMANCE_COUNTER_SINKS_CATEGORY = "AWSKinesisTap Sinks";
 
         public PerformanceCounterSink(int defaultInterval, IPlugInContext context) : base(defaultInterval, context)
         {
@@ -39,13 +38,13 @@ namespace Amazon.KinesisTap.Windows
         {
             CreateCounterCategoriesIfNotExist();
             base.Start();
-            _logger?.LogInformation($"Performance counter sink {this.Id} started.");
+            _logger?.LogInformation($"Performance counter sink {Id} started.");
         }
 
         public override void Stop()
         {
             base.Stop();
-            _logger?.LogInformation($"Performance counter sink {this.Id} stopped.");
+            _logger?.LogInformation($"Performance counter sink {Id} stopped.");
         }
 
         public static void CreateCounterCategory(string category)
@@ -62,7 +61,7 @@ namespace Amazon.KinesisTap.Windows
         {
             WriterCounters(accumlatedValues, (c, v) => c.IncrementBy(v));
 
-            WriterCounters(lastValues, (c, v) => c.RawValue = v );
+            WriterCounters(lastValues, (c, v) => c.RawValue = v);
         }
 
         private void WriterCounters(IDictionary<MetricKey, MetricValue> counterValues, Action<PerformanceCounter, long> writeCounter)
@@ -71,7 +70,7 @@ namespace Amazon.KinesisTap.Windows
             {
                 try
                 {
-                    using (PerformanceCounter counter = new PerformanceCounter(
+                    using (var counter = new PerformanceCounter(
                         GetPerformanceCounterCategory(key.Category),
                         key.Name,
                         key.Id,
@@ -89,7 +88,7 @@ namespace Amazon.KinesisTap.Windows
 
         private static string GetPerformanceCounterCategory(string category)
         {
-            switch(category)
+            switch (category)
             {
                 case MetricsConstants.CATEGORY_SOURCE:
                     return KINESISTAP_PERFORMANCE_COUNTER_SOURCES_CATEGORY;
@@ -102,7 +101,7 @@ namespace Amazon.KinesisTap.Windows
 
         private static void CreateCounterCategoriesIfNotExist()
         {
-            int categoryCreateCount = 0;
+            var categoryCreateCount = 0;
             if (CreateCounterCategoryIfNotExist(KINESISTAP_PERFORMANCE_COUNTER_CATEGORY))
             {
                 categoryCreateCount++;
@@ -123,7 +122,7 @@ namespace Amazon.KinesisTap.Windows
 
         private static bool CreateCounterCategoryIfNotExist(string category)
         {
-            bool created = false;
+            var created = false;
             if (!PerformanceCounterCategory.Exists(category))
             {
                 CreateCounterCategory(category);
@@ -134,12 +133,11 @@ namespace Amazon.KinesisTap.Windows
 
         private static CounterCreationDataCollection GetCounterData(string category)
         {
-            switch(category)
+            switch (category)
             {
                 case KINESISTAP_PERFORMANCE_COUNTER_CATEGORY:
                     return new CounterCreationDataCollection()
                     {
-                        CreateCounterCreationData(string.Empty, MetricsConstants.KINESISTAP_BUILD_NUMBER, PerformanceCounterType.NumberOfItems32),
                         CreateCounterCreationData(string.Empty, MetricsConstants.SOURCE_FACTORIES_LOADED, PerformanceCounterType.NumberOfItems32),
                         CreateCounterCreationData(string.Empty, MetricsConstants.SOURCE_FACTORIES_FAILED_TO_LOAD, PerformanceCounterType.NumberOfItems32),
                         CreateCounterCreationData(string.Empty, MetricsConstants.SINK_FACTORIES_LOADED, PerformanceCounterType.NumberOfItems32),
@@ -167,22 +165,22 @@ namespace Amazon.KinesisTap.Windows
                     };
 
                 case KINESISTAP_PERFORMANCE_COUNTER_SINKS_CATEGORY:
-                    CounterCreationDataCollection counterData = new CounterCreationDataCollection();
-                    string[] prefixes = new string[]
+                    var counterData = new CounterCreationDataCollection();
+                    var prefixes = new string[]
                     {
                         MetricsConstants.CLOUDWATCHLOG_PREFIX,
                         MetricsConstants.KINESIS_FIREHOSE_PREFIX,
                         MetricsConstants.KINESIS_STREAM_PREFIX
                     };
 
-                    foreach (string prefix in prefixes)
+                    foreach (var prefix in prefixes)
                     {
-                        CounterCreationDataCollection sinkCounterData = new CounterCreationDataCollection()
+                        var sinkCounterData = new CounterCreationDataCollection()
                         {
                             CreateCounterCreationData(prefix, MetricsConstants.RECOVERABLE_SERVICE_ERRORS, PerformanceCounterType.NumberOfItems32),
                             CreateCounterCreationData(prefix, MetricsConstants.NONRECOVERABLE_SERVICE_ERRORS, PerformanceCounterType.NumberOfItems32),
                             CreateCounterCreationData(prefix, MetricsConstants.RECORDS_ATTEMPTED, PerformanceCounterType.NumberOfItems32),
-                            CreateCounterCreationData(prefix, MetricsConstants.BYTES_ATTEMPTED, PerformanceCounterType.NumberOfItems32),
+                            CreateCounterCreationData(prefix, MetricsConstants.BYTES_ACCEPTED, PerformanceCounterType.NumberOfItems32),
                             CreateCounterCreationData(prefix, MetricsConstants.RECORDS_SUCCESS, PerformanceCounterType.NumberOfItems32),
                             CreateCounterCreationData(prefix, MetricsConstants.RECORDS_FAILED_RECOVERABLE, PerformanceCounterType.NumberOfItems32),
                             CreateCounterCreationData(prefix, MetricsConstants.RECORDS_FAILED_NONRECOVERABLE, PerformanceCounterType.NumberOfItems32),

@@ -14,28 +14,62 @@
  */
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using System.Timers;
 using Amazon.CloudWatch;
 using Amazon.CloudWatch.Model;
+using Amazon.KinesisTap.AWS.Failover;
+using Amazon.KinesisTap.AWS.Failover.Strategy;
+using Amazon.KinesisTap.Core;
+using Amazon.KinesisTap.Core.Metrics;
 using Amazon.Runtime.Internal;
 using Amazon.Util;
 using Microsoft.Extensions.Logging;
-using Amazon.KinesisTap.Core;
-using Amazon.KinesisTap.Core.Metrics;
 
 namespace Amazon.KinesisTap.AWS
 {
-    public class CloudWatchSink : AWSMetricsSink<PutMetricDataRequest, PutMetricDataResponse, MetricValue>, IEventSink<List<MetricDatum>>
+    public class CloudWatchSink : AWSMetricsSink<PutMetricDataRequest, MetricValue>, IEventSink<List<MetricDatum>>, IFailoverSink<AmazonCloudWatchClient>, IDisposable
     {
-        private readonly IAmazonCloudWatch _cloudWatchClient;
+        protected virtual IAmazonCloudWatch CloudWatchClient { get; set; }
+
+        /// <summary>
+        /// Adaptive throttle for client.
+        /// </summary>
+        protected readonly Throttle _throttle;
+
+        /// <summary>
+        /// Maximum wait interval between failback retry.
+        /// </summary>
+        protected readonly int _maxFailbackRetryIntervalInMinutes;
+
+        /// <summary>
+        /// Primary Region Failback Timer.
+        /// </summary>
+        protected readonly Timer _primaryRegionFailbackTimer;
+
+        /// <summary>
+        /// Failover Sink.
+        /// </summary>
+        protected readonly FailoverSink<AmazonCloudWatchClient> _failoverSink;
+
+        /// <summary>
+        /// Sink Regional Strategy.
+        /// </summary>
+        protected readonly FailoverStrategy<AmazonCloudWatchClient> _failoverSinkRegionStrategy;
+
+        private readonly bool _failoverSinkEnabled = false;
+
         private readonly string _namespace;
+
         private readonly Dimension[] _dimensions;
         private readonly int _storageResolution;
         private readonly DefaultRetryPolicy _defaultRetryPolicy;
 
         private static Dimension[] _defaultDimensions;
+
         private static Dimension[] DefaultDimensions
         {
             get
@@ -56,16 +90,16 @@ namespace Amazon.KinesisTap.AWS
             }
         }
 
-        private static IDictionary<MetricUnit, StandardUnit> _unitMap;
+        private static readonly IDictionary<MetricUnit, StandardUnit> _unitMap;
 
         private const int ATTEMPT_LIMIT = 1;
         private const int FLUSH_QUEUE_DELAY = 100; //Throttle at about 10 TPS
 
-        public CloudWatchSink(int defaultInterval, IPlugInContext context, IAmazonCloudWatch cloudWatchClient) : base(defaultInterval, context)
+        public CloudWatchSink(
+            int defaultInterval,
+            IPlugInContext context
+            ) : base(defaultInterval, context)
         {
-            _cloudWatchClient = cloudWatchClient;
-            _defaultRetryPolicy = new DefaultRetryPolicy(_cloudWatchClient.Config);
-
             //StorageResolution is used to specify standard or high-resolution metrics. Valid values are 1 and 60
             //It is different to interval.
             //See https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html for full details
@@ -102,9 +136,71 @@ namespace Amazon.KinesisTap.AWS
             {
                 _namespace = ResolveVariables(_namespace);
             }
+
+            // Set throttle at 150 requests per second
+            // https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html
+            _throttle = new Throttle(new Core.TokenBucket(1, 150));
+        }
+
+        public CloudWatchSink(
+            int defaultInterval,
+            IPlugInContext context,
+            IAmazonCloudWatch cloudWatchClient
+            ) : this(defaultInterval, context)
+        {
+            // Setup Client
+            CloudWatchClient = cloudWatchClient;
+
+            // Setup Default Retry Policy
+            _defaultRetryPolicy = new DefaultRetryPolicy(CloudWatchClient.Config);
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CloudWatchSink"/> class.
+        /// </summary>
+        /// <param name="defaultInterval">Number of seconds as interval before next upload.</param>
+        /// <param name="context">The <see cref="IPlugInContext"/> that contains configuration info, logger, metrics etc.</param>
+        /// <param name="failoverSink">The <see cref="FailoverSink{AmazonCloudWatchClient}"/> that defines failover sink class.</param>
+        /// <param name="failoverSinkRegionStrategy">The <see cref="FailoverStrategy{AmazonCloudWatchClient}"/> that defines failover sink region selection strategy.</param>
+        public CloudWatchSink(
+            int defaultInterval,
+            IPlugInContext context,
+            FailoverSink<AmazonCloudWatchClient> failoverSink,
+            FailoverStrategy<AmazonCloudWatchClient> failoverSinkRegionStrategy)
+            : this(defaultInterval, context, failoverSinkRegionStrategy.GetPrimaryRegionClient()) // Setup CloudWatch Client with Primary Region
+        {
+            // Parse or default
+            // Max wait interval between failback retry
+            if (!int.TryParse(_config[ConfigConstants.MAX_FAILBACK_RETRY_INTERVAL_IN_MINUTES], out _maxFailbackRetryIntervalInMinutes))
+            {
+                _maxFailbackRetryIntervalInMinutes = ConfigConstants.DEFAULT_MIN_WAIT_BEFORE_REGION_FAILBACK_RETRY_IN_MINUTES;
+            }
+            else if (_maxFailbackRetryIntervalInMinutes < ConfigConstants.DEFAULT_MIN_WAIT_BEFORE_REGION_FAILBACK_RETRY_IN_MINUTES)
+            {
+                throw new ArgumentException(String.Format("Invalid \"{0}\" value, please provide positive integer greator than \"{1}\".",
+                    ConfigConstants.MAX_FAILBACK_RETRY_INTERVAL_IN_MINUTES, ConfigConstants.DEFAULT_MIN_WAIT_BEFORE_REGION_FAILBACK_RETRY_IN_MINUTES));
+            }
+
+            // Failover Sink
+            _failoverSink = failoverSink;
+            _failoverSinkEnabled = true;
+            // Failover Sink Region Strategy
+            _failoverSinkRegionStrategy = failoverSinkRegionStrategy;
+
+            // Setup Primary Region Failback Timer
+            _primaryRegionFailbackTimer = new System.Timers.Timer(_maxFailbackRetryIntervalInMinutes * 60 * 1000);
+            _primaryRegionFailbackTimer.Elapsed += new ElapsedEventHandler(FailbackToPrimaryRegion);
+            _primaryRegionFailbackTimer.AutoReset = true;
+            _primaryRegionFailbackTimer.Start();
         }
 
         #region public methods
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            _primaryRegionFailbackTimer.Stop();
+        }
+
         static CloudWatchSink()
         {
             _unitMap = new Dictionary<MetricUnit, StandardUnit>();
@@ -126,7 +222,7 @@ namespace Amazon.KinesisTap.AWS
         public override void Start()
         {
             base.Start();
-            _metrics?.InitializeCounters(this.Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.Increment,
+            _metrics?.InitializeCounters(Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.Increment,
                 new Dictionary<string, MetricValue>()
             {
                 { MetricsConstants.CLOUDWATCH_PREFIX + MetricsConstants.NONRECOVERABLE_SERVICE_ERRORS, MetricValue.ZeroCount },
@@ -150,6 +246,79 @@ namespace Amazon.KinesisTap.AWS
 
             // Send Metric datums request
             PutMetricDataAsync(records).Wait();
+        }
+
+        /// <inheritdoc/>
+        public AmazonCloudWatchClient FailbackToPrimaryRegion(Throttle throttle)
+        {
+            var _cloudWatchClient = _failoverSink.FailbackToPrimaryRegion(_throttle);
+            if (_cloudWatchClient is not null)
+            {
+                // Jittered Delay
+                var delay = _throttle.GetDelayMilliseconds(1);
+                if (delay > 0)
+                {
+                    Task.Delay((int)(delay * (1.0d + Utility.Random.NextDouble() * ConfigConstants.DEFAULT_JITTING_FACTOR))).Wait();
+                }
+                // Dispose
+                CloudWatchClient.Dispose();
+                // Override client
+                CloudWatchClient = _cloudWatchClient;
+            }
+            return null;
+        }
+
+        /// <inheritdoc/>
+        public AmazonCloudWatchClient FailOverToSecondaryRegion(Throttle throttle)
+        {
+            var _cloudWatchClient = _failoverSink.FailOverToSecondaryRegion(_throttle);
+            if (_cloudWatchClient is not null)
+            {
+                // Jittered Delay
+                var delay = _throttle.GetDelayMilliseconds(1);
+                if (delay > 0)
+                {
+                    Task.Delay((int)(delay * (1.0d + Utility.Random.NextDouble() * ConfigConstants.DEFAULT_JITTING_FACTOR))).Wait();
+                }
+                // Dispose
+                CloudWatchClient.Dispose();
+                // Override client
+                CloudWatchClient = _cloudWatchClient;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Check service health.
+        /// </summary>
+        /// <param name="client">Instance of <see cref="AmazonCloudWatchClient"/> class.</param>
+        /// <returns>Success, RountTripTime.</returns>
+        public static async Task<(bool, double)> CheckServiceReachable(AmazonCloudWatchClient client)
+        {
+            var stopwatch = new Stopwatch();
+            try
+            {
+                stopwatch.Start();
+                await client.DescribeAlarmsAsync(new DescribeAlarmsRequest
+                {
+                    AlarmNamePrefix = "KinesisTap"
+                });
+                stopwatch.Stop();
+            }
+            catch (AmazonCloudWatchException)
+            {
+                stopwatch.Stop();
+                // Any exception is fine, we are currently only looking to
+                // check if the service is reachable and what is the RTT.
+                return (true, stopwatch.ElapsedMilliseconds);
+            }
+            catch (Exception)
+            {
+                stopwatch.Stop();
+                return (false, stopwatch.ElapsedMilliseconds);
+            }
+
+            return (true, stopwatch.ElapsedMilliseconds);
         }
         #endregion
 
@@ -202,9 +371,29 @@ namespace Amazon.KinesisTap.AWS
             }
         }
 
+        /// <inheritdoc/>
         protected override async Task<PutMetricDataResponse> SendRequestAsync(PutMetricDataRequest putMetricDataRequest)
         {
-            return await _cloudWatchClient.PutMetricDataAsync(putMetricDataRequest);
+            // Failover
+            if (_failoverSinkEnabled)
+            {
+                // Failover to Secondary Region
+                _ = FailOverToSecondaryRegion(_throttle);
+            }
+
+            PutMetricDataResponse response;
+            try
+            {
+                response = await CloudWatchClient.PutMetricDataAsync(putMetricDataRequest);
+                _throttle.SetSuccess();
+            }
+            catch (Exception)
+            {
+                _throttle.SetError();
+                throw;
+            }
+
+            return response;
         }
 
         protected override bool IsRecoverable(Exception ex)
@@ -234,13 +423,13 @@ namespace Amazon.KinesisTap.AWS
 
         private void PublishMetrics(string prefix)
         {
-            _metrics?.PublishCounters(this.Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.Increment, new Dictionary<string, MetricValue>()
+            _metrics?.PublishCounters(Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.Increment, new Dictionary<string, MetricValue>()
             {
                 { prefix + MetricsConstants.SERVICE_SUCCESS, new MetricValue(_serviceSuccess) },
                 { prefix + MetricsConstants.RECOVERABLE_SERVICE_ERRORS, new MetricValue(_recoverableServiceErrors) },
                 { prefix + MetricsConstants.NONRECOVERABLE_SERVICE_ERRORS, new MetricValue(_nonrecoverableServiceErrors) }
             });
-            _metrics?.PublishCounter(this.Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.CurrentValue, prefix + MetricsConstants.LATENCY, _latency, MetricUnit.Milliseconds);
+            _metrics?.PublishCounter(Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.CurrentValue, prefix + MetricsConstants.LATENCY, _latency, MetricUnit.Milliseconds);
             ResetIncrementalCounters();
         }
 
@@ -253,18 +442,18 @@ namespace Amazon.KinesisTap.AWS
 
         private async Task PutMetricDataAsync(List<MetricDatum> datums)
         {
-            _logger?.LogDebug($"CloudWatchSink {this.Id} sending a total of {datums.Count} datums.");
+            _logger?.LogDebug($"CloudWatchSink {Id} sending a total of {datums.Count} datums.");
             //cloudwatch can only handle 20 datums at a time
             foreach (var subDatums in datums.Chunk(20))
             {
                 var metricsToSend = subDatums as List<MetricDatum>;
                 if (metricsToSend == null)
                 {
-                    _logger?.LogError($"CloudWatchSink {this.Id} trying to send a chunk with null datums");
+                    _logger?.LogError($"CloudWatchSink {Id} trying to send a chunk with null datums");
                 }
                 else
                 {
-                    _logger?.LogDebug($"CloudWatchSink {this.Id} trying to send a chunk with {metricsToSend.Count} datums.");
+                    _logger?.LogDebug($"CloudWatchSink {Id} trying to send a chunk with {metricsToSend.Count} datums.");
                 }
                 var putMetricDataRequest = new PutMetricDataRequest()
                 {
@@ -315,6 +504,15 @@ namespace Amazon.KinesisTap.AWS
                         accumlatedValues[metric.Key] = metric.Value;
                     }
                 }
+            }
+        }
+
+        private void FailbackToPrimaryRegion(Object source, ElapsedEventArgs e)
+        {
+            // Failover
+            if (_failoverSinkEnabled)
+            {
+                _ = FailbackToPrimaryRegion(_throttle);
             }
         }
         #endregion

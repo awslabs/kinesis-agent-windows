@@ -15,21 +15,19 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using System.Diagnostics;
 using System.Threading;
-
 using Microsoft.Extensions.Logging;
-
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Core.Metrics;
 using System.Linq;
+using System.Collections.Concurrent;
 
 namespace Amazon.KinesisTap.AWS
 {
     /// <summary>
     /// Base class for AWS Metrics Sink such as CloudWatch and Telemetrics. Not buffered
     /// </summary>
-    public abstract class AWSMetricsSink<TRequest, TResponse, TMetricValue> : SimpleMetricsSink, IDataSink<object>
+    public abstract class AWSMetricsSink<TRequest, TMetricValue> : SimpleMetricsSink, IDataSink<object>
     {
         private const int RETRY_QUEUE_LIMIT = 1440; //If sending once per minute, allows losing network connectivity for 1 day. Use max 0.7 MB.
 
@@ -38,10 +36,15 @@ namespace Amazon.KinesisTap.AWS
         protected long _nonrecoverableServiceErrors;
         protected long _latency;
 
-        private Queue<TRequest> _requestQueue = new Queue<TRequest>();
-        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
+        protected readonly ConcurrentQueue<TRequest> _requestQueue = new ConcurrentQueue<TRequest>();
+        protected readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 
-        public AWSMetricsSink(int defaultInterval, IPlugInContext context) : base(defaultInterval, context)
+        public AWSMetricsSink(int defaultInterval, IPlugInContext context, bool noFlushOnStop)
+            : base(defaultInterval, context, noFlushOnStop)
+        {
+        }
+
+        public AWSMetricsSink(int defaultInterval, IPlugInContext context) : this(defaultInterval, context, false)
         {
         }
 
@@ -71,29 +74,30 @@ namespace Amazon.KinesisTap.AWS
 
         protected abstract bool IsRecoverable(Exception ex);
 
-        protected abstract Task<TResponse> SendRequestAsync(TRequest putMetricDataRequest);
+        protected abstract Task SendRequestAsync(TRequest putMetricDataRequest);
 
         protected void AddToRetryQueue(TRequest putMetricDataRequest)
         {
-            if (_requestQueue.Count >= this.RetryQueueLimit)
+            if (_requestQueue.Count >= RetryQueueLimit)
             {
                 _nonrecoverableServiceErrors++;
-                _logger?.LogError($"{this.GetType().Name} AddToRetryQueue: the queue reached the limit. Oldest discarded");
-                _requestQueue.Dequeue();
+                _logger?.LogError($"{GetType().Name} AddToRetryQueue: the queue reached the limit. Oldest discarded");
+                _requestQueue.TryDequeue(out _);
             }
             _requestQueue.Enqueue(putMetricDataRequest);
         }
 
-        protected async Task PutMetricDataAsync(TRequest putMetricDataRequest)
+        protected virtual async Task PutMetricDataAsync(TRequest putMetricDataRequest)
         {
             int attempts = 0;
-            while (attempts < this.AttemptLimit)
+            while (attempts < AttemptLimit)
             {
                 attempts++;
                 long elapsedMilliseconds = Utility.GetElapsedMilliseconds();
                 try
                 {
-                    var response = await SendRequestAsync(putMetricDataRequest);
+                    await SendRequestAsync(putMetricDataRequest);
+
                     _latency = Utility.GetElapsedMilliseconds() - elapsedMilliseconds;
                     _serviceSuccess++;
                     break;
@@ -105,15 +109,15 @@ namespace Amazon.KinesisTap.AWS
                     {
                         _recoverableServiceErrors++;
                         //If we get a recoverable error, we will retry up to the limit before putting it in the lower priority queue
-                        if (attempts < this.AttemptLimit)
+                        if (attempts < AttemptLimit)
                         {
-                            _logger?.LogDebug($"{this.GetType().Name} recoverable exception: {ex.ToMinimized()}");
-                            int delay = Utility.Random.Next(_interval * attempts) * 100; //attempts * (_interval * 1000/10)
+                            _logger?.LogDebug(ex, "{0} recoverable exception", GetType().Name);
+                            var delay = Utility.Random.Next(_interval * attempts) * 100; //attempts * (_interval * 1000/10)
                             await Task.Delay(delay);
                         }
                         else
                         {
-                            _logger?.LogDebug($"{this.GetType().Name} recoverable exception (added to queue): {ex.ToMinimized()}");
+                            _logger?.LogDebug($"{GetType().Name} recoverable exception (added to queue): {ex.ToMinimized()}");
                             AddToRetryQueue(putMetricDataRequest);
                             break;
                         }
@@ -121,39 +125,38 @@ namespace Amazon.KinesisTap.AWS
                     else
                     {
                         _nonrecoverableServiceErrors++;
-                        _logger?.LogError($"{this.GetType().Name} nonrecoverable exception: {ex}");
+                        _logger?.LogError($"{GetType().Name} nonrecoverable exception: {ex}");
                         break;
                     }
                 }
             }
         }
 
-        protected async Task FlushQueueAsync()
+        protected virtual async Task FlushQueueAsync()
         {
             //Only one thread to flush at a time
-            if (_semaphore.Wait(0))
+            if (await _semaphore.WaitAsync(0))
             {
                 try
                 {
-                    while (_requestQueue.Count > 0)
+                    while (_requestQueue.TryDequeue(out var request))
                     {
                         try
                         {
-                            var request = _requestQueue.Dequeue();
-                            var response = await this.SendRequestAsync(request);
+                            await SendRequestAsync(request);
                         }
                         catch (Exception ex)
                         {
                             //Don't process the rest. Wait for next opportunity
-                            _logger?.LogDebug($"{this.GetType().Name} FlushQueueAsync exception: {ex.ToMinimized()}");
+                            _logger?.LogDebug(ex, $"FlushQueueAsync exception");
                             break;
                         }
-                        await Task.Delay(this.FlushQueueDelay);
+                        await Task.Delay(FlushQueueDelay);
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogError($"{this.GetType().Name} FlushQueueAsync unknown exception: {ex.ToMinimized()}");
+                    _logger?.LogError(ex, $"FlushQueueAsync unknown exception");
                 }
                 finally
                 {
@@ -162,7 +165,7 @@ namespace Amazon.KinesisTap.AWS
             }
         }
 
-        protected void AggregateMetrics(IDictionary<MetricKey, MetricValue> metrics, 
+        protected void AggregateMetrics(IDictionary<MetricKey, MetricValue> metrics,
             Dictionary<string, object> data,
             Func<IEnumerable<MetricValue>, TMetricValue> aggregator)
         {

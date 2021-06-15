@@ -14,8 +14,6 @@
  */
 using System;
 using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 using Amazon.Runtime;
 using Amazon.Runtime.CredentialManagement;
 
@@ -55,9 +53,9 @@ namespace Amazon.KinesisTap.AWS.CredentialProvider
             if (!File.Exists(profileFilePath))
                 throw new CredentialsNotFoundException(string.Format(CREDENTIAL_NOT_FOUND_EXCEPTION_MESSAGE, profileName, profileFilePath));
 
-            this._profileName = profileName;
-            this._profileFilePath = profileFilePath;
-            this._credentialFile = new SharedCredentialsFile(profileFilePath);
+            _profileName = profileName;
+            _profileFilePath = profileFilePath;
+            _credentialFile = new SharedCredentialsFile(profileFilePath);
         }
 
         /// <summary>
@@ -74,7 +72,7 @@ namespace Amazon.KinesisTap.AWS.CredentialProvider
 
         protected override CredentialsRefreshState GenerateNewCredentials()
         {
-            if (this._credentialFile.TryGetProfile(this._profileName, out CredentialProfile profile))
+            if (_credentialFile.TryGetProfile(_profileName, out CredentialProfile profile))
             {
                 return new CredentialsRefreshState
                 {
@@ -83,7 +81,7 @@ namespace Amazon.KinesisTap.AWS.CredentialProvider
                 };
             }
 
-            throw new CredentialsNotFoundException(string.Format(CREDENTIAL_NOT_FOUND_EXCEPTION_MESSAGE, this._profileName, this._profileFilePath));
+            throw new CredentialsNotFoundException(string.Format(CREDENTIAL_NOT_FOUND_EXCEPTION_MESSAGE, _profileName, _profileFilePath));
         }
     }
 }

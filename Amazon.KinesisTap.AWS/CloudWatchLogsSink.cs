@@ -12,44 +12,71 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Reactive.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Timers;
+using Amazon.CloudWatchLogs;
+using Amazon.CloudWatchLogs.Model;
+using Amazon.KinesisTap.AWS.Failover;
+using Amazon.KinesisTap.AWS.Failover.Strategy;
+using Amazon.KinesisTap.Core;
+using Amazon.KinesisTap.Core.Metrics;
+using Microsoft.Extensions.Logging;
+
 namespace Amazon.KinesisTap.AWS
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Reactive.Linq;
-    using System.Text;
-    using System.Threading.Tasks;
-    using Amazon.CloudWatchLogs;
-    using Amazon.CloudWatchLogs.Model;
-    using Amazon.KinesisTap.Core;
-    using Amazon.KinesisTap.Core.Metrics;
-    using Microsoft.Extensions.Logging;
-
     /// <summary>
     /// A sink that sends data to CloudWatch Logs.
     /// For limits relating to CloudWatch Logs, see http://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch_limits_cwl.html
     /// </summary>
-    public class CloudWatchLogsSink : AWSBufferedEventSink<InputLogEvent>
+    public class CloudWatchLogsSink : AWSBufferedEventSink<InputLogEvent>, IFailoverSink<AmazonCloudWatchLogsClient>, IDisposable
     {
-        private const long CloudWatchOverhead = 26L;
-        private const long TwoHundredFiftySixKilobytes = 256 * 1024;
-        private readonly TimeSpan BatchMaximumTimeSpan = TimeSpan.FromHours(24);
-
-        private readonly IAmazonCloudWatchLogs _client;
-        private readonly string _logGroupName;
-        private readonly string _logStreamName;
+        protected virtual IAmazonCloudWatchLogs CloudWatchLogsClient { get; set; }
+        protected readonly string _logGroupName;
+        protected readonly string _logStreamName;
         protected readonly Throttle _throttle;
 
-        private string _sequenceToken;
+        protected string _sequenceToken;
 
-        public CloudWatchLogsSink(IPlugInContext context, IAmazonCloudWatchLogs client)
-            : base(context, 5, 500, 1024 * 1024)
+        /// <summary>
+        /// Maximum wait interval between failback retry.
+        /// </summary>
+        protected readonly int _maxFailbackRetryIntervalInMinutes;
+
+        /// <summary>
+        /// Primary Region Failback Timer.
+        /// </summary>
+        protected readonly Timer _primaryRegionFailbackTimer;
+
+        /// <summary>
+        /// Failover Sink.
+        /// </summary>
+        protected readonly FailoverSink<AmazonCloudWatchLogsClient> _failoverSink;
+
+        /// <summary>
+        /// Sink Regional Strategy.
+        /// </summary>
+        protected readonly FailoverStrategy<AmazonCloudWatchLogsClient> _failoverSinkRegionStrategy;
+
+        private readonly bool _failoverSinkEnabled = false;
+
+        private const long CloudWatchOverhead = 26L;
+        private const long TwoHundredFiftySixKilobytes = 256 * 1024;
+
+        private readonly TimeSpan _batchMaximumTimeSpan = TimeSpan.FromHours(24);
+
+        public CloudWatchLogsSink(
+            IPlugInContext context
+            ) : base(context, 5, 500, 1024 * 1024)
         {
             if (_count > 10000)
                 throw new ArgumentException("The maximum buffer size for CloudWatchLogs is 10000");
 
-            _client = client;
             _logGroupName = ResolveVariables(_config["LogGroup"]);
             _logStreamName = ResolveVariables(_config["LogStream"]);
 
@@ -63,46 +90,126 @@ namespace Amazon.KinesisTap.AWS
             _throttle = new AdaptiveThrottle(new TokenBucket(1, 5), _backoffFactor, _recoveryFactor, _minRateAdjustmentFactor);
         }
 
-        public override void Start()
+        public CloudWatchLogsSink(
+            IPlugInContext context,
+            IAmazonCloudWatchLogs cloudWatchLogsClient
+            ) : this(context)
         {
-            try
-            {
-                this.StartAsync().Wait();
-            }
-            catch (AggregateException aex) when (aex.InnerException is AmazonCloudWatchLogsException acle && acle.Message?.Contains("Rate exceeded") == true)
-            {
-                throw new RateExceededException("CloudWatchLogs quota is exceeded", acle);
-            }
+            // Setup Client
+            CloudWatchLogsClient = cloudWatchLogsClient;
         }
 
-        public async Task StartAsync()
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CloudWatchLogsSink"/> class.
+        /// </summary>
+        /// <param name="context">The <see cref="IPlugInContext"/> that contains configuration info, logger, metrics etc.</param>
+        /// <param name="failoverSink">The <see cref="FailoverSink{AmazonCloudWatchLogsClient}"/> that defines failover sink class.</param>
+        /// <param name="failoverSinkRegionStrategy">The <see cref="FailoverStrategy{AmazonCloudWatchLogsClient}"/> that defines failover sink region selection strategy.</param>
+        public CloudWatchLogsSink(
+            IPlugInContext context,
+            FailoverSink<AmazonCloudWatchLogsClient> failoverSink,
+            FailoverStrategy<AmazonCloudWatchLogsClient> failoverSinkRegionStrategy)
+            : this(context, failoverSinkRegionStrategy.GetPrimaryRegionClient()) // Setup CloudWatch Logs Client with Primary Region
         {
-            var logStreamName = this.ResolveTimestampInLogStreamName(DateTime.UtcNow);
+            // Parse or default
+            // Max wait interval between failback retry
+            if (!int.TryParse(_config[ConfigConstants.MAX_FAILBACK_RETRY_INTERVAL_IN_MINUTES], out _maxFailbackRetryIntervalInMinutes))
+            {
+                _maxFailbackRetryIntervalInMinutes = ConfigConstants.DEFAULT_MIN_WAIT_BEFORE_REGION_FAILBACK_RETRY_IN_MINUTES;
+            }
+            else if (_maxFailbackRetryIntervalInMinutes < ConfigConstants.DEFAULT_MIN_WAIT_BEFORE_REGION_FAILBACK_RETRY_IN_MINUTES)
+            {
+                throw new ArgumentException(String.Format("Invalid \"{0}\" value, please provide positive integer greator than \"{1}\".",
+                    ConfigConstants.MAX_FAILBACK_RETRY_INTERVAL_IN_MINUTES, ConfigConstants.DEFAULT_MIN_WAIT_BEFORE_REGION_FAILBACK_RETRY_IN_MINUTES));
+            }
 
-            // Preload the sequence token. Create the log group if it doesn't exist, but don't create the stream.
-            // Creating the stream here will result in a duplicate call to "GetSequenceTokenAsync" in OnNextAsync, since the sequence
-            // token value of a new stream is null (i.e. we can't differentiate between a non-existent stream and an empty one)
-            await this.GetSequenceTokenAsync(logStreamName, false);
+            // Failover Sink
+            _failoverSink = failoverSink;
+            _failoverSinkEnabled = true;
+            // Failover Sink Region Strategy
+            _failoverSinkRegionStrategy = failoverSinkRegionStrategy;
 
-            base.Start();
-            _metrics?.InitializeCounters(this.Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.Increment,
-                new Dictionary<string, MetricValue>()
-                {
-                    { MetricsConstants.CLOUDWATCHLOG_PREFIX + MetricsConstants.BYTES_ATTEMPTED, new MetricValue(0, MetricUnit.Bytes) },
-                    { MetricsConstants.CLOUDWATCHLOG_PREFIX + MetricsConstants.RECORDS_ATTEMPTED, MetricValue.ZeroCount },
-                    { MetricsConstants.CLOUDWATCHLOG_PREFIX + MetricsConstants.RECORDS_FAILED_NONRECOVERABLE, MetricValue.ZeroCount },
-                    { MetricsConstants.CLOUDWATCHLOG_PREFIX + MetricsConstants.RECORDS_FAILED_RECOVERABLE, MetricValue.ZeroCount },
-                    { MetricsConstants.CLOUDWATCHLOG_PREFIX + MetricsConstants.RECORDS_SUCCESS, MetricValue.ZeroCount },
-                    { MetricsConstants.CLOUDWATCHLOG_PREFIX + MetricsConstants.RECOVERABLE_SERVICE_ERRORS, MetricValue.ZeroCount },
-                    { MetricsConstants.CLOUDWATCHLOG_PREFIX + MetricsConstants.NONRECOVERABLE_SERVICE_ERRORS, MetricValue.ZeroCount }
-                });
-            _logger?.LogInformation("CloudWatchLogsSink id {0} for log group {1} log stream {2} started.", this.Id, _logGroupName, _logStreamName);
+            // Setup Primary Region Failback Timer
+            _primaryRegionFailbackTimer = new Timer(_maxFailbackRetryIntervalInMinutes * 60 * 1000);
+            _primaryRegionFailbackTimer.Elapsed += new ElapsedEventHandler(FailbackToPrimaryRegion);
+            _primaryRegionFailbackTimer.AutoReset = true;
+            _primaryRegionFailbackTimer.Start();
+        }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            _primaryRegionFailbackTimer.Stop();
+        }
+
+        public override void Start()
+        {
+            _metrics?.InitializeCounters(Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.Increment,
+            new Dictionary<string, MetricValue>()
+            {
+                { MetricsConstants.CLOUDWATCHLOG_PREFIX + MetricsConstants.BYTES_ACCEPTED, new MetricValue(0, MetricUnit.Bytes) },
+                { MetricsConstants.CLOUDWATCHLOG_PREFIX + MetricsConstants.RECORDS_ATTEMPTED, MetricValue.ZeroCount },
+                { MetricsConstants.CLOUDWATCHLOG_PREFIX + MetricsConstants.RECORDS_FAILED_NONRECOVERABLE, MetricValue.ZeroCount },
+                { MetricsConstants.CLOUDWATCHLOG_PREFIX + MetricsConstants.RECORDS_FAILED_RECOVERABLE, MetricValue.ZeroCount },
+                { MetricsConstants.CLOUDWATCHLOG_PREFIX + MetricsConstants.RECORDS_SUCCESS, MetricValue.ZeroCount },
+                { MetricsConstants.CLOUDWATCHLOG_PREFIX + MetricsConstants.RECOVERABLE_SERVICE_ERRORS, MetricValue.ZeroCount },
+                { MetricsConstants.CLOUDWATCHLOG_PREFIX + MetricsConstants.NONRECOVERABLE_SERVICE_ERRORS, MetricValue.ZeroCount }
+            });
+            _logger?.LogInformation("CloudWatchLogsSink id {0} for log group {1} log stream {2} started.", Id, _logGroupName, _logStreamName);
         }
 
         public override void Stop()
         {
             base.Stop();
-            _logger?.LogInformation("CloudWatchLogsSink id {0} for log group {1} log stream {2} stopped.", this.Id, _logGroupName, _logStreamName);
+            _logger?.LogInformation("CloudWatchLogsSink id {0} for log group {1} log stream {2} stopped.", Id, _logGroupName, _logStreamName);
+        }
+
+        /// <inheritdoc/>
+        public AmazonCloudWatchLogsClient FailbackToPrimaryRegion(Throttle throttle)
+        {
+            var _cloudWatchLogsClient = _failoverSink.FailbackToPrimaryRegion(_throttle);
+            if (_cloudWatchLogsClient is not null)
+            {
+                // Jittered Delay
+                var delay = _throttle.GetDelayMilliseconds(1);
+                if (delay > 0)
+                {
+                    Task.Delay((int)(delay * (1.0d + Utility.Random.NextDouble() * ConfigConstants.DEFAULT_JITTING_FACTOR))).Wait();
+                }
+                // Dispose
+                CloudWatchLogsClient.Dispose();
+                // Override client
+                CloudWatchLogsClient = _cloudWatchLogsClient;
+
+                // Reset CloudWatch Logs sequence token
+                _sequenceToken = null;
+                GetSequenceTokenAsync(ResolveTimestampInLogStreamName(DateTime.UtcNow), true).Wait();
+            }
+            return null;
+        }
+
+        /// <inheritdoc/>
+        public AmazonCloudWatchLogsClient FailOverToSecondaryRegion(Throttle throttle)
+        {
+            var _cloudWatchLogsClient = _failoverSink.FailOverToSecondaryRegion(_throttle);
+            if (_cloudWatchLogsClient is not null)
+            {
+                // Jittered Delay
+                var delay = _throttle.GetDelayMilliseconds(1);
+                if (delay > 0)
+                {
+                    Task.Delay((int)(delay * (1.0d + Utility.Random.NextDouble() * ConfigConstants.DEFAULT_JITTING_FACTOR))).Wait();
+                }
+                // Dispose
+                CloudWatchLogsClient.Dispose();
+                // Override client
+                CloudWatchLogsClient = _cloudWatchLogsClient;
+
+                // Reset CloudWatch Logs sequence token
+                _sequenceToken = null;
+                GetSequenceTokenAsync(ResolveTimestampInLogStreamName(DateTime.UtcNow), true).Wait();
+            }
+            return null;
         }
 
         private async Task SendBatchAsync(List<Envelope<InputLogEvent>> records)
@@ -111,17 +218,9 @@ namespace Amazon.KinesisTap.AWS
 
             try
             {
-                _logger?.LogDebug("CloudWatchLogsSink client {0} sending {1} records {2} bytes.", this.Id, records.Count, batchBytes);
+                _logger?.LogDebug("CloudWatchLogsSink client {0} sending {1} records {2} bytes.", Id, records.Count, batchBytes);
 
-                var logStreamName = this.ResolveTimestampInLogStreamName(records[0].Timestamp);
-
-                // If the sequence token is null, try to get it.
-                // If the log stream doesn't exist, create it (by specifying "true" in the second parameter).
-                // This should be the only place where a log stream is created.
-                // This method will ensure that both the log group and stream exists,
-                // so there is no need to handle a ResourceNotFound exception later.
-                if (string.IsNullOrEmpty(_sequenceToken))
-                    await this.GetSequenceTokenAsync(logStreamName, true);
+                var logStreamName = ResolveTimestampInLogStreamName(records[0].Timestamp);
 
                 var request = new PutLogEventsRequest
                 {
@@ -142,7 +241,17 @@ namespace Amazon.KinesisTap.AWS
                     long elapsedMilliseconds = Utility.GetElapsedMilliseconds();
                     try
                     {
-                        var response = await _client.PutLogEventsAsync(request);
+                        // If the sequence token is null, try to get it.
+                        // If the log stream doesn't exist, create it (by specifying "true" in the second parameter).
+                        // This should be the only place where a log stream is created.
+                        // This method will ensure that both the log group and stream exists,
+                        // so there is no need to handle a ResourceNotFound exception later.
+                        if (string.IsNullOrEmpty(_sequenceToken))
+                        {
+                            await GetSequenceTokenAsync(logStreamName, true);
+                        }
+
+                        var response = await SendRequestAsync(request);
                         _latency = Utility.GetElapsedMilliseconds() - elapsedMilliseconds;
                         _throttle.SetSuccess();
                         _sequenceToken = response.NextSequenceToken;
@@ -156,7 +265,7 @@ namespace Amazon.KinesisTap.AWS
                             if (_logger != null)
                             {
                                 var sb = new StringBuilder()
-                                    .AppendFormat("CloudWatchLogsSink client {0} encountered some rejected logs.", this.Id)
+                                    .AppendFormat("CloudWatchLogsSink client {0} encountered some rejected logs.", Id)
                                     .AppendFormat(" ExpiredLogEventEndIndex {0}", rejectedLogEventsInfo.ExpiredLogEventEndIndex)
                                     .AppendFormat(" TooNewLogEventStartIndex {0}", rejectedLogEventsInfo.TooNewLogEventStartIndex)
                                     .AppendFormat(" TooOldLogEventEndIndex {0}", rejectedLogEventsInfo.TooOldLogEventEndIndex);
@@ -170,9 +279,9 @@ namespace Amazon.KinesisTap.AWS
                             _recordsFailedNonrecoverable += (records.Count - recordCount);
                         }
 
-                        _logger?.LogDebug("CloudWatchLogsSink client {0} successfully sent {1} records {2} bytes.", this.Id, records.Count, batchBytes);
+                        _logger?.LogDebug("CloudWatchLogsSink client {0} successfully sent {1} records {2} bytes.", Id, records.Count, batchBytes);
                         _recordsSuccess += records.Count;
-                        this.SaveBookmarks(records);
+                        await SaveBookmarks(records);
 
                         break;
                     }
@@ -198,7 +307,7 @@ namespace Amazon.KinesisTap.AWS
                             if (AWSConstants.NullString.Equals(_sequenceToken))
                             {
                                 _sequenceToken = null;
-                                await this.GetSequenceTokenAsync(logStreamName, false);
+                                await GetSequenceTokenAsync(logStreamName, false);
                             }
 
                             // Reset the sequence token in the request and immediately retry (without requeuing),
@@ -211,7 +320,7 @@ namespace Amazon.KinesisTap.AWS
                         // - The exception was thrown because an invalid sequence token was used (more than twice in a row)
                         // - The service was unavailable (transient error or service outage)
                         // - The security token in the credentials has expired (previously this was handled as an unrecoverable error)
-                        if (this.IsRecoverableException(ex))
+                        if (IsRecoverableException(ex))
                         {
                             // Try to requeue the records into the buffer.
                             // This will mean that the events in the buffer are now out of order :(
@@ -222,7 +331,7 @@ namespace Amazon.KinesisTap.AWS
                             // position/eventId in the last batch sent, not what's currently in the buffer.
                             if (_buffer.Requeue(records, _throttle.ConsecutiveErrorCount < _maxAttempts))
                             {
-                                _logger?.LogWarning("CloudWatchLogsSink client {0} attempt={1} exception={2}. Will retry.", this.Id, _throttle.ConsecutiveErrorCount, ex.Message);
+                                _logger?.LogWarning("CloudWatchLogsSink client {0} attempt={1} exception={2}. Will retry.", Id, _throttle.ConsecutiveErrorCount, ex.Message);
                                 _recoverableServiceErrors++;
                                 _recordsFailedRecoverable += records.Count;
                                 break;
@@ -245,7 +354,7 @@ namespace Amazon.KinesisTap.AWS
             }
             catch (Exception ex)
             {
-                _logger?.LogError("CloudWatchLogsSink client {0} exception (attempt={1}): {2}", this.Id, _throttle.ConsecutiveErrorCount, ex.ToMinimized());
+                _logger?.LogError("CloudWatchLogsSink client {0} exception (attempt={1}): {2}", Id, _throttle.ConsecutiveErrorCount, ex.ToMinimized());
             }
 
             PublishMetrics(MetricsConstants.CLOUDWATCHLOG_PREFIX);
@@ -265,7 +374,7 @@ namespace Amazon.KinesisTap.AWS
             {
                 var earliestTime = records[idx].Timestamp;
                 batch.Clear();
-                while (idx < records.Count && records[idx].Timestamp - earliestTime < BatchMaximumTimeSpan)
+                while (idx < records.Count && records[idx].Timestamp - earliestTime < _batchMaximumTimeSpan)
                 {
                     batch.Add(records[idx]);
                     idx++;
@@ -275,10 +384,11 @@ namespace Amazon.KinesisTap.AWS
             }
         }
 
-        protected override bool IsRecoverableException(Exception ex)
-        {
-            return ex is InvalidSequenceTokenException || ex is ServiceUnavailableException || ex.Message.Contains(AWSConstants.SecurityTokenExpiredError) || base.IsRecoverableException(ex);
-        }
+        protected override bool IsRecoverableException(Exception ex) => base.IsRecoverableException(ex) ||
+            ex is InvalidSequenceTokenException ||
+            ex is ServiceUnavailableException ||
+            ex.Message.Contains(AWSConstants.SecurityTokenExpiredError) ||
+            ex.Message.Contains("Rate exceeded", StringComparison.OrdinalIgnoreCase);
 
         protected override long GetRecordSize(Envelope<InputLogEvent> record)
         {
@@ -310,82 +420,161 @@ namespace Amazon.KinesisTap.AWS
             return AWSSerializationUtility.InputLogEventListBinarySerializer;
         }
 
-        private async Task GetSequenceTokenAsync(string logStreamName, bool createStreamIfNotExists)
+        protected virtual async Task GetSequenceTokenAsync(string logStreamName, bool createStreamIfNotExists)
         {
-            var request = new DescribeLogStreamsRequest
+            // Failover
+            if (_failoverSinkEnabled)
             {
-                LogGroupName = _logGroupName,
-                LogStreamNamePrefix = logStreamName
-            };
+                // Failover to Secondary Region
+                _ = FailOverToSecondaryRegion(_throttle);
+            }
 
-            DescribeLogStreamsResponse describeLogsStreamsResponse = null;
             try
             {
-                describeLogsStreamsResponse = await _client.DescribeLogStreamsAsync(request);
-            }
-            catch (ResourceNotFoundException rex)
-            {
-                // Create the log group if it doesn't exist.
-                if (rex.Message.IndexOf("log group does not exist") > -1)
+                var request = new DescribeLogStreamsRequest
                 {
-                    _logger?.LogInformation("Log group {0} does not exist. Creating it.", _logGroupName);
-                    await this.CreateLogGroupAsync();
+                    LogGroupName = _logGroupName,
+                    LogStreamNamePrefix = logStreamName
+                };
 
-                    if (createStreamIfNotExists) await this.CreateLogStreamAsync(logStreamName);
-                    return;
+                DescribeLogStreamsResponse describeLogsStreamsResponse = null;
+                try
+                {
+                    describeLogsStreamsResponse = await CloudWatchLogsClient.DescribeLogStreamsAsync(request);
+                }
+                catch (ResourceNotFoundException rex)
+                {
+                    // Create the log group if it doesn't exist.
+                    if (rex.Message.IndexOf("log group does not exist") > -1)
+                    {
+                        _logger?.LogInformation("Log group {0} does not exist. Creating it.", _logGroupName);
+                        await CreateLogGroupAsync();
+
+                        if (createStreamIfNotExists) await CreateLogStreamAsync(logStreamName);
+                        return;
+                    }
+                }
+
+                var logStream = describeLogsStreamsResponse.LogStreams
+                    .FirstOrDefault(s => s.LogStreamName.Equals(logStreamName, StringComparison.CurrentCultureIgnoreCase));
+
+                if (logStream == null)
+                {
+                    if (createStreamIfNotExists)
+                        await CreateLogStreamAsync(logStreamName);
+                }
+                else
+                {
+                    _sequenceToken = logStream.UploadSequenceToken;
                 }
             }
-
-            var logStream = describeLogsStreamsResponse.LogStreams
-                .FirstOrDefault(s => s.LogStreamName.Equals(logStreamName, StringComparison.CurrentCultureIgnoreCase));
-
-            if (logStream == null)
+            catch (Exception)
             {
-                if (createStreamIfNotExists)
-                    await this.CreateLogStreamAsync(logStreamName);
-            }
-            else
-            {
-                _sequenceToken = logStream.UploadSequenceToken;
+                // Set error count
+                _throttle.SetError();
+                throw;
             }
         }
 
-        private string ResolveTimestampInLogStreamName(DateTime timestamp)
+        protected string ResolveTimestampInLogStreamName(DateTime timestamp)
         {
             return Utility.ResolveVariables(_logStreamName,
                 v => Utility.ResolveTimestampVariable(v, timestamp));
         }
 
-        private async Task CreateLogGroupAsync()
+        protected virtual async Task CreateLogGroupAsync()
         {
             _logger?.LogInformation("CloudWatchLogsSink creating log group {0}", _logGroupName);
             try
             {
-                await _client.CreateLogGroupAsync(new CreateLogGroupRequest(_logGroupName));
+                await CloudWatchLogsClient.CreateLogGroupAsync(new CreateLogGroupRequest(_logGroupName));
+                _throttle.SetSuccess();
             }
             catch (Exception ex)
             {
                 _logger?.LogError("CloudWatchLogsSink create log group {0} exception: {1}", _logGroupName, ex.ToMinimized());
+                // Set error count
+                _throttle.SetError();
                 throw;
             }
         }
 
-        private async Task CreateLogStreamAsync(string logStreamName)
+        protected virtual async Task CreateLogStreamAsync(string logStreamName)
         {
             _logger?.LogInformation("CloudWatchLogsSink creating log stream {0} in log group {1}", logStreamName, _logGroupName);
             try
             {
-                var response = await _client.CreateLogStreamAsync(new CreateLogStreamRequest
+                var response = await CloudWatchLogsClient.CreateLogStreamAsync(new CreateLogStreamRequest
                 {
                     LogGroupName = _logGroupName,
                     LogStreamName = logStreamName
                 });
+                _throttle.SetSuccess();
             }
             catch (Exception ex)
             {
                 _logger?.LogError("CloudWatchLogsSink create log stream {0} exception: {1}", logStreamName, ex.ToMinimized());
+                // Set error count
+                _throttle.SetError();
                 throw;
             }
+        }
+
+        /// <inheritdoc/>
+        protected async Task<PutLogEventsResponse> SendRequestAsync(PutLogEventsRequest putDataRequest)
+        {
+            // Failover
+            if (_failoverSinkEnabled)
+            {
+                // Failover to Secondary Region
+                _ = FailOverToSecondaryRegion(_throttle);
+            }
+
+            // Update CloudWatch Logs sequence token
+            putDataRequest.SequenceToken = _sequenceToken;
+            return await CloudWatchLogsClient.PutLogEventsAsync(putDataRequest);
+        }
+
+        private void FailbackToPrimaryRegion(Object source, ElapsedEventArgs e)
+        {
+            // Failover
+            if (_failoverSinkEnabled)
+            {
+                _ = FailbackToPrimaryRegion(_throttle);
+            }
+        }
+
+        /// <summary>
+        /// Check service health.
+        /// </summary>
+        /// <param name="client">Instance of <see cref="AmazonCloudWatchLogsClient"/> class.</param>
+        /// <returns>Success, RountTripTime.</returns>
+        public static async Task<(bool, double)> CheckServiceReachable(AmazonCloudWatchLogsClient client)
+        {
+            var stopwatch = new Stopwatch();
+            try
+            {
+                stopwatch.Start();
+                await client.DescribeLogGroupsAsync(new DescribeLogGroupsRequest
+                {
+                    LogGroupNamePrefix = "KinesisTap"
+                });
+                stopwatch.Stop();
+            }
+            catch (AmazonCloudWatchLogsException)
+            {
+                stopwatch.Stop();
+                // Any exception is fine, we are currently only looking to
+                // check if the service is reachable and what is the RTT.
+                return (true, stopwatch.ElapsedMilliseconds);
+            }
+            catch (Exception)
+            {
+                stopwatch.Stop();
+                return (false, stopwatch.ElapsedMilliseconds);
+            }
+
+            return (true, stopwatch.ElapsedMilliseconds);
         }
     }
 }

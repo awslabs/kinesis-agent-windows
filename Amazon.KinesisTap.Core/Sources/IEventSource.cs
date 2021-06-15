@@ -17,7 +17,7 @@ using System;
 namespace Amazon.KinesisTap.Core
 {
     /// <summary>
-    /// Interface for Event source. It extends IObservable so that it can be subscribed.
+    /// Interface for Event sources. It extends IObservable so that it can be subscribed.
     /// </summary>
     public interface IEventSource : ISource, IObservable<IEnvelope>
     {
@@ -29,6 +29,10 @@ namespace Amazon.KinesisTap.Core
         Type GetOutputType();
     }
 
+    /// <summary>
+    /// Represents event sources that output a specific type of data.
+    /// </summary>
+    /// <typeparam name="T">Type of output data</typeparam>
     public interface IEventSource<out T> : IEventSource, IObservable<IEnvelope<T>>
     {
     }

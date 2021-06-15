@@ -18,13 +18,15 @@ using Amazon.KinesisTap.DiagnosticTool.Core;
 using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.Versioning;
 
 namespace Amazon.KinesisTap.DiagnosticTool
 {
     /// <summary>
     /// The validator for the Windows performance counter source
     /// </summary>
-    public class PerformanceCounterValidator: ISourceValidator
+    [SupportedOSPlatform("windows")]
+    public class PerformanceCounterValidator : ISourceValidator
     {
         // The category of the windows performance counter 
         private readonly PerformanceCounterCategory[] _performanceCounterCategories = PerformanceCounterCategory.GetCategories();
@@ -42,8 +44,8 @@ namespace Amazon.KinesisTap.DiagnosticTool
             var categories = sourceSection.GetSection("Categories").GetChildren();
             foreach (var categorySection in categories)
             {
-                string categoryName = categorySection["Category"];
-                string instances = categorySection["Instances"];
+                var categoryName = categorySection["Category"];
+                var instances = categorySection["Instances"];
 
                 // If it is multiple instance categories, then instances are required
                 if (IsMultipleInstanceCategory(categoryName, messages) && instances == null)
@@ -96,7 +98,7 @@ namespace Amazon.KinesisTap.DiagnosticTool
         /// <returns></returns>
         private bool ValidateCounter(string category, IConfigurationSection counterSection, IList<string> messages)
         {
-            string counterFilter = counterSection.Value;
+            var counterFilter = counterSection.Value;
             string unit = null;
             if (counterFilter == null)
             {

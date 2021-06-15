@@ -13,7 +13,6 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Linq;
 using Microsoft.Extensions.Logging;
 using Xunit;
 using System.Collections.Generic;
@@ -26,6 +25,11 @@ namespace Amazon.KinesisTap.Core.Test
     public class EventSinkTest
     {
         private readonly BookmarkManager _bookmarkManager = new BookmarkManager();
+
+        public EventSinkTest()
+        {
+            Environment.SetEnvironmentVariable("HOSTNAME", ComputerOrHostName);
+        }
 
         [Fact]
         public void TestUnsupportedFormat()
@@ -274,14 +278,14 @@ namespace Amazon.KinesisTap.Core.Test
         private MockEventSink CreateEventSink(string id, ILogger logger)
         {
             var config = TestUtility.GetConfig("Sinks", id);
-            var source = new MockEventSink(new PluginContext(config, logger, null, _bookmarkManager));
+            var source = new MockEventSink(new PluginContext(config, logger, null));
             return source;
         }
 
         private MockEventSource<T> CreateEventsource<T>(string id)
         {
             var config = TestUtility.GetConfig("Sources", id);
-            var source = new MockEventSource<T>(new PluginContext(config, null, null, _bookmarkManager));
+            var source = new MockEventSource<T>(new PluginContext(config, null, null));
             EventSource<T>.LoadCommonSourceConfig(config, source);
             return source;
         }

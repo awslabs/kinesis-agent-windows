@@ -29,7 +29,7 @@ namespace Amazon.KinesisTap.Core.Test
             {
                 config["Negate"] = "true";
             }
-            var context = new PluginContext(config, null, null, new BookmarkManager());
+            var context = new PluginContext(config, null, null);
 
             var source = new MockEventSource<string>(context);
             var sink = new MockEventSink(context);
@@ -57,7 +57,7 @@ namespace Amazon.KinesisTap.Core.Test
             {
                 config["Negate"] = "true";
             }
-            var context = new PluginContext(config, null, null, new BookmarkManager());
+            var context = new PluginContext(config, null, null);
 
             var source = new NonGenericMockEventSource(context);
             var sink = new MockEventSink(context);

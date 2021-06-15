@@ -12,11 +12,8 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
-
 using Amazon.CloudWatchLogs.Model;
 using KFM = Amazon.KinesisFirehose.Model;
 using KM = Amazon.Kinesis.Model;
@@ -70,7 +67,7 @@ namespace Amazon.KinesisTap.AWS
         #region Firehose
         public static KFM.Record ReadFirehoseRecord(this BinaryReader reader)
         {
-           var record = new KFM.Record();
+            var record = new KFM.Record();
             record.Data = reader.ReadMemoryStream();
             return record;
         }
@@ -131,7 +128,7 @@ namespace Amazon.KinesisTap.AWS
             {
                 if (_putRecordsRequestEntryListBinarySerializer == null)
                 {
-                    var envelopeSerializer = new EnvelopeSerializer<KM.PutRecordsRequestEntry> (
+                    var envelopeSerializer = new EnvelopeSerializer<KM.PutRecordsRequestEntry>(
                         WritePutRecordsRequestEntry,
                         ReadPutRecordsRequestEntry);
 
@@ -145,6 +142,44 @@ namespace Amazon.KinesisTap.AWS
                         );
                 }
                 return _putRecordsRequestEntryListBinarySerializer;
+            }
+        }
+        #endregion
+
+        #region S3
+        public static string ReadString(this BinaryReader reader)
+        {
+            return reader.ReadNullableString();
+        }
+
+        public static void WriteString(this BinaryWriter writer, string data)
+        {
+            writer.WriteNullableString(data);
+
+        }
+
+        private static BinarySerializer<List<Envelope<string>>> _stringListBinarySerializer;
+
+        public static BinarySerializer<List<Envelope<string>>> StringListBinarySerializer
+        {
+            get
+            {
+                if (_stringListBinarySerializer == null)
+                {
+                    var envelopeSerializer = new EnvelopeSerializer<string>(
+                        WriteString,
+                        ReadString);
+
+                    var listWriter = new ListBinarySerializer<Envelope<string>>(
+                        envelopeSerializer.Serialize,
+                        envelopeSerializer.Deserialize);
+
+                    _stringListBinarySerializer = new BinarySerializer<List<Envelope<string>>>(
+                        listWriter.Serialize,
+                        listWriter.Deserialize
+                        );
+                }
+                return _stringListBinarySerializer;
             }
         }
         #endregion

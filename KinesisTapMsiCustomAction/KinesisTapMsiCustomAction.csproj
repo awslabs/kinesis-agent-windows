@@ -34,8 +34,15 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.12.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Management" />
+    <Reference Include="System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.PowerShell.5.ReferenceAssemblies.1.1.0\lib\net4\System.Management.Automation.dll</HintPath>
+    </Reference>
     <Reference Include="System.ServiceProcess" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="Microsoft.CSharp" />
@@ -49,96 +56,31 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Content Include="CustomAction.config" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(WixCATargetsPath)" Condition=" '$(WixCATargetsPath)' != '' " />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.CA.targets" Condition=" '$(WixCATargetsPath)' == '' AND Exists('$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.CA.targets') " />
   <Target Name="EnsureWixToolsetInstalled" Condition=" '$(WixCATargetsImported)' != 'true' ">
     <Error Text="The WiX Toolset v3.11 (or newer) build tools must be installed to build this project. To download the WiX Toolset, see http://wixtoolset.org/releases/" />
   </Target>
-  <ItemGroup>
-    <MainArtifacts Include="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\*.dll;
-                            $(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\*.pdb;
-                            $(SolutionDir)Amazon.KinesisTap\appsettingsTemplate.json;
-                            $(SolutionDir)Amazon.KinesisTap\appsettingsSchema.json;"/>
-    <MainArtifactsAmd64 Include="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\amd64\*.dll;"/>
-    <MainArtifactsX86 Include="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\x86\*.dll;"/>
-    <DiagnosticTool Include="$(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\*.exe;
-                             $(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\*.exe.config;
-                             $(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\log4net.dll;
-                             $(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\Newtonsoft.Json.Schema.dll;
-                             $(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\System.Console.dll;
-                             $(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\Amazon.KinesisTap.DiagnosticTool.Core.???"/>
-    <Uls Include="$(SolutionDir)Amazon.KinesisTap.Uls\bin\$(Configuration)\netstandard1.3\Amazon.KinesisTap.Uls.???"/>
-    <AutoUpdate Include="$(SolutionDir)Amazon.KinesisTap.AutoUpdate\bin\$(Configuration)\netstandard1.3\Amazon.KinesisTap.AutoUpdate.???"/>
-    <Wincredible Include="$(SolutionDir)Amazon.KinesisTap.CredentialProvider.Wincredible\bin\$(Configuration)\Amazon.KinesisTap.CredentialProvider.Wincredible.???;
-                          $(SolutionDir)Amazon.KinesisTap.CredentialProvider.Wincredible\bin\$(Configuration)\Wincredible.*.???"/>
-    <DungeonMaster Include="$(SolutionDir)Amazon.KinesisTap.DungeonMaster\bin\$(Configuration)\netstandard1.3\Amazon.KinesisTap.DungeonMaster.???"/>
-    <SharedProj Include="$(SolutionDir)Amazon.KinesisTap.Shared\bin\$(Configuration)\net46\Amazon.KinesisTap.Shared.???"/>
-    <SecurityPlugins Include="$(SolutionDir)Amazon.KinesisTap.Windows.SecurityPlugins\bin\$(Configuration)\Amazon.KinesisTap.Windows.SecurityPlugins.???"/>
-    <AutorunsWorker Include="$(SolutionDir)Amazon.KinesisTap.AutorunsWorker\bin\$(Configuration)\AutorunsWorker.*"/>
-    <AutorunsX64 Include="$(SolutionDir)Library\autoruns*64.*"/>
-  </ItemGroup>
   <Target Name="BeforeBuild">
     <RemoveDir Directories="$(SolutionDir)msibuild" />
-    <Copy
-      SourceFiles="@(MainArtifacts)"
-      DestinationFolder="$(SolutionDir)msibuild"/>
-    <Copy
-      SourceFiles="@(MainArtifactsAmd64)"
-      DestinationFolder="$(SolutionDir)msibuild\amd64"/>
-    <Copy
-      SourceFiles="@(MainArtifactsX86)"
-      DestinationFolder="$(SolutionDir)msibuild\x86"/>
-    <Copy
-      SourceFiles="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\NLog.xml"
-      DestinationFiles="$(SolutionDir)msibuild\NLogTemplate.xml"/>
-    <Copy
-      SourceFiles="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\AWSKinesisTap.exe.config"
-      DestinationFiles="$(SolutionDir)msibuild\AWSKinesisTap.exe.config.new"/>
-
-    <Copy
-      SourceFiles="@(DiagnosticTool)"
-      DestinationFolder="$(SolutionDir)msibuild"/>
-
-    <Copy
-      SourceFiles="@(Uls)"
-      DestinationFolder="$(SolutionDir)msibuild"/>
-
-    <Copy
-      SourceFiles="@(AutoUpdate)"
-      DestinationFolder="$(SolutionDir)msibuild"/>
-
-    <Copy
-      SourceFiles="@(Wincredible)"
-      DestinationFolder="$(SolutionDir)msibuild"/>
-
-    <Copy
-      SourceFiles="@(DungeonMaster)"
-      DestinationFolder="$(SolutionDir)msibuild"/>
-
-    <Copy
-      SourceFiles="@(SharedProj)"
-      DestinationFolder="$(SolutionDir)msibuild"/>
-
-    <Copy
-      SourceFiles="@(SecurityPlugins)"
-      DestinationFolder="$(SolutionDir)msibuild"/>
-
-    <Copy
-      SourceFiles="@(AutorunsWorker)"
-      DestinationFolder="$(SolutionDir)msibuild"/>
-
-    <Copy
-      SourceFiles="@(AutorunsX64)"
-      DestinationFolder="$(SolutionDir)msibuild\amd64"/>
-
-    <Move Condition="Exists('$(SolutionDir)signed_artifacts')"
-      SourceFiles="$(SolutionDir)signed_artifacts\AWSKinesisTap.exe" DestinationFolder="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)"/>
-
-    <Exec Condition="Exists('$(SolutionDir)signed_artifacts')"
-      Command='xcopy "$(SolutionDir)signed_artifacts\%2a" "$(SolutionDir)\msibuild" /y /i'/>
-
-    <Exec
-      Command='"C:\Program Files (x86)\WiX Toolset v3.11\bin\heat.exe" dir "$(SolutionDir)msibuild" -dr INSTALLFOLDER -cg KinesisTapComponents -gg -g1 -scom -sreg -sfrag -srd -var var.SourcePath -platform  -out "$(SolutionDir)KinesisTapWixSetup\Amazon.KinesisTap.wxs"'/>
-	</Target> 
+    <ItemGroup>
+	<MainArtifacts Include="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\win10-x64\*.dll;
+                            $(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\win10-x64\*.pdb;
+                            $(SolutionDir)Amazon.KinesisTap\appsettingsTemplate.json;
+                            $(SolutionDir)Amazon.KinesisTap\appsettingsSchema.json;"/>
+      <MainArtifacts Include="$(SolutionDir)Amazon.KinesisTap\upgrade_external.ps1"/>
+      <AutorunsX64 Include="$(SolutionDir)Library\autoruns*64.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(MainArtifacts)" DestinationFolder="$(SolutionDir)msibuild" />
+    <Delete Files="$(SolutionDir)msibuild\KinesisTap.exe" />
+    <Copy SourceFiles="$(SolutionDir)Amazon.KinesisTap\NLog.xml" DestinationFiles="$(SolutionDir)msibuild\NLogTemplate.xml" />
+    <Copy SourceFiles="@(AutorunsX64)" DestinationFolder="$(SolutionDir)msibuild\amd64" />
+    <Move Condition="Exists('$(SolutionDir)signed_artifacts')" SourceFiles="$(SolutionDir)signed_artifacts\KinesisTap.exe" DestinationFolder="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)" />
+    <Exec Condition="Exists('$(SolutionDir)signed_artifacts')" Command="xcopy &quot;$(SolutionDir)signed_artifacts\%2a&quot; &quot;$(SolutionDir)\msibuild&quot; /y /i" />
+    <Exec Command="&quot;C:\Program Files (x86)\WiX Toolset v3.11\bin\heat.exe&quot; dir &quot;$(SolutionDir)msibuild&quot; -dr INSTALLFOLDER -cg KinesisTapComponents -gg -g1 -scom -sreg -sfrag -srd -var var.SourcePath -platform  -out &quot;$(SolutionDir)KinesisTapWixSetup\Amazon.KinesisTap.wxs&quot;" />
+  </Target>
 </Project>

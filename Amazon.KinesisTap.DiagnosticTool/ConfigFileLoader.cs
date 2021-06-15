@@ -30,7 +30,7 @@ namespace Amazon.KinesisTap.DiagnosticTool
         public static IConfigurationRoot LoadConfigFile(string configBaseDirectory, string configFile)
         {
 
-            ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
+            var configurationBuilder = new ConfigurationBuilder();
 
             IConfigurationRoot config;
 

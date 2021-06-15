@@ -1,24 +1,31 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard1.3</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="AWSSDK.CloudWatch" Version="3.3.104.11" />
-    <PackageReference Include="AWSSDK.CloudWatchLogs" Version="3.3.101.64" />
-    <PackageReference Include="AWSSDK.CognitoIdentity" Version="3.3.101.18" />
-    <PackageReference Include="AWSSDK.EC2" Version="3.3.145" />
-    <PackageReference Include="AWSSDK.Kinesis" Version="3.3.100.115" />
-    <PackageReference Include="AWSSDK.KinesisFirehose" Version="3.3.103.14" />
-    <PackageReference Include="AWSSDK.S3" Version="3.3.110.3" />
-    <PackageReference Include="AWSSDK.SecurityToken" Version="3.3.104.12" />
-    <PackageReference Include="AWSSDK.SecretsManager" Version="3.3.101.65" />
+    <PackageReference Include="AWSSDK.CloudWatch" Version="3.7.1.13" />
+    <PackageReference Include="AWSSDK.CloudWatchLogs" Version="3.7.0.16" />
+    <PackageReference Include="AWSSDK.CognitoIdentity" Version="3.7.0.16" />
+    <PackageReference Include="AWSSDK.EC2" Version="3.7.5.2" />
+    <PackageReference Include="AWSSDK.Kinesis" Version="3.7.0.16" />
+    <PackageReference Include="AWSSDK.KinesisFirehose" Version="3.7.0.16" />
+    <PackageReference Include="AWSSDK.S3" Version="3.7.0.18" />
+    <PackageReference Include="AWSSDK.SecurityToken" Version="3.7.1.5" />
+    <PackageReference Include="AWSSDK.SecretsManager" Version="3.7.0.16" />
+    <PackageReference Include="AWSSDK.Core" Version="3.7.0.17" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Amazon.KinesisTap.Core\Amazon.KinesisTap.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>$(AssemblyName).Test</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 
 </Project>

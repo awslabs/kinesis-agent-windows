@@ -13,16 +13,12 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Text;
-
 using Xunit;
+using Amazon.KinesisTap.Shared.Ast;
+using Amazon.KinesisTap.Shared.Binder;
+using Amazon.KinesisTap.Shared.ObjectDecoration;
 
-using Amazon.KinesisTap.Expression.Ast;
-using Amazon.KinesisTap.Expression.Binder;
-using Amazon.KinesisTap.Expression.ObjectDecoration;
-
-namespace Amazon.KinesisTap.Expression.Test
+namespace Amazon.KinesisTap.Shared.Test
 {
     public class ObjectDecorationValueEvaluatorTest
     {

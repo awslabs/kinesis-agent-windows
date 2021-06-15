@@ -13,18 +13,15 @@
  * permissions and limitations under the License.
  */
 using Amazon.KinesisTap.Core;
+using Amazon.KinesisTap.Test.Common;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace Amazon.KinesisTap.Windows.Test
 {
     public class WindowsUtilityTest
     {
-        [Fact]
+        [WindowsOnlyFact]
         public void TestResolveEnvironmentVariable()
         {
             var randomVariable = string.Format("TestVariable{0:yyyyMMddhhmmss}", DateTime.Now);

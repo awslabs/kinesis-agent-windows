@@ -12,17 +12,17 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-
 using Amazon.KinesisTap.Core.Metrics;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace Amazon.KinesisTap.Core
 {
+    /// <summary>
+    /// Minimal base class for all generic plugins with synchronous Start/Stop methods.
+    /// </summary>
     public abstract class GenericPlugin : IGenericPlugin
     {
         protected IPlugInContext _context;
@@ -32,17 +32,35 @@ namespace Amazon.KinesisTap.Core
 
         public GenericPlugin(IPlugInContext context)
         {
-            this._context = context;
-            this._config = context.Configuration;
-            this._logger = context.Logger;
-            this._metrics = context.Metrics;
-           this.Id = _config[ConfigConstants.ID];
+            _context = context;
+            _config = context.Configuration;
+            _logger = context.Logger;
+            _metrics = context.Metrics;
+            Id = _config[ConfigConstants.ID];
         }
 
         public string Id { get; set; }
 
+        public ValueTask StartAsync(CancellationToken stopToken)
+        {
+            Start();
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask StopAsync(CancellationToken stopToken)
+        {
+            Stop();
+            return ValueTask.CompletedTask;
+        }
+
+        /// <summary>
+        /// When implemented, start the plugin synchronously.
+        /// </summary>
         public abstract void Start();
 
+        /// <summary>
+        /// When implemented, stop the plugin synchronously and returns once the plugin is stopped.
+        /// </summary>
         public abstract void Stop();
 
         protected int GetSettingIntWithDefault(string key, int defaultValue)

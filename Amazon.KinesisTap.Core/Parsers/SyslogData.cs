@@ -18,7 +18,7 @@ using System.Globalization;
 namespace Amazon.KinesisTap.Core
 {
     /// <summary>
-    /// Represents extracted syslog data
+    /// Represents extracted data of a Syslog record.
     /// </summary>
     public class SyslogData
     {
@@ -30,10 +30,29 @@ namespace Amazon.KinesisTap.Core
             Message = message;
         }
 
-        public string Hostname { get; }
-        public string Message { get; }
-        public string Program { get; }
-        public DateTimeOffset Timestamp { get; }
+        /// <summary>
+        /// Timestamp in syslog format.
+        /// </summary>
         public string SyslogTimestamp => Timestamp.ToString("MMM dd HH:mm:ss", CultureInfo.InvariantCulture);
+
+        /// <summary>
+        /// The 'Hostname' part of the syslog record.
+        /// </summary>
+        public string Hostname { get; }
+
+        /// <summary>
+        /// The 'Program' part of the syslog record.
+        /// </summary>
+        public string Program { get; }
+
+        /// <summary>
+        /// The 'Message' part of the syslog record.
+        /// </summary>
+        public string Message { get; }
+
+        /// <summary>
+        /// Timestamp when this record is generated.
+        /// </summary>
+        public DateTimeOffset Timestamp { get; }
     }
 }

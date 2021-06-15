@@ -12,13 +12,11 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
@@ -31,36 +29,43 @@ namespace Amazon.KinesisTap.Core.Metrics
         protected List<Regex> _serviceMetricsFilters = new List<Regex>();
         protected List<Regex> _instanceMetricsFilters = new List<Regex>();
         protected List<Regex> _aggregatedMetricsFilters = new List<Regex>();
-
-        private Timer _flushTimer;
+        private readonly Timer _flushTimer;
 
         //Current value counter
-        private readonly IDictionary<MetricKey, MetricValue> _lastValues = new Dictionary<MetricKey, MetricValue>();
+        private readonly IDictionary<MetricKey, MetricValue> _lastValues = new ConcurrentDictionary<MetricKey, MetricValue>();
+        private readonly bool _noFlushOnStop;
 
         //Increment counter
-        private IDictionary<MetricKey, MetricValue> _accumulatedValues = new Dictionary<MetricKey, MetricValue>();
+        private IDictionary<MetricKey, MetricValue> _accumulatedValues = new ConcurrentDictionary<MetricKey, MetricValue>();
 
-        protected SimpleMetricsSink(int defaultInterval, IPlugInContext context) : base(context)
+        protected SimpleMetricsSink(int defaultInterval, IPlugInContext context) : this(defaultInterval, context, false)
+        {
+        }
+
+        protected SimpleMetricsSink(int defaultInterval, IPlugInContext context, bool noFlushOnStop) : base(context)
         {
             if (_config != null)
             {
-                string interval = _config["interval"];
+                string interval = _config[ConfigConstants.INTERVAL];
                 if (!string.IsNullOrEmpty(interval))
                 {
                     int.TryParse(interval, out _interval);
                 }
 
-                _metricsFilter = _config["metricsfilter"];
+                _metricsFilter = _config["MetricsFilter"];
                 if (!string.IsNullOrWhiteSpace(_metricsFilter))
                 {
                     ConstructFilters();
                 }
             }
 
+            _noFlushOnStop = noFlushOnStop;
+
             if (_interval == 0)
                 _interval = defaultInterval;
 
             _flushTimer = new Timer(Flush, null, Timeout.Infinite, Timeout.Infinite);
+            _noFlushOnStop = noFlushOnStop;
         }
 
         public override void OnNext(IEnvelope value)
@@ -110,14 +115,18 @@ namespace Amazon.KinesisTap.Core.Metrics
         public override void Stop()
         {
             _flushTimer.Change(Timeout.Infinite, Timeout.Infinite);
-            Flush(null);
+            if (!_noFlushOnStop)
+            {
+                Flush(null);
+            }
+            _logger?.LogInformation("Stopped");
         }
 
         protected abstract void OnFlush(IDictionary<MetricKey, MetricValue> accumlatedValues, IDictionary<MetricKey, MetricValue> lastValues);
 
         private void ProcessIncrementValue(MetricsEnvelope counterData)
         {
-            foreach (string name in counterData.Data?.Keys)
+            foreach (var name in counterData.Data?.Keys)
             {
                 var value = counterData.Data[name];
                 MetricKey key = GetMetrickKey(counterData, name);
@@ -167,7 +176,7 @@ namespace Amazon.KinesisTap.Core.Metrics
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogError($"Metrics sink flush error id {this.Id} exception: {ex.ToMinimized()}");
+                    _logger?.LogError($"Metrics sink flush error id {Id} exception: {ex.ToMinimized()}");
                 }
                 finally
                 {
@@ -178,7 +187,8 @@ namespace Amazon.KinesisTap.Core.Metrics
 
         private IDictionary<MetricKey, MetricValue> InitAccumulatedValues()
         {
-            return _accumulatedValues.ToDictionary(kv => kv.Key, kv => new MetricValue(0L, kv.Value.Unit));
+            return new ConcurrentDictionary<MetricKey, MetricValue>(_accumulatedValues
+                .Select(kv => new KeyValuePair<MetricKey, MetricValue>(kv.Key, new MetricValue(0L, kv.Value.Unit))));
         }
 
         private static MetricKey GetMetrickKey(MetricsEnvelope counterData, string name)

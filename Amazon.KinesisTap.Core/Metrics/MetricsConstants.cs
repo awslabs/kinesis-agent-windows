@@ -12,10 +12,6 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
-
 namespace Amazon.KinesisTap.Core.Metrics
 {
     public class MetricsConstants
@@ -72,7 +68,7 @@ namespace Amazon.KinesisTap.Core.Metrics
         public const string NONRECOVERABLE_SERVICE_ERRORS = "NonrecoverableServiceErrors";
         public const string SERVICE_SUCCESS = "ServiceSuccess";
         public const string RECORDS_ATTEMPTED = "RecordsAttempted";
-        public const string BYTES_ATTEMPTED = "BytesAccepted";
+        public const string BYTES_ACCEPTED = "BytesAccepted";
         public const string RECORDS_SUCCESS = "RecordsSuccess";
         public const string RECORDS_FAILED_RECOVERABLE = "RecordsFailedRecoverable";
         public const string RECORDS_FAILED_NONRECOVERABLE = "RecordsFailedNonrecoverable";
@@ -87,6 +83,7 @@ namespace Amazon.KinesisTap.Core.Metrics
         public const string KINESIS_FIREHOSE_PREFIX = "KinesisFirehose";
         public const string KINESIS_STREAM_PREFIX = "KinesisStream";
         public const string CLOUDWATCH_PREFIX = "CloudWatch";
+        public const string S3_PREFIX = "S3";
 
         //Plugins
         public const string RESTARTED_SINCE_LAST_RUN = "RestartedSinceLastRun";

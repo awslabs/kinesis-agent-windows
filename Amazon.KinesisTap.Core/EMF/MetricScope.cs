@@ -12,24 +12,24 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.Collections.Generic;
+using System.IO;
+using Newtonsoft.Json;
+
 namespace Amazon.KinesisTap.Core.EMF
 {
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using Newtonsoft.Json;
-
     public class MetricScope
     {
         public MetricScope(string version = "0")
         {
-            this.EventTimestamp = DateTime.UtcNow;
-            this.Version = version;
+            EventTimestamp = DateTime.UtcNow;
+            Version = version;
         }
 
         public DateTime EventTimestamp { get; private set; }
 
-        public long Timestamp => Utility.ToEpochMilliseconds(this.EventTimestamp);
+        public long Timestamp => Utility.ToEpochMilliseconds(EventTimestamp);
 
         public string Version { get; private set; }
 
@@ -43,38 +43,38 @@ namespace Amazon.KinesisTap.Core.EMF
 
         public MetricScope AddCloudWatchMetric(string @namespace, string metricName, double metricValue, string unit, HashSet<Dimension> dimensions = null)
         {
-            this.CloudWatchMetrics.Add(new CloudWatchMetric(this, @namespace).AddMetric(metricName, metricValue, unit).AddDimension(dimensions));
+            CloudWatchMetrics.Add(new CloudWatchMetric(this, @namespace).AddMetric(metricName, metricValue, unit).AddDimension(dimensions));
             return this;
         }
 
         public MetricScope AddCloudWatchMetric(string @namespace, string metricName, double metricValue, string unit, HashSet<Dimension> dimensions, HashSet<string[]> dimensionGroups)
         {
-            this.CloudWatchMetrics.Add(new CloudWatchMetric(this, @namespace).AddMetric(metricName, metricValue, unit).AddDimension(dimensions, dimensionGroups));
+            CloudWatchMetrics.Add(new CloudWatchMetric(this, @namespace).AddMetric(metricName, metricValue, unit).AddDimension(dimensions, dimensionGroups));
             return this;
         }
 
         public MetricScope AddCloudWatchMetrics(string @namespace, HashSet<MetricValue> metrics, HashSet<Dimension> dimensions = null)
         {
-            this.CloudWatchMetrics.Add(new CloudWatchMetric(this, @namespace).AddDimension(dimensions).AddMetrics(metrics));
+            CloudWatchMetrics.Add(new CloudWatchMetric(this, @namespace).AddDimension(dimensions).AddMetrics(metrics));
             return this;
         }
 
         public MetricScope AddCloudWatchMetrics(string @namespace, HashSet<MetricValue> metrics, HashSet<Dimension> dimensions, HashSet<string[]> dimensionGroups)
         {
-            this.CloudWatchMetrics.Add(new CloudWatchMetric(this, @namespace).AddDimension(dimensions, dimensionGroups).AddMetrics(metrics));
+            CloudWatchMetrics.Add(new CloudWatchMetric(this, @namespace).AddDimension(dimensions, dimensionGroups).AddMetrics(metrics));
             return this;
         }
 
         public MetricScope AddProperty(string propertyName, string propertyValue)
         {
             if (!string.IsNullOrWhiteSpace(propertyName) && !string.IsNullOrWhiteSpace(propertyValue))
-                this.Properties[propertyName] = propertyValue;
+                Properties[propertyName] = propertyValue;
             return this;
         }
 
         public void Flush()
         {
-            Console.WriteLine(this.ToString());
+            Console.WriteLine(ToString());
         }
 
         public override string ToString()
@@ -85,14 +85,14 @@ namespace Amazon.KinesisTap.Core.EMF
                 tw.WriteStartObject();
 
                 tw.WritePropertyName(nameof(Timestamp));
-                tw.WriteValue(this.Timestamp);
+                tw.WriteValue(Timestamp);
                 tw.WritePropertyName(nameof(Version));
-                tw.WriteValue(this.Version);
+                tw.WriteValue(Version);
 
                 tw.WritePropertyName(nameof(CloudWatchMetrics));
                 tw.WriteStartArray();
 
-                foreach (var m in this.CloudWatchMetrics)
+                foreach (var m in CloudWatchMetrics)
                 {
                     tw.WriteStartObject();
 
@@ -131,21 +131,21 @@ namespace Amazon.KinesisTap.Core.EMF
 
                 tw.WriteEndArray();
 
-                foreach (var dim in this.DimensionValues)
+                foreach (var dim in DimensionValues)
                 {
                     tw.WritePropertyName(dim.Key);
                     tw.WriteValue(dim.Value);
                 }
 
-                foreach (var metric in this.MetricValues)
+                foreach (var metric in MetricValues)
                 {
                     tw.WritePropertyName(metric.Key);
                     tw.WriteValue(metric.Value);
                 }
 
-                if (this.Properties.Count > 0)
+                if (Properties.Count > 0)
                 {
-                    foreach (var kvp in this.Properties)
+                    foreach (var kvp in Properties)
                     {
                         tw.WritePropertyName(kvp.Key);
                         tw.WriteValue(kvp.Value);

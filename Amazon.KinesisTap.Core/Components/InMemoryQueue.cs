@@ -12,10 +12,10 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System.Collections.Concurrent;
+
 namespace Amazon.KinesisTap.Core
 {
-    using System.Collections.Concurrent;
-
     /// <summary>
     /// An in-memory implementation of the <see cref="ISimpleQueue{T}"/> interface.
     /// This class is built on a <see cref="ConcurrentQueue{T}"/> and is thread-safe.
@@ -23,15 +23,15 @@ namespace Amazon.KinesisTap.Core
     /// <typeparam name="T">The type of item stored in the queue.</typeparam>
     public class InMemoryQueue<T> : ISimpleQueue<T>
     {
-        private readonly ConcurrentQueue<T> queue = new ConcurrentQueue<T>();
+        private readonly ConcurrentQueue<T> _queue = new ConcurrentQueue<T>();
 
         public InMemoryQueue(int capacity)
         {
-            this.Capacity = capacity;
+            Capacity = capacity;
         }
 
         /// <inheritdoc />
-        public int Count => this.queue.Count;
+        public int Count => _queue.Count;
 
         /// <inheritdoc />
         public int Capacity { get; }
@@ -39,14 +39,14 @@ namespace Amazon.KinesisTap.Core
         /// <inheritdoc />
         public bool TryDequeue(out T item)
         {
-            return this.queue.TryDequeue(out item);
+            return _queue.TryDequeue(out item);
         }
 
         /// <inheritdoc />
         public bool TryEnqueue(T item)
         {
-            if (this.Count >= this.Capacity) return false;
-            this.queue.Enqueue(item);
+            if (Count >= Capacity) return false;
+            _queue.Enqueue(item);
             return true;
         }
     }

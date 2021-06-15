@@ -119,7 +119,7 @@ namespace Amazon.KinesisTap.AWS
             var stringToSign = $"{SCHEME}-{ALGORITHM}\n{amzDate}\n{credentialScope}\n{hashedCanonicalRequest}";
 
             // signature  key
-            var signingKey = this.GetSigningKey(region, dateStamp, serviceName, creds.SecretKey);
+            var signingKey = GetSigningKey(region, dateStamp, serviceName, creds.SecretKey);
 
             // AWS v4 signature
             var signature = AWSSDKUtils.BytesToHexString(HmacSHA256(stringToSign, signingKey)).ToLower();
@@ -228,7 +228,7 @@ namespace Amazon.KinesisTap.AWS
 
         private byte[] GetSigningKey(string region, string date, string service, string secretKey)
         {
-            var kSecret = Encoding.UTF8.GetBytes((SCHEME + secretKey).ToCharArray());
+            var kSecret = Encoding.UTF8.GetBytes(SCHEME + secretKey);
             var kDate = HmacSHA256(date, kSecret);
             var kRegion = HmacSHA256(region, kDate);
             var kService = HmacSHA256(service, kRegion);

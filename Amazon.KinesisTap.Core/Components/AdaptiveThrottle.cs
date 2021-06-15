@@ -13,8 +13,6 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Amazon.KinesisTap.Core
 {
@@ -54,7 +52,7 @@ namespace Amazon.KinesisTap.Core
         protected override void SetThrottled()
         {
             // try to recover the rate if no error
-            if (this.ConsecutiveErrorCount == 0)
+            if (ConsecutiveErrorCount == 0)
             {
                 _rateAdjustmentFactor += (1 - _rateAdjustmentFactor) * _recoveryFactor;
             }

@@ -15,6 +15,7 @@
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Core.Metrics;
 using Amazon.KinesisTap.Core.Test;
+using Amazon.KinesisTap.Test.Common;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -31,9 +32,7 @@ namespace Amazon.KinesisTap.Windows.Test
 {
     public class PerformanceCounterSourceTest
     {
-        private readonly BookmarkManager _bookmarkManager = new BookmarkManager();
-
-        [Fact]
+        [WindowsOnlyFact]
         public void TestUnitInference()
         {
             Assert.Equal(MetricUnit.Percent, PerformanceCounterSource.InferUnit(null, "% Total Run Time"));
@@ -61,13 +60,13 @@ namespace Amazon.KinesisTap.Windows.Test
             Assert.Equal(MetricUnit.Count, PerformanceCounterSource.InferUnit(null, "Monitored Notifications"));
         }
 
-        [Fact]
+        [WindowsOnlyFact]
         public void TestConfiguration()
         {
             var categoriesSection = TestUtility.GetConfig("Sources", "PerformanceCounter").GetSection("Categories");
             var counterUnitsCache = new Dictionary<(string, string), MetricUnit>();
             var performanceCounterSourceLoader = new PerformanceCounterSourceConfigLoader(
-                new PluginContext(null, NullLogger.Instance, null, _bookmarkManager),
+                new PluginContext(null, NullLogger.Instance, null),
                 counterUnitsCache);
             var categories = performanceCounterSourceLoader.LoadCategoriesConfig(categoriesSection);
             Assert.Equal(5, categories.Count);
@@ -78,7 +77,7 @@ namespace Amazon.KinesisTap.Windows.Test
         /// <summary>
         /// Load a config with multiple sections with same "Category" (multi-instance) but different "Counters"
         /// </summary>
-        [Fact]
+        [WindowsOnlyFact]
         public void TestLoadNonExistingCategory()
         {
             var config = TestUtility.GetConfig("Sources", "NonExistingCategory");
@@ -94,7 +93,7 @@ namespace Amazon.KinesisTap.Windows.Test
         /// <summary>
         /// Load a config with multiple sections with same "Category" (multi-instance) but different "Counters"
         /// </summary>
-        [Fact]
+        [WindowsOnlyFact]
         public void TestMultiInstanceCounters_RepeatedCategory()
         {
             var config = TestUtility.GetConfig("Sources", "ProcessorCounter");
@@ -112,7 +111,7 @@ namespace Amazon.KinesisTap.Windows.Test
         /// <summary>
         /// Load a config with multiple sections with same "Category"(single-instance) but different "Counters"
         /// </summary>
-        [Fact]
+        [WindowsOnlyFact]
         public void TestSingleInstanceCounters_RepeatedCategory()
         {
             var config = TestUtility.GetConfig("Sources", "SystemCounter");
@@ -129,7 +128,7 @@ namespace Amazon.KinesisTap.Windows.Test
         /// The first section contains processor instance '0'.
         /// The second section contains processor instances '0' and '_Total'.
         /// </summary>
-        [Fact]
+        [WindowsOnlyFact]
         public void TestAdditionalCounters_SameInstance()
         {
             var config = TestUtility.GetConfig("Sources", "FirstAndAllProcessorCounter");
@@ -148,7 +147,7 @@ namespace Amazon.KinesisTap.Windows.Test
         /// <summary>
         /// Load a config with a non-existing and an existing counter
         /// </summary>
-        [Fact]
+        [WindowsOnlyFact]
         public void TestLoadNonExistingCounters()
         {
             var config = TestUtility.GetConfig("Sources", "NonExistingCounter");
@@ -164,7 +163,7 @@ namespace Amazon.KinesisTap.Windows.Test
         /// <summary>
         /// Load a config with a non-existing and an existing counter
         /// </summary>
-        [Fact]
+        [WindowsOnlyFact]
         public void TestLoadNonExistingInstances()
         {
             var config = TestUtility.GetConfig("Sources", "NonExistingInstance");
@@ -187,7 +186,7 @@ namespace Amazon.KinesisTap.Windows.Test
         /// There are 2 configs we test this with: one with 'Instances' and 'InstanceRegex' in the same section,
         /// the other where they are in separate sections.
         /// </summary>
-        [Theory]
+        [WindowsOnlyTheory]
         [InlineData("ProcessorCountersWithDuplicatedRegex")]
         [InlineData("ProcessorCountersWithDuplicatedRegexInAnotherCategory")]
         public void TestDuplicatedInstanceInRegex(string sourceName)
@@ -206,7 +205,7 @@ namespace Amazon.KinesisTap.Windows.Test
             performanceCounterSource.Stop();
         }
 
-        [Fact]
+        [WindowsOnlyFact]
         public void TestCombinedCounters_DuplicateCounters()
         {
             var config = TestUtility.GetConfig("Sources", "SystemAndProcessorCounter");
@@ -219,11 +218,11 @@ namespace Amazon.KinesisTap.Windows.Test
             performanceCounterSource.Stop();
         }
 
-        [Fact]
+        [WindowsOnlyFact]
         public void TestPerformanceCounterSource()
         {
             var config = TestUtility.GetConfig("Sources", "PerformanceCounter");
-            var performanceCounterSource = new PerformanceCounterSource(new PluginContext(config, NullLogger.Instance, null, _bookmarkManager));
+            var performanceCounterSource = new PerformanceCounterSource(new PluginContext(config, NullLogger.Instance, null));
             performanceCounterSource.Start();
             var results = performanceCounterSource.Query(null);
             var metrics = results.Data;
@@ -232,12 +231,12 @@ namespace Amazon.KinesisTap.Windows.Test
             performanceCounterSource.Stop();
         }
 
-        [Fact]
+        [WindowsOnlyFact]
         [Trait("Category", "Integration")]
         public void TestPerformanceCounterSourceWithInstanceRegex()
         {
             var config = TestUtility.GetConfig("Sources", "PerformanceCounterWithInstanceRegex");
-            var performanceCounterSource = new PerformanceCounterSource(new PluginContext(config, NullLogger.Instance, null, _bookmarkManager));
+            var performanceCounterSource = new PerformanceCounterSource(new PluginContext(config, NullLogger.Instance, null));
             performanceCounterSource.Start();
             var results = performanceCounterSource.Query(null);
             var metrics = results.Data as ICollection<KeyValuePair<MetricKey, MetricValue>>;
@@ -248,12 +247,12 @@ namespace Amazon.KinesisTap.Windows.Test
         }
 
 
-        [Fact]
+        [WindowsOnlyFact]
         [Trait("Category", "Integration")]
         public void TestPerformanceCounterSourceForTransientInstance()
         {
             var config = TestUtility.GetConfig("Sources", "PerformanceCounter");
-            var performanceCounterSource = new PerformanceCounterSource(new PluginContext(config, NullLogger.Instance, null, _bookmarkManager));
+            var performanceCounterSource = new PerformanceCounterSource(new PluginContext(config, NullLogger.Instance, null));
             performanceCounterSource.Start();
             var results = performanceCounterSource.Query(null);
             var metrics = results.Data as ICollection<KeyValuePair<MetricKey, MetricValue>>;
@@ -281,13 +280,13 @@ namespace Amazon.KinesisTap.Windows.Test
         /// <summary>
         /// Tests the race condition of <see cref="PerformanceCounterSource"/> when the sink is querying while another thread is calling Stop().
         /// </summary>
-        [Fact]
+        [WindowsOnlyFact]
         [Trait("Category", "Integration")]
         public void TestPerformanceCounterSourceSafeStop()
         {
             var logger = new MemoryLogger(nameof(TestPerformanceCounterSourceSafeStop));
             var config = TestUtility.GetConfig("Sources", "PerformanceCounter");
-            var mockCounterSource = new Mock<PerformanceCounterSource>(MockBehavior.Strict, new PluginContext(config, logger, null, _bookmarkManager));
+            var mockCounterSource = new Mock<PerformanceCounterSource>(MockBehavior.Strict, new PluginContext(config, logger, null));
 
             // in real deployment, RefreshInstances() might take a long time if there are a lot of counter instances.
             // so we mock this method to simulate the situation

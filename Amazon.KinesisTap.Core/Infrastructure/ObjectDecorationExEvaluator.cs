@@ -14,12 +14,11 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Text;
-
-using Amazon.KinesisTap.Expression;
-using Amazon.KinesisTap.Expression.Ast;
-using Amazon.KinesisTap.Expression.Binder;
-using Amazon.KinesisTap.Expression.ObjectDecoration;
+using Amazon.KinesisTap.Shared;
+using Amazon.KinesisTap.Shared.Ast;
+using Amazon.KinesisTap.Shared.Binder;
+using Amazon.KinesisTap.Shared.ObjectDecoration;
+using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.Core
 {
@@ -32,6 +31,12 @@ namespace Amazon.KinesisTap.Core
             Func<string, string> evaluateVariable,
             Func<string, IEnvelope, object> evaluateRecordVariable,
             IPlugInContext context
+        ) : this(objectDecoration, evaluateVariable, evaluateRecordVariable, context?.Logger) { }
+
+        public ObjectDecorationExEvaluator(string objectDecoration,
+            Func<string, string> evaluateVariable,
+            Func<string, IEnvelope, object> evaluateRecordVariable,
+            ILogger logger
         )
         {
             _tree = ObjectDecorationParserFacade.ParseObjectDecoration(objectDecoration);
@@ -40,7 +45,7 @@ namespace Amazon.KinesisTap.Core
                 evaluateVariable,
                 evaluateRecordVariable,
                 binder,
-                context?.Logger
+                logger
             );
             var validator = new ObjectDecorationValidator<IEnvelope>(evalContext);
             validator.Visit(_tree, null); //Should throw if cannot resolve function

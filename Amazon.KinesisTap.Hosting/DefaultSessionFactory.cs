@@ -12,22 +12,30 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Amazon.KinesisTap.Core;
+using Amazon.KinesisTap.Core.Metrics;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using System;
 
 namespace Amazon.KinesisTap.Hosting
 {
     /// <summary>
-    /// The default session factory that creates <see cref="LogManager"/>.
+    /// The default session factory that creates <see cref="Session"/>.
     /// </summary>
     public class DefaultSessionFactory : ISessionFactory
     {
+        private readonly IServiceProvider _services;
+        private readonly IMetrics _metrics;
+
+        public DefaultSessionFactory(IServiceProvider services, IMetrics metrics)
+        {
+            _services = services;
+            _metrics = metrics;
+        }
+
         /// <inheritdoc/>
-        public ISession Create(int id, IConfiguration config, DateTime startTime,
-            ITypeLoader typeLoader, IParameterStore parameterStore, ILoggerFactory loggerFactory,
-            INetworkStatusProvider networkStatusProvider, IConfigurationSection defaultCredentialsSection, bool validated)
-            => new LogManager(id, config, startTime, typeLoader, parameterStore, loggerFactory, networkStatusProvider, defaultCredentialsSection, validated);
+        public ISession CreateSession(string name, IConfiguration config) => new Session(name, config, _metrics, _services, false);
+
+        /// <inheritdoc/>
+        public ISession CreateValidatedSession(string name, IConfiguration config) => new Session(name, config, _metrics, _services, true);
     }
 }

@@ -15,12 +15,21 @@
 using Amazon.KinesisTap.Core.Metrics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
 
 namespace Amazon.KinesisTap.Core
 {
+    /// <summary>
+    /// Capture the program's info passed to the plugin.
+    /// </summary>
     public interface IPlugInContext
     {
+        /// <summary>
+        /// Collection of the application's services.
+        /// </summary>
+        IServiceProvider Services { get; }
+
         /// <summary>
         /// Configuration for the Plugin
         /// </summary>
@@ -37,9 +46,9 @@ namespace Amazon.KinesisTap.Core
         IMetrics Metrics { get; }
 
         /// <summary>
-        /// <see cref="BookmarkManager"/> instance for the Plugin
+        /// Bookmark sub-system
         /// </summary>
-        BookmarkManager BookmarkManager { get; }
+        IBookmarkManager BookmarkManager { get; }
 
         /// <summary>
         /// Returns the Credential Provider instance from its ID
@@ -65,7 +74,7 @@ namespace Amazon.KinesisTap.Core
         /// <summary>
         /// Id of the session.
         /// </summary>
-        int SessionId { get; }
+        string SessionName { get; }
 
         /// <summary>
         /// Whether the configuration file that the plugin configuration comes from has been validated or not.

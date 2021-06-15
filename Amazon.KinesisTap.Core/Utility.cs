@@ -21,9 +21,15 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using Amazon.KinesisTap.Shared;
+using Microsoft.Extensions.Logging.Abstractions;
+using System.Net.NetworkInformation;
+using System.Threading.Tasks;
+using System.Net.Sockets;
 
 namespace Amazon.KinesisTap.Core
 {
@@ -36,28 +42,84 @@ namespace Amazon.KinesisTap.Core
         public static readonly string Platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Windows" :
             RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "Linux" :
             RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "macOS" : "Unknown";
-        public const string DefaultExtraConfigDirectoryName = "configs";
+        public const string ExtraConfigDirectoryName = "configs";
 
         public static Func<string, string> ResolveEnvironmentVariable = Environment.GetEnvironmentVariable; //Can override this function for different OS
 
         private static string _computerName;
         private static string _hostName;
+        private static string _uniqueClientID;
+        private static string _uniqueSystemProperties;
+        private static readonly long _ticksPerMillisecond = Stopwatch.Frequency / 1000;
+        private static readonly long _initialTicks = Stopwatch.GetTimestamp();
 
-        private static readonly Random _random = new Random(
-            (Utility.ComputerName + DateTime.UtcNow.ToString())
-            .GetHashCode()
-        );
-        private static Stopwatch _stopwatch = Stopwatch.StartNew();
+        private static DateTime _baseNTPTime = new DateTime();
+        private static Stopwatch _stopwatchForUniformTime = Stopwatch.StartNew();
+        private static bool _isCorrectNTPTime = false;
+        private static long _elapsedmsSinceFailure = -60000;
+        private static string _currentLoggedInUser;
+        public static IBashShell processor = new BashShell();
 
-        public static long GetElapsedMilliseconds()
-        {
-            return _stopwatch.ElapsedMilliseconds;
-        }
+        private static readonly ThreadLocal<Random> _random = new(() => new Random(Guid.NewGuid().ToString().GetHashCode()));
+
+        /// <summary>
+        /// Get the amount of time passed since KinesisTap starts in milliseconds
+        /// </summary>
+        public static long GetElapsedMilliseconds() => (Stopwatch.GetTimestamp() - _initialTicks) / _ticksPerMillisecond;
+
+        /// <summary>
+        /// Gets or sets the UniformTime object to query for uniform time.
+        /// </summary>
+        public static IUniformServerTime UniformTime { get; set; }
 
         public static string AgentId { get; set; }
 
         public static string UserId { get; set; }
 
+        public static string UniqueSystemProperties
+        {
+            get
+            {
+                return _uniqueSystemProperties;
+            }
+        }
+
+        /// <summary>
+        /// Get the currently logged-in user
+        /// </summary>
+        public static string CurrentLoggedInUser
+        {
+            get
+            {
+                try
+                {
+                    if (IsMacOs)
+                    {
+                        var command = $"stat -f %Su /dev/console";
+
+                        var output = processor.RunCommand(command).Trim();
+                        _currentLoggedInUser = output.ToString();
+
+                        if (_currentLoggedInUser.ToString().Length == 0)
+                        {
+                            _currentLoggedInUser = GetCurrentLoggedInUserFromDirectory();
+                        }
+
+                        // If username is root then there is no current logged in user and system is at the login screen. In that case do not resolve the username.
+                        if (_currentLoggedInUser.Equals("root"))
+                        {
+                            _currentLoggedInUser = $"{{{ConfigConstants.CURRENT_USER}}}";
+                        }
+                    }
+                    else
+                    {
+                        throw new PlatformNotSupportedException("Operating system not supported");
+                    }
+                }
+                catch { }
+                return _currentLoggedInUser ?? $"{{{ConfigConstants.CURRENT_USER}}}";
+            }
+        }
         public static string ComputerName
         {
             get
@@ -101,6 +163,221 @@ namespace Amazon.KinesisTap.Core
                 }
                 return _hostName ?? "unresolved";
             }
+        }
+
+        /// <summary>
+        /// Get the IP address info of the network interface used to connect to an endpoint.
+        /// </summary>
+        /// <param name="host">Remote host</param>
+        /// <param name="port">Remote port</param>
+        /// <param name="timeoutMs">Timeout in milliseconds</param>
+        /// <param name="cancelToken">Cancellation token</param>
+        /// <returns>List of <see cref="UnicastIPAddressInformation"/> used for connection</returns>
+        /// <remarks>
+        /// The returned list might contain both IPv4 and IPv6 info of the same address, in which case the
+        /// caller can choose which form it requires.
+        /// </remarks>
+        /// <exception cref="SocketException">When the remote endpoint cannot be connected.</exception>
+        public static async Task<IEnumerable<UnicastIPAddressInformation>> GetAddrInfoOfConnectionAsync(string host, int port,
+            int timeoutMs = 5000,
+            CancellationToken cancelToken = default)
+        {
+            //TODO right now we're using TCP connection because that's what most Internet endpoint are using.
+            //howerver HTTP3 uses QUIC instead of TCP so this might need revisions in the future
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken);
+            cts.CancelAfter(timeoutMs);
+            using var tcpClient = new TcpClient();
+
+            try
+            {
+                await tcpClient.ConnectAsync(host, port, cts.Token);
+                if (!tcpClient.Connected || tcpClient.Client.LocalEndPoint is not IPEndPoint localEndpoint)
+                {
+                    throw new SocketException();
+                }
+
+                var localAddress = localEndpoint.Address;
+                var localAddressIPv4 = localAddress.AddressFamily == AddressFamily.InterNetwork
+                    ? localAddress
+                    : localAddress.IsIPv4MappedToIPv6 ? localAddress.MapToIPv4() : null;
+
+                return NetworkInterface.GetAllNetworkInterfaces()
+                     .Where(n => n.OperationalStatus == OperationalStatus.Up &&
+                         n.NetworkInterfaceType != NetworkInterfaceType.Tunnel &&
+                         n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                     .Where(n => n.GetIPProperties().UnicastAddresses.Any(
+                         ip => ip.Address.AddressFamily == AddressFamily.InterNetwork || ip.Address.AddressFamily == AddressFamily.InterNetworkV6))
+                     .SelectMany(ni => ni.GetIPProperties().UnicastAddresses)
+                     .Where(unicastAddr =>
+                     {
+                         var addr = unicastAddr.Address;
+                         switch (addr.AddressFamily)
+                         {
+                             case AddressFamily.InterNetwork:
+                                 return addr.Equals(localAddressIPv4);
+                             case AddressFamily.InterNetworkV6:
+                                 if (addr.IsIPv4MappedToIPv6)
+                                 {
+                                     addr = addr.MapToIPv4();
+                                 }
+                                 return addr.Equals(localAddress);
+                             default:
+                                 return false;
+                         }
+                     });
+            }
+            catch (OperationCanceledException)
+            {
+                if (cancelToken.IsCancellationRequested)
+                {
+                    // the cancel signal comes from the stopToken parameter, we throw it here so the caller can catch it
+                    cancelToken.ThrowIfCancellationRequested();
+                }
+                // throw a time-out 10060 exception
+                throw new SocketException(10060);
+            }
+        }
+
+        /// <summary>
+        /// This will create a unique client id for a system based on the unique system properties such as MAC address, OS type and computername
+        /// </summary>
+        public static string UniqueClientID
+        {
+            get
+            {
+                if (_uniqueClientID == null)
+                {
+                    try
+                    {
+                        //Create a string based on system properties
+                        var hashstring = GetSerialNumber() + " " + Platform + " " + GetSystemUUID();
+
+                        //Generate a hash for the string
+                        var inputBytes = Encoding.UTF8.GetBytes(hashstring);
+                        using var hasher = new SHA256Managed();
+                        var hashBytes = hasher.ComputeHash(inputBytes);
+                        var hash = new StringBuilder();
+
+                        foreach (var b in hashBytes)
+                        {
+                            hash.Append(string.Format("{0:x2}", b));
+                        }
+
+                        _uniqueClientID = hash.ToString();
+                        _uniqueSystemProperties = hashstring;
+                    }
+                    catch { }
+                }
+                return _uniqueClientID ?? string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// This function gets the current logged in user using directory search.
+        /// </summary>
+        /// <returns>The current logged in user</returns>
+        private static string GetCurrentLoggedInUserFromDirectory()
+        {
+            var username = "";
+
+            // If we are unable to get the current user from bash command, then get using directory list.
+            // Exclude below directory when looking for user directory.
+            var excludeDirectory = new List<string>(new string[] { "/users/admin", "/users/tokenadmin", "/users/Shared" });
+            var directories = Directory.GetDirectories("/users");
+
+            // If there are more than 1 user directory, get the one with the latest write time to get the user who has logged in recently.
+            var userDirectories = new SortedList<DateTime, string>();
+            foreach (var dir in directories)
+            {
+                if (!excludeDirectory.Contains(dir.ToString(), StringComparer.OrdinalIgnoreCase))
+                {
+                    userDirectories.Add(Directory.GetLastAccessTimeUtc(dir), dir);
+                }
+            }
+
+            // Get the recently active user.
+            if (userDirectories.Count > 0)
+            {
+                username = userDirectories.Last().Value;
+            }
+
+            return username;
+        }
+        /// <summary>
+        /// The function gets the hardware Serial Number of the system.
+        /// </summary>
+        /// <returns>The hardware Serial Number of the system</returns>
+        private static string GetSerialNumber()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var wmiClass = "Win32_Bios";
+                var wmiProperty = "SerialNumber";
+
+                var wmiResult = new WmiDeviceIdComponent(wmiClass, wmiProperty);
+                return wmiResult.GetValue();
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                var command = $"ioreg -rd1 -c IOPlatformExpertDevice | awk '/IOPlatformSerialNumber/'";
+
+                IBashShell processor = new BashShell();
+
+                var output = processor.RunCommand(command).Trim();
+
+                if (output.Contains("error", StringComparison.OrdinalIgnoreCase))
+                {
+                    return string.Empty;
+                }
+
+                return output.ToString();
+            }
+            else if (OperatingSystem.IsLinux())
+            {
+                var result = new FileDeviceIdComponent("/sys/class/dmi/id/board_serial");
+                return result.GetValue();
+            }
+
+            return string.Empty;
+
+        }
+
+        /// <summary>
+        /// The function gets the UUID of the system.
+        /// </summary>
+        /// <returns>The UUID of the system</returns>
+        private static string GetSystemUUID()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var wmiClass = "Win32_ComputerSystemProduct";
+                var wmiProperty = "UUID";
+
+                var wmiResult = new WmiDeviceIdComponent(wmiClass, wmiProperty);
+                return wmiResult.GetValue();
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                var command = $"ioreg -rd1 -c IOPlatformExpertDevice | awk '/IOPlatformUUID/'";
+
+                IBashShell processor = new BashShell();
+
+                var output = processor.RunCommand(command).Trim();
+
+                if (output.Contains("error", StringComparison.OrdinalIgnoreCase))
+                {
+                    return string.Empty;
+                }
+
+                return output.ToString();
+            }
+            else if (OperatingSystem.IsLinux())
+            {
+                var result = new FileDeviceIdComponent("/sys/class/dmi/id/product_uuid");
+                return result.GetValue();
+            }
+            return string.Empty;
+
         }
 
         public static readonly Regex VARIABLE_REGEX = new Regex("{[^}]+}");
@@ -160,6 +437,9 @@ namespace Amazon.KinesisTap.Core
                 throw new ArgumentException("Missing variable name.");
             }
 
+            if (string.Equals("uniformtimestamp", variable, StringComparison.CurrentCultureIgnoreCase))
+                return GetUniformTimeStamp().ToString("yyyy-MM-ddTHH:mm:ss.fff UTC");
+
             (string prefix, string variableNoPrefix) = SplitPrefix(variable, ':');
             if (!string.IsNullOrWhiteSpace(prefix) && !"env".Equals(prefix, StringComparison.CurrentCultureIgnoreCase))
             {
@@ -175,6 +455,11 @@ namespace Amazon.KinesisTap.Core
             }
             else
             {
+                if (variableNoPrefix.Contains(ConfigConstants.CURRENT_USER))
+                {
+                    value = CurrentLoggedInUser;
+                    return value;
+                }
                 //return the variable itself for the next step in the pipeline to resolve
                 return string.IsNullOrWhiteSpace(value) ? $"{{{variable}}}" : value;
             }
@@ -204,6 +489,81 @@ namespace Amazon.KinesisTap.Core
             }
         }
 
+        /// <summary>
+        /// This function will get the current uniform timestamp
+        /// </summary>
+        /// <returns>Uniform timestamp</returns>
+        public static DateTime GetUniformTimeStamp()
+        {
+            // if a valid unexpired ntp server time is available then just calculate the time based on that. The time expires in 12 hrs.
+            if (_baseNTPTime != DateTime.MinValue && _isCorrectNTPTime && _stopwatchForUniformTime.ElapsedMilliseconds < 43200000)
+            {
+                return _baseNTPTime.AddMilliseconds(_stopwatchForUniformTime.ElapsedMilliseconds);
+            }
+
+            DateTime baseNTPServerTime = DateTime.MinValue;
+            bool useLastServerTime = false;
+
+            var defaultProvider = new DefaultNetworkStatusProvider(NullLogger.Instance);
+            defaultProvider.StartAsync(default).AsTask().GetAwaiter().GetResult();
+            var networkstatus = new NetworkStatus(defaultProvider);
+
+            // Query NTP server only if network is available
+            if (networkstatus.IsAvailable())
+            {
+                if (GetElapsedMilliseconds() - _elapsedmsSinceFailure > 60000)
+                {
+                    if (UniformTime == null)
+                        UniformTime = new UniformServerTime();
+
+                    // Get NTP server time.
+                    baseNTPServerTime = UniformTime.GetNTPServerTime();
+
+                    if (baseNTPServerTime == DateTime.MinValue)
+                    {
+                        _elapsedmsSinceFailure = GetElapsedMilliseconds();
+                    }
+                }
+            }
+
+            if (baseNTPServerTime == DateTime.MinValue)
+            {
+                // Get time based on local system time in case of failure.
+                if (_baseNTPTime == DateTime.MinValue || !_isCorrectNTPTime)
+                {
+                    baseNTPServerTime = DateTime.UtcNow;
+                }
+                else
+                {
+                    _isCorrectNTPTime = true;
+                    useLastServerTime = true;
+                }
+            }
+            else
+            {
+                _isCorrectNTPTime = true;
+            }
+
+            if (useLastServerTime == false)
+            {
+                _baseNTPTime = baseNTPServerTime;
+                _stopwatchForUniformTime.Stop();
+                _stopwatchForUniformTime = Stopwatch.StartNew();
+            }
+            else
+            {
+                baseNTPServerTime = _baseNTPTime.AddMilliseconds(_stopwatchForUniformTime.ElapsedMilliseconds);
+            }
+
+            return baseNTPServerTime;
+        }
+
+        /// <summary>
+        /// This function splits a string based on input separator
+        /// </summary>
+        /// <param name="variable">The name of the variable</param>
+        /// <param name="separator">The separator to split the string</param>
+        /// <returns>prefix and suffix string</returns>
         public static (string prefix, string suffix) SplitPrefix(string variable, char separator)
         {
             int x = variable.IndexOf(separator);
@@ -216,6 +576,12 @@ namespace Amazon.KinesisTap.Core
             return (prefix, variable);
         }
 
+        /// <summary>
+        /// This function parses a CSV string
+        /// </summary>
+        /// <param name="input">The input string</param>
+        /// <param name="stringBuilder">StringBuilder object to help parse the input string param</param>
+        /// <returns>Array of string extracted from input param</returns>
         public static IEnumerable<string> ParseCSVLine(string input, StringBuilder stringBuilder)
         {
             const char columnSeparator = ',';
@@ -284,19 +650,39 @@ namespace Amazon.KinesisTap.Core
         /// </summary>
         public static string GetKinesisTapProgramDataPath()
         {
-            string kinesisTapProgramDataPath = Environment.GetEnvironmentVariable(ConfigConstants.KINESISTAP_PROGRAM_DATA);
+            var kinesisTapProgramDataPath = Environment.GetEnvironmentVariable(ConfigConstants.KINESISTAP_PROGRAM_DATA);
             if (string.IsNullOrWhiteSpace(kinesisTapProgramDataPath))
             {
                 if (IsWindows)
                 {
-                    kinesisTapProgramDataPath = Path.Combine(Environment.GetEnvironmentVariable("ProgramData"), "Amazon\\KinesisTap");
+                    kinesisTapProgramDataPath = Path.Combine(Environment.GetEnvironmentVariable("ProgramData"), "Amazon", "AWSKinesisTap");
                 }
                 else
                 {
-                    kinesisTapProgramDataPath = ConfigConstants.LINUX_DEFAULT_PROGRAM_DATA_PATH;
+                    kinesisTapProgramDataPath = ConfigConstants.UNIX_DEFAULT_PROGRAM_DATA_PATH;
                 }
             }
             return kinesisTapProgramDataPath;
+        }
+
+        public static string GetBookmarkDirectory(string sessionName)
+        {
+            var bookmarksDir = Path.Combine(GetKinesisTapProgramDataPath(), ConfigConstants.BOOKMARKS);
+            if (sessionName is not null)
+            {
+                bookmarksDir = Path.Combine(bookmarksDir, sessionName);
+            }
+            return bookmarksDir;
+        }
+
+        public static string GetSessionQueuesDirectory(string sessionName)
+        {
+            var path = Path.Combine(GetKinesisTapProgramDataPath(), ConfigConstants.QUEUE);
+            if (sessionName is not null)
+            {
+                path = Path.Combine(path, sessionName);
+            }
+            return path;
         }
 
         /// <summary>
@@ -304,7 +690,7 @@ namespace Amazon.KinesisTap.Core
         /// </summary>
         public static string GetKinesisTapConfigPath()
         {
-            string kinesisTapConfigPath = Environment.GetEnvironmentVariable(ConfigConstants.KINESISTAP_CONFIG_PATH);
+            var kinesisTapConfigPath = Environment.GetEnvironmentVariable(ConfigConstants.KINESISTAP_CONFIG_PATH);
             if (string.IsNullOrWhiteSpace(kinesisTapConfigPath))
             {
                 if (IsWindows)
@@ -314,25 +700,50 @@ namespace Amazon.KinesisTap.Core
                 }
                 else
                 {
-                    kinesisTapConfigPath = ConfigConstants.LINUX_DEFAULT_CONFIG_PATH;
+#if DEBUG
+                    kinesisTapConfigPath = AppContext.BaseDirectory;
+#else
+                    kinesisTapConfigPath = ConfigConstants.UNIX_DEFAULT_CONFIG_PATH;
+#endif
                 }
             }
             return kinesisTapConfigPath;
         }
 
         /// <summary>
-        /// Resolve the directory that contains the extra configuration files.
+        /// Returns the path to the directory that stores the NLog.xml file.
         /// </summary>
-        public static string GetKinesisTapExtraConfigPath()
+        public static string GetNLogConfigDirectory()
         {
-            string kinesisTapChildConfigPath = Environment.GetEnvironmentVariable(ConfigConstants.KINESISTAP_EXTRA_CONFIG_DIR_PATH);
-            if (!string.IsNullOrWhiteSpace(kinesisTapChildConfigPath))
+            var nlogPath = Environment.GetEnvironmentVariable(ConfigConstants.KINESISTAP_NLOG_PATH);
+            if (nlogPath is null)
             {
-                return kinesisTapChildConfigPath;
+                // fall back to config path
+                return GetKinesisTapConfigPath();
             }
 
-            return Path.Combine(GetKinesisTapConfigPath(), DefaultExtraConfigDirectoryName);
+            return nlogPath;
         }
+
+        /// <summary>
+        /// Returns the path to the directory that store the 'config' parameter store file.
+        /// </summary>
+        public static string GetProfileDirectory()
+        {
+            var confPath = Environment.GetEnvironmentVariable(ConfigConstants.KINESISTAP_PROFILE_PATH);
+            if (confPath is null)
+            {
+                //fall back to config path
+                return GetKinesisTapConfigPath();
+            }
+
+            return confPath;
+        }
+
+        /// <summary>
+        /// Resolve the directory that contains the extra configuration files.
+        /// </summary>
+        public static string GetKinesisTapExtraConfigPath() => Path.Combine(GetKinesisTapConfigPath(), ExtraConfigDirectoryName);
 
         public static string ProperCase(string constant)
         {
@@ -346,7 +757,7 @@ namespace Amazon.KinesisTap.Core
             }
         }
 
-        public static Random Random => _random;
+        public static Random Random => _random.Value;
 
         public static T[] CloneArray<T>(T[] array)
         {
@@ -459,35 +870,30 @@ namespace Amazon.KinesisTap.Core
         /// <summary>
         /// Extend the DateTime.ParseExact to support additional formats such as epoch
         /// </summary>
-        /// <param name="value"></param>
-        /// <param name="format"></param>
+        /// <param name="datetimeString">Value to be parsed.</param>
+        /// <param name="format">DateTime format</param>
         /// <returns></returns>
-        public static DateTime ParseDatetime(string value, string format)
+        public static DateTime ParseDatetime(string datetimeString, string format)
         {
-            if (ConfigConstants.EPOCH.Equals(format, StringComparison.CurrentCultureIgnoreCase))
+            if (format is null)
             {
-                return FromEpochTime(long.Parse(value));
+                //format is unknown, we let DateTime try to figure out
+                return DateTime.Parse(datetimeString, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal);
             }
-            else
+
+            if (ConfigConstants.EPOCH.Equals(format, StringComparison.OrdinalIgnoreCase))
             {
-                return DateTime.ParseExact(value, format, CultureInfo.InvariantCulture);
+                return FromEpochTime(long.Parse(datetimeString));
             }
+
+            return DateTime.ParseExact(datetimeString, format, CultureInfo.InvariantCulture);
         }
 
-        public static DateTime FromEpochTime(long epochTime)
-        {
-            return epoch.AddMilliseconds(epochTime);
-        }
+        public static DateTime FromEpochTime(long epochTime) => DateTime.SpecifyKind(DateTimeOffset.FromUnixTimeMilliseconds(epochTime).DateTime, DateTimeKind.Utc);
 
-        public static long ToEpochSeconds(DateTime utcTime)
-        {
-            return Convert.ToInt64((utcTime - epoch).TotalSeconds);
-        }
+        public static long ToEpochSeconds(DateTime utcTime) => new DateTimeOffset(utcTime).ToUnixTimeSeconds();
 
-        public static long ToEpochMilliseconds(DateTime utcTime)
-        {
-            return Convert.ToInt64((utcTime - epoch).TotalMilliseconds);
-        }
+        public static long ToEpochMilliseconds(DateTime utcTime) => new DateTimeOffset(utcTime).ToUnixTimeMilliseconds();
 
         /// <summary>
         /// Strip quotes from a string if it is quoted
@@ -514,10 +920,8 @@ namespace Amazon.KinesisTap.Core
             get { return Process.GetCurrentProcess().MainModule.FileName; }
         }
 
-        private static readonly DateTime epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
         /// <summary>
-        /// Exchange the value of a <see cref="Int64"/> field a comparand number is greater than that field.
+        /// Exchange the value of a <see cref="long"/> field a comparand number is greater than that field.
         /// This method is thread-safe.
         /// </summary>
         /// <param name="location">Reference to the field to exchange.</param>

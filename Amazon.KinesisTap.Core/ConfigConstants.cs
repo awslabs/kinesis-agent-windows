@@ -12,12 +12,15 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.IO;
+
 namespace Amazon.KinesisTap.Core
 {
     public static class ConfigConstants
     {
         public const string ID = "Id";
-        public const string CONFIG_DESCRIPTIVE_NAME = "DescriptiveName";
+        public const string NAME = "Name";
         public const string SOURCE_TYPE = "SourceType";
         public const string SINK_TYPE = "SinkType";
         public const string CREDENTIAL_TYPE = "CredentialType";
@@ -26,7 +29,9 @@ namespace Amazon.KinesisTap.Core
         public const string SECRET_KEY = "SecretKey";
         public const string REGION = "Region";
         public const string BUFFER_INTERVAL = "BufferInterval";
+        public const string BUFFER_INTERVAL_MS = "BufferIntervalMs";
         public const string BUFFER_SIZE = "BufferSize";
+        public const string BUFFER_SIZE_ITEMS = "BufferSizeItems";
         public const string PROFILE_NAME = "ProfileName";
         public const string ROLE_ARN = "RoleARN";
         public const string FORMAT = "Format";
@@ -43,8 +48,18 @@ namespace Amazon.KinesisTap.Core
         public const string MAX_BATCH_SIZE = "MaxBatchSize";
         public const string CUSTOM_AWS_CLIENT_HEADERS = "CustomAWSClientHeaders";
 
+        // Region Failover/Failback Attributes
+        public const string SUPPORTED_REGIONS = "SupportedRegions";
+        public const string SUPPORTED_REGIONS_WEIGHTS = "SupportedRegionsWeights";
+        public const string MAX_ERRORS_COUNT_BEFORE_FAILOVER = "MaxErrorsCountBeforeFailover";
+        public const string MAX_FAILOVER_INTERVAL_IN_MINUTES = "MaxFailoverIntervalInMinutes";
+        public const string MAX_FAILBACK_RETRY_INTERVAL_IN_MINUTES = "MaxFailbackRetryIntervalInMinutes";
+
         // Directory sources attributes
         public const string DEFAULT_FIELD_MAPPING = "DefaultFieldMapping";
+        public const string DIRECTORY = "Directory";
+        public const string RECORD_PARSER = "RecordParser";
+        public const string SKIP_LINES = "SkipLines";
 
         // Regex filter pipe attributes
         public const string FILTER_PATTERN = "FilterPattern";
@@ -75,11 +90,27 @@ namespace Amazon.KinesisTap.Core
         public const double DEFAULT_MIN_RATE_ADJUSTMENT_FACTOR = 1.0d / 128;
         public const int DEFAULT_MAX_ATTEMPTS = 1;
 
+        // Region Failover
+        public const int DEFAULT_MAX_CONSECUTIVE_ERRORS_COUNT = 30;
+        public const int DEFAULT_MAX_WAIT_BEFORE_REGION_FAILOVER_IN_MINUTES = 15;
+
+        // All AWS backend services have min. 99.9% uptime SLA
+        // Based on which we have set the min wait time for min. "quarterly downtime" before we do first retry
+        // https://uptime.is/99.9
+        public const int DEFAULT_MIN_WAIT_BEFORE_REGION_FAILBACK_RETRY_IN_MINUTES = 1 * 60;
+        public const int DEFAULT_MIN_WAIT_BEFORE_REGION_FAILBACK_FIRST_RETRY_IN_MINUTES = 3 * 60;
+
         public const string NEWLINE = "\n";
 
-        public const string KINESISTAP_EXE_NAME = "KinesisTap.exe";
-        public const string DONET = "dotnet";
-        public const string KINESISTAP_STANDARD_PATH = @"C:\Program Files\Amazon\KinesisTap\" + KINESISTAP_EXE_NAME;
+        public const string DOTNET = "dotnet";
+
+        public static readonly string KINESISTAP_EXE_NAME = OperatingSystem.IsWindows()
+            ? "AWSKinesisTap.exe"
+            : "amazon-kinesistap";
+
+        public static readonly string KINESISTAP_STANDARD_PATH = OperatingSystem.IsWindows()
+            ? Path.Combine(@"C:\Program Files\Amazon\KinesisTap\", KINESISTAP_EXE_NAME)
+            : Path.Combine("/opt/amazon-kinesistap/lib/", KINESISTAP_EXE_NAME);
 
         public const string TYPE = "Type";
         public const string REQUIRED = "Required";
@@ -87,15 +118,16 @@ namespace Amazon.KinesisTap.Core
         //Environment variables
         public const string KINESISTAP_PROGRAM_DATA = "KINESISTAP_PROGRAM_DATA";
         public const string KINESISTAP_CONFIG_PATH = "KINESISTAP_CONFIG_PATH";
-        //Environment varible for extra-config directory
-        public const string KINESISTAP_EXTRA_CONFIG_DIR_PATH = "KINESISTAP_EXTRA_CONFIG_DIR_PATH";
+        public const string KINESISTAP_NLOG_PATH = "KINESISTAP_NLOG_PATH";
+        public const string KINESISTAP_PROFILE_PATH = "KINESISTAP_PROFILE_PATH";
         public const string COMPUTER_NAME = "computername";
         public const string USER_NAME = "USERNAME";
+        public const string UNIQUE_CLIENT_ID = "UNIQUECLIENTID";
 
         //None-Windows
         public const string KINESISTAP_CORE = "Amazon.KinesisTap.ConsoleHost.dll";
-        public const string LINUX_DEFAULT_PROGRAM_DATA_PATH = "/opt/amazon-kinesistap/var";
-        public const string LINUX_DEFAULT_CONFIG_PATH = "/opt/amazon-kinesistap/etc";
+        public const string UNIX_DEFAULT_PROGRAM_DATA_PATH = "/opt/amazon-kinesistap/var";
+        public const string UNIX_DEFAULT_CONFIG_PATH = "/opt/amazon-kinesistap/etc";
 
         //Telemetry Connector
         public const string REDIRECT_TO_SINK_ID = "RedirectToSinkId";
@@ -112,5 +144,8 @@ namespace Amazon.KinesisTap.Core
         public const string FORMAT_XML_2 = "xml2";
         public const string FORMAT_RENDERED_XML = "renderedxml";
         public const string FORMAT_SUSHI = "sushi";
+
+        //KinesisTap Variable
+        public const string CURRENT_USER = "currentUser";
     }
 }

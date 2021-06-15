@@ -13,8 +13,6 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Amazon.KinesisTap.Core.Metrics
 {
@@ -23,44 +21,40 @@ namespace Amazon.KinesisTap.Core.Metrics
     /// </summary>
     public class MetricValue
     {
-        private long _value;
-        private readonly MetricUnit _unit;
-
         public static MetricValue ZeroCount => new MetricValue(0);
         public static MetricValue ZeroBytes => new MetricValue(0, MetricUnit.Bytes);
 
         public MetricValue(long value) : this(value, MetricUnit.Count)
         {
-
         }
 
         public MetricValue(long value, MetricUnit unit)
         {
-            _value = value;
-            _unit = unit;
+            Value = value;
+            Unit = unit;
         }
 
-        public long Value => _value;
+        public long Value { get; private set; }
 
-        public MetricUnit Unit => _unit;
+        public MetricUnit Unit { get; }
 
         public void Increment(long other)
         {
             lock (this)
             {
-                this._value += other;
+                Value += other;
             }
         }
 
         public void Increment(MetricValue other)
         {
-            if (this._unit == other.Unit)
+            if (Unit == other.Unit)
             {
-                this._value += other.Value;
+                Value += other.Value;
             }
             else
             {
-                throw new InvalidOperationException($"Unit mismatch: {this._unit} and {other.Unit}");
+                throw new InvalidOperationException($"Unit mismatch: {Unit} and {other.Unit}");
             }
         }
     }

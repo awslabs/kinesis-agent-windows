@@ -15,10 +15,11 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Amazon.KinesisTap.Core;
+using Amazon.KinesisTap.Filesystem;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Amazon.KinesisTap.DiagnosticTool.Core
 {
@@ -28,8 +29,8 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
     public class RecordParserValidator
     {
         private readonly string _schemaBaseDirectory;
-        private IDictionary<String, ISourceValidator> _sourceValidators;
-        private Func<String, String, IConfigurationRoot> _loadConfigFile;
+        private readonly IDictionary<string, ISourceValidator> _sourceValidators;
+        private readonly Func<string, string, IConfigurationRoot> _loadConfigFile;
 
         /// <summary>
         /// 
@@ -37,11 +38,11 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         /// <param name="schemaBaseDirectory"></param>
         /// <param name="sourceValidators"></param>
         /// <param name="loadConfigFile"></param>
-        public RecordParserValidator(string schemaBaseDirectory, IDictionary<String, ISourceValidator> sourceValidators, Func<string, string, IConfigurationRoot> loadConfigFile)
+        public RecordParserValidator(string schemaBaseDirectory, IDictionary<string, ISourceValidator> sourceValidators, Func<string, string, IConfigurationRoot> loadConfigFile)
         {
-            this._schemaBaseDirectory = schemaBaseDirectory;
-            this._sourceValidators = sourceValidators;
-            this._loadConfigFile = loadConfigFile;
+            _schemaBaseDirectory = schemaBaseDirectory;
+            _sourceValidators = sourceValidators;
+            _loadConfigFile = loadConfigFile;
         }
 
         /// <summary>
@@ -53,11 +54,11 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         /// <param name="configFile"></param>
         /// <param name="messages"></param>
         /// <returns></returns>
-        public bool ValidateRecordParser(string id, string logName, string configBaseDirectory, string configFile, out IList<String> messages)
+        public bool ValidateRecordParser(string id, string logName, string configBaseDirectory, string configFile, out IList<string> messages)
         {
-            IConfigurationRoot config = this._loadConfigFile(configBaseDirectory, configFile);
+            IConfigurationRoot config = _loadConfigFile(configBaseDirectory, configFile);
 
-            var configFileValidator = new ConfigValidator(_schemaBaseDirectory, this._sourceValidators, this._loadConfigFile);
+            var configFileValidator = new ConfigValidator(_schemaBaseDirectory, _sourceValidators, _loadConfigFile);
 
             bool isValid = configFileValidator.ValidateSchema(configBaseDirectory, configFile, config, out messages);
 
@@ -131,27 +132,31 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         /// <param name="sourceSection"></param>
         /// <param name="curId"></param>
         /// <param name="messages"></param>
-        /// <returns></returns>
-        private bool ValidateTimeStamp(string directory, string logName, IConfigurationRoot config, IConfigurationSection sourceSection, string curId, IList<String> messages)
+        /// <returns>True iff the logs has valid timestamps</returns>
+        private bool ValidateTimeStamp(string directory, string logName, IConfigurationRoot config, IConfigurationSection sourceSection, string curId, IList<string> messages)
         {
-            string log = GetLog(directory, logName).ToString();
-
-            using (Stream stream = Utility.StringToStream(log))
-            using (StreamReader sr = new StreamReader(stream))
+            string timestampFormat = config[$"{sourceSection.Path}:TimestampFormat"];
+            var parser = new TimestampLogParser(NullLogger.Instance, new RegexParserOptions
             {
-                string timestampFormat = config[$"{sourceSection.Path}:{"TimestampFormat"}"];
-                TimeStampRecordParser parser = new TimeStampRecordParser(timestampFormat, null, DateTimeKind.Utc);
-                var records = parser.ParseRecords(sr, new LogContext()).ToList();
-                if (records.Count == 1)
-                {
-                    messages.Add("Invalid Timestamp format at source ID: " + curId);
-                    return false;
-                }
-                else
-                {
-                    messages.Add("Valid Timestamp format at source ID: " + curId);
-                    return true;
-                }
+                TimestampFormat = timestampFormat,
+                TimeZoneKind = DateTimeKind.Utc
+            }, null, 1024);
+
+            var records = new List<IEnvelope<IDictionary<string, string>>>();
+            parser.ParseRecordsAsync(new RegexLogContext
+            {
+                FilePath = Path.Combine(directory, logName)
+            }, records, 2).GetAwaiter().GetResult();
+
+            if (records.Count == 1)
+            {
+                messages.Add("Invalid Timestamp format at source ID: " + curId);
+                return false;
+            }
+            else
+            {
+                messages.Add("Valid Timestamp format at source ID: " + curId);
+                return true;
             }
         }
 
@@ -164,53 +169,35 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         /// <param name="sourceSection"></param>
         /// <param name="curId"></param>
         /// <param name="messages"></param>
-        /// <returns></returns>
-        private bool ValidateRegex(string directory, string logName, IConfigurationRoot config, IConfigurationSection sourceSection, string curId, IList<String> messages)
+        /// <returns>True iff the logs matches the regex pattern in the configuration</returns>
+        private bool ValidateRegex(string directory, string logName, IConfigurationRoot config, IConfigurationSection sourceSection,
+            string curId, IList<string> messages)
         {
-            string log = GetLog(directory, logName);
+            string pattern = config[$"{sourceSection.Path}:{"Pattern"}"];
+            string timestampFormat = config[$"{sourceSection.Path}:{"TimestampFormat"}"];
+            string extractionPattern = config[$"{sourceSection.Path}:{"ExtrationPattern"}"];
+            string extractionRegexOptions = config[$"{sourceSection.Path}:{"ExtractionRegexOptions"}"];
 
-            using (Stream stream = Utility.StringToStream(log))
-            using (StreamReader sr = new StreamReader(stream))
+            var records = new List<IEnvelope<IDictionary<string, string>>>();
+            var parser = new RegexLogParser(NullLogger.Instance, pattern, new RegexParserOptions
             {
-                string pattern = config[$"{sourceSection.Path}:{"Pattern"}"];
-                string timestampFormat = config[$"{sourceSection.Path}:{"TimestampFormat"}"];
-                string extractionPattern = config[$"{sourceSection.Path}:{"ExtrationPattern"}"];
-                string extractionRegexOptions = config[$"{sourceSection.Path}:{"ExtractionRegexOptions"}"];
+                TimestampFormat = timestampFormat,
+                ExtractionPattern = extractionPattern,
+                ExtractionRegexOptions = extractionRegexOptions,
+                TimeZoneKind = DateTimeKind.Utc
+            }, Encoding.UTF8, 1024);
 
-                RegexRecordParser parser = new RegexRecordParser(pattern, timestampFormat, null, extractionPattern, extractionRegexOptions, DateTimeKind.Utc);
-                var records = parser.ParseRecords(sr, new LogContext()).ToList();
-                if (records.Count == 1)
-                {
-                    messages.Add("Invalid Regex at source ID: " + curId);
-                    return false;
-                }
-                else
-                {
-                    messages.Add("Valid Regex at source ID: " + curId);
-                    return true;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Retrieve the content from a log
-        /// </summary>
-        /// <param name="directory"></param>
-        /// <param name="logName"></param>
-        /// <returns></returns>
-        private string GetLog(string directory, string logName)
-        {
-            string line;
-            StringBuilder sb = new StringBuilder();
-            using (StreamReader LogReader = File.OpenText(Path.Combine(directory, logName)))
+            parser.ParseRecordsAsync(new RegexLogContext { FilePath = Path.Combine(directory, logName) }, records, 100).GetAwaiter().GetResult();
+            if (records.Count == 1)
             {
-                while ((line = LogReader.ReadLine()) != null)
-                {
-                    sb.AppendLine(line);
-                }
+                messages.Add("Invalid Regex at source ID: " + curId);
+                return false;
             }
-
-            return sb.ToString();
+            else
+            {
+                messages.Add("Valid Regex at source ID: " + curId);
+                return true;
+            }
         }
     }
 }

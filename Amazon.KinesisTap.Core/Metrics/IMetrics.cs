@@ -12,16 +12,28 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace Amazon.KinesisTap.Core.Metrics
 {
-    public interface IMetrics
+    /// <summary>
+    /// Used to send KinesisTap metrics.
+    /// </summary>
+    public interface IMetrics : IEventSource<IDictionary<string, MetricValue>>
     {
+        /// <summary>
+        /// Publish a single metrics counter.
+        /// </summary>
         void PublishCounter(string id, string category, CounterTypeEnum counterType, string counter, long value, MetricUnit unit);
+
+        /// <summary>
+        /// Publish a set of metrics counters.
+        /// </summary>
         void PublishCounters(string id, string category, CounterTypeEnum counterType, IDictionary<string, MetricValue> counters);
+
+        /// <summary>
+        /// Initialize a set of counters
+        /// </summary>
         void InitializeCounters(string id, string category, CounterTypeEnum counterType, IDictionary<string, MetricValue> counters);
     }
 }

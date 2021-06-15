@@ -1,17 +1,20 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net46</TargetFramework>
+    <TargetFramework>net5.0-windows</TargetFramework>
     <OutputType>Exe</OutputType>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <TargetName>AWSKinesisTap</TargetName>
     <AssemblyName>AWSKinesisTap</AssemblyName>
+    <AssemblyDescription>Amazon Log Agent for Windows</AssemblyDescription>
+    <AssemblyCompany>Amazon</AssemblyCompany>
+    <AssemblyCopyright>Copyright © Amazon 2017-2021</AssemblyCopyright>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <ApplicationManifest>Properties\app.manifest</ApplicationManifest>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <DebugType>embedded</DebugType>
+    <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System.Configuration.Install" />
-    <Reference Include="System.ServiceProcess" />
-    <Reference Include="System.Windows.Forms" />
+    <None Remove="upgrade_external.ps1" />
   </ItemGroup>
   <ItemGroup>
     <None Include="appsettingsTemplate.json">
@@ -19,43 +22,29 @@
     </None>
     <None Include="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </None>
     <None Include="packageVersionSchema.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="Properties\app.manifest" />
     <Content Include="NLog.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </Content>
     <Content Include="appsettingsSchema.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="upgrade_external.ps1">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Amazon.KinesisTap.AWS\Amazon.KinesisTap.AWS.csproj" />
-    <ProjectReference Include="..\Amazon.KinesisTap.ExchangeSource\Amazon.KinesisTap.ExchangeSource.csproj" />
+    <ProjectReference Include="..\Amazon.KinesisTap.DiagnosticTool\Amazon.KinesisTap.DiagnosticTool.csproj" />
+    <ProjectReference Include="..\Amazon.KinesisTap.Filesystem\Amazon.KinesisTap.Filesystem.csproj" />
     <ProjectReference Include="..\Amazon.KinesisTap.Hosting\Amazon.KinesisTap.Hosting.csproj" />
     <ProjectReference Include="..\Amazon.KinesisTap.Windows\Amazon.KinesisTap.Windows.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <BootstrapperPackage Include=".NETFramework,Version=v4.6.2">
-      <Visible>False</Visible>
-      <ProductName>Microsoft .NET Framework 4.6.2 %28x86 and x64%29</ProductName>
-      <Install>true</Install>
-    </BootstrapperPackage>
-    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
-      <Visible>False</Visible>
-      <ProductName>.NET Framework 3.5 SP1</ProductName>
-      <Install>false</Install>
-    </BootstrapperPackage>
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging.EventLog" Version="1.1.2" />
-    <PackageReference Include="System.IO" Version="4.3.0" />
-    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="4.7.1" />
-    <PackageReference Include="System.Diagnostics.Tracing" Version="4.3.0" />
-    <PackageReference Include="System.Net.Http" Version="4.3.4" />
-    <PackageReference Include="System.Threading.Thread" Version="4.3.0" />
   </ItemGroup>
   <ProjectExtensions>
     <VisualStudio>

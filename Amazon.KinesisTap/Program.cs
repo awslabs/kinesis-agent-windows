@@ -12,18 +12,8 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
-using System.ServiceProcess;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-
-using Amazon.KinesisTap.Windows;
+using Amazon.KinesisTap.Hosting;
+using Microsoft.Extensions.Hosting;
 
 namespace Amazon.KinesisTap
 {
@@ -32,36 +22,12 @@ namespace Amazon.KinesisTap
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
-        [STAThread]
-        static void Main()
+        static void Main(string[] args)
         {
-            AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(CurrentDomain_UnhandledException);
+            var builder = KinesisTapHostBuilder.Create(args);
+            builder.UseWindowsService();
 
-            WindowsStartup.Start();
-#if DEBUG
-            Application.Run(new frmMain());
-#else
-            ServiceBase[] ServicesToRun;
-            ServicesToRun = new ServiceBase[]
-            {
-                new KinesisTapService()
-            };
-            ServiceBase.Run(ServicesToRun);
-#endif
-        }
-
-        static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
-        {
-            var eventLogName = "KinesisTap";
-
-            if (!EventLog.SourceExists(eventLogName))
-            {
-                EventLog.CreateEventSource(eventLogName, "Application");
-            }
-            string entry = $"Unhandled exception {e.ExceptionObject}";
-            EventLog.WriteEntry(eventLogName,
-                entry,
-                EventLogEntryType.Error);
+            builder.Build().Run();
         }
     }
 }

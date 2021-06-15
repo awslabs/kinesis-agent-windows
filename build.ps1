@@ -34,7 +34,7 @@ $ErrorActionPreference = "Stop"
 $serviceName="AWSKinesisTap"
 Set-Location -Path "$PSScriptRoot"
 $projDir = Join-Path -Path $PSScriptRoot -ChildPath "Amazon.KinesisTap"
-$releaseDir = Join-Path -Path $projDir -ChildPath "bin\Release\"
+$releaseDir = Join-Path -Path $projDir -ChildPath "bin\Release\win10-x64"
 
 if (!$packageOnly)
 {
@@ -123,8 +123,8 @@ Copy-Item "$diagCoreDir\Amazon.KinesisTap.DiagnosticTool.Core.???" "$releaseDir"
 Copy-Item "$projDir\Nlog.xml" "$releaseDir"
 Copy-Item "$projDir\appsettingsTemplate.json" "$releaseDir\appsettings.json"
 
-Write-Verbose "Duplicating $serviceName.exe.config in bin\release"
-Copy-Item "$releaseDir\$serviceName.exe.config" "$releaseDir\$serviceName.exe.config.new" 
+#Write-Verbose "Duplicating $serviceName.exe.config in bin\release"
+#Copy-Item "$releaseDir\$serviceName.exe.config" "$releaseDir\$serviceName.exe.config.new" 
 
 $ulsPlugInDir = Join-Path -Path $PSScriptRoot -ChildPath "Amazon.KinesisTap.Uls\bin\release\netstandard1.3"
 Write-Verbose 'Copying Amazon.KinesisTap.Uls.??? and .pdb to bin\release'
