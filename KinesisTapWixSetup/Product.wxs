@@ -67,18 +67,6 @@
 
     <!-- Reference the .net custom action. Wix wrap the .net custom action with *.CA.dll-->
     <Binary Id="KinesisTapMsiCustomAction" SourceFile="..\KinesisTapMsiCustomAction\bin\$(var.Configuration)\KinesisTapMsiCustomAction.CA.dll" />
-    <!-- This custom action passes parameter to .net custom action. -->
-    <CustomAction
-      Id="ConfigureAEMSettings.SetProperty"
-      Property="ConfigureAEMSettings"
-      Value="AGENTGROUP=[AGENTGROUP];INSTALLFOLDER=[INSTALLFOLDER];PROGRAMDATAFOLDER=[CommonAppDataFolder]Amazon\$(var.ServiceName);TENANTID=[TENANTID];ENDPOINTBASEDOMAIN=[ENDPOINTBASEDOMAIN]" />
-    <!-- .net custom action that install appsettings.json. Keep the exiting one during upgrade. -->
-    <CustomAction
-      Id="ConfigureAEMSettings"
-      BinaryKey="KinesisTapMsiCustomAction"
-      DllEntry="ConfigureAEMSettings"
-      Impersonate="no"
-      Execute="deferred" />
     <CustomAction
       Id="InstallAppSettings.SetProperty"
       Property="InstallAppSettings"
@@ -141,8 +129,6 @@
       <Custom Action='EnsureKinesisTapRunning' Before='InstallFinalize'>NOT REMOVE</Custom>
       <Custom Action='EnsureKinesisTapNotRunning.SetProperty' After='CostFinalize'>NOT REMOVE</Custom>
       <Custom Action='EnsureKinesisTapNotRunning' After='StopServices'>NOT REMOVE</Custom>
-      <Custom Action='ConfigureAEMSettings.SetProperty' After='CostFinalize'>NOT REMOVE</Custom>
-      <Custom Action='ConfigureAEMSettings' After='InstallFiles'>NOT REMOVE</Custom>
       <Custom Action='UpgradePowershellInstalledKinesisTap.SetProperty' After='CostFinalize'>NOT REMOVE</Custom>
       <Custom Action='UpgradePowershellInstalledKinesisTap' After='InstallFiles'>NOT REMOVE</Custom>
       <Custom Action='InstallAppSettings.SetProperty' After='CostFinalize'>NOT REMOVE</Custom>
@@ -170,8 +156,8 @@
       Directory="INSTALLFOLDER">
       <!-- Use AWSKinesisTap.exe to key the ServiceInstall-->
       <Component Id="ProductComponent"
-        Guid="{B7214154-3AA6-4629-8F46-95F2914A405A}">
-        <File Id="KinesisTapExe" Name="AWSKinesisTap.exe" DiskId="1" Source="$(var.SolutionDir)Amazon.KinesisTap\bin\Release\win10-x64\AWSKinesisTap.exe" Vital="yes" KeyPath="yes" />
+        Guid="{8DBCA2DE-9D6E-47AD-8EBE-1B6384D327EF}">
+        <File Id="KinesisTapExe" Name="AWSKinesisTap.exe" DiskId="1" Source="$(var.SolutionDir)Amazon.KinesisTap\bin\Release\win10-x64\publish\AWSKinesisTap.exe" Vital="yes" KeyPath="yes" />
 
         <!-- Tell WiX to install the Service -->
         <ServiceInstall

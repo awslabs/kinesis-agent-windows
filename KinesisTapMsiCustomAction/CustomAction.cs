@@ -208,6 +208,43 @@ namespace KinesisTapMsiCustomAction
 
         }
 
+        /// <summary>
+        /// Ensure KinesisTap service is running. If not, start the service.
+        /// </summary>
+        [CustomAction]
+        public static ActionResult EnsureKinesisTapRunning(Session session)
+        {
+            session.Log("Begin ensuring KinesisTap Service is started");
+            //Need to run InstallAppSettings.SetProperty custom action first to set the value
+            var serviceName = session.CustomActionData["SERVICENAME"];
+
+            try
+            {
+                var sc = ServiceController.GetServices().FirstOrDefault(s => s.ServiceName == serviceName);
+                if (sc == null)
+                {
+                    session.Log($"{serviceName} service is not installed.");
+                    return ActionResult.Failure;
+                }
+                else if (sc.Status == ServiceControllerStatus.StartPending || sc.Status == ServiceControllerStatus.Running)
+                {
+                    session.Log($"{serviceName} service is running.");
+                }
+                else
+                {
+                    session.Log($"{serviceName} service is not running. Starting service.");
+                    sc.Start();
+                    sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(20));
+                }
+            }
+            catch (Exception ex)
+            {
+                session.Log($"EnsureKinesisTapRunning exception: {ex.Message}");
+            }
+
+            return ActionResult.Success;
+        }
+
         private static void EnsureKinesisTapProcessNotRunning(Session session, string serviceName)
         {
             Process[] processes = Process.GetProcessesByName(serviceName);

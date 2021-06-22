@@ -68,11 +68,10 @@
   <Target Name="BeforeBuild">
     <RemoveDir Directories="$(SolutionDir)msibuild" />
     <ItemGroup>
-	<MainArtifacts Include="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\win10-x64\*.dll;
-                            $(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\win10-x64\*.pdb;
+	<MainArtifacts Include="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\win10-x64\publish\*.dll;
+                            $(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\win10-x64\publish\*.pdb;
                             $(SolutionDir)Amazon.KinesisTap\appsettingsTemplate.json;
                             $(SolutionDir)Amazon.KinesisTap\appsettingsSchema.json;"/>
-      <MainArtifacts Include="$(SolutionDir)Amazon.KinesisTap\upgrade_external.ps1"/>
       <AutorunsX64 Include="$(SolutionDir)Library\autoruns*64.*" />
     </ItemGroup>
     <Copy SourceFiles="@(MainArtifacts)" DestinationFolder="$(SolutionDir)msibuild" />

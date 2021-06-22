@@ -34,14 +34,14 @@ $ErrorActionPreference = "Stop"
 $serviceName="AWSKinesisTap"
 Set-Location -Path "$PSScriptRoot"
 $projDir = Join-Path -Path $PSScriptRoot -ChildPath "Amazon.KinesisTap"
-$releaseDir = Join-Path -Path $projDir -ChildPath "bin\Release\win10-x64"
+$releaseDir = Join-Path -Path $projDir -ChildPath "bin\Release\win10-x64\publish"
+$productVersion = Get-Content ./version -Raw
 
 if (!$packageOnly)
 {
     # try to use the environment-defined MSBuild if possible
     $msbuild = Get-Command MSBuild.exe -ErrorAction Ignore | Select-Object -ExpandProperty Path
-    if($null -eq $msbuild)
-    {
+    if ($null -eq $msbuild){
         $vsVersions = "Professional", "Enterprise", "Community", "BuildTools"
         $yearMaps = @{ '2017' = '15.0'; '2019' = 'Current' }
         foreach ($year in $yearMaps.Keys)
@@ -56,7 +56,6 @@ if (!$packageOnly)
             }
         }
     }
-
     $sln = Join-Path -Path $PSScriptRoot -ChildPath "$serviceName.sln"
     $msiBuildSln = Join-Path -Path $PSScriptRoot -ChildPath "KinesisTapMsiBuild.sln"
     $service = Get-Service -Name $serviceName -ErrorAction Ignore
@@ -76,7 +75,7 @@ if (!$packageOnly)
     try
     {
         Write-Verbose 'Building agent'
-        dotnet build $sln -c Release
+        dotnet publish .\Amazon.KinesisTap\Amazon.KinesisTap.csproj -c Release -p:Version="$productVersion" --self-contained true -r win10-x64
 	    & "$msbuild" "$msiBuildSln" /p:Configuration=Release /p:Platform="x64"
     }
     catch
@@ -86,7 +85,6 @@ if (!$packageOnly)
 }
 
 $kinesisTapPath = Join-Path -Path $releaseDir -ChildPath "$serviceName.exe"
-$productVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($kinesisTapPath).FileVersion
 $outputDir = Join-Path -Path $projDir -ChildPath "bin\"
 
 Write-Verbose 'Copy msi to output dir'
@@ -101,11 +99,11 @@ Write-Verbose 'Deleting XML files'
 Get-ChildItem -Path $releaseDir -Recurse *.xml | Remove-Item -Force
 
 $diagDir = Join-Path -Path $PSScriptRoot -ChildPath "Amazon.KinesisTap.DiagnosticTool"
-$diagReleaseDir = Join-Path -Path $diagDir -ChildPath "bin\Release\"
+$diagReleaseDir = Join-Path -Path $diagDir -ChildPath "bin\Release\win10-x64"
 
 Write-Verbose 'Copying KTdiag.exe and its Configuration to bin\release'
 Copy-Item "$diagReleaseDir\KTDiag.exe" "$releaseDir"
-Copy-Item "$diagReleaseDir\KTDiag.exe.config" "$releaseDir"
+#Copy-Item "$diagReleaseDir\KTDiag.exe.config" "$releaseDir"
 
 Write-Verbose 'Copying log4net.dll to bin\release'
 Copy-Item "$diagReleaseDir\log4net.dll" "$releaseDir"
@@ -116,7 +114,7 @@ Copy-Item "$diagReleaseDir\Newtonsoft.Json.Schema.dll" "$releaseDir"
 Write-Verbose 'Copying System.Console.dll to bin\release'
 Copy-Item "$diagReleaseDir\System.Console.dll" "$releaseDir"
 
-$diagCoreDir = Join-Path -Path $PSScriptRoot -ChildPath "Amazon.KinesisTap.DiagnosticTool.Core\bin\Release\netstandard1.3\"
+$diagCoreDir = Join-Path -Path $PSScriptRoot -ChildPath "Amazon.KinesisTap.DiagnosticTool.Core\bin\Release\net5.0\"
 Write-Verbose 'Copying Amazon.KinesisTap.DiagnosticTool.Core.??? and .pdb to bin\release'
 Copy-Item "$diagCoreDir\Amazon.KinesisTap.DiagnosticTool.Core.???" "$releaseDir" 
 
@@ -126,12 +124,12 @@ Copy-Item "$projDir\appsettingsTemplate.json" "$releaseDir\appsettings.json"
 #Write-Verbose "Duplicating $serviceName.exe.config in bin\release"
 #Copy-Item "$releaseDir\$serviceName.exe.config" "$releaseDir\$serviceName.exe.config.new" 
 
-$ulsPlugInDir = Join-Path -Path $PSScriptRoot -ChildPath "Amazon.KinesisTap.Uls\bin\release\netstandard1.3"
-Write-Verbose 'Copying Amazon.KinesisTap.Uls.??? and .pdb to bin\release'
-Copy-Item "$ulsPlugInDir\Amazon.KinesisTap.Uls.???" "$releaseDir" 
+#$ulsPlugInDir = Join-Path -Path $PSScriptRoot -ChildPath "Amazon.KinesisTap.Uls\bin\release\net5.0"
+#Write-Verbose 'Copying Amazon.KinesisTap.Uls.??? and .pdb to bin\release'
+#Copy-Item "$ulsPlugInDir\Amazon.KinesisTap.Uls.???" "$releaseDir" 
 
 Write-Verbose 'Copying Amazon.KinesisTap.AutoUpdate.??? and .pdb to bin\release'
-Copy-Item "$PSScriptRoot\Amazon.KinesisTap.AutoUpdate\bin\release\netstandard1.3\Amazon.KinesisTap.AutoUpdate.???" "$releaseDir" 
+Copy-Item "$PSScriptRoot\Amazon.KinesisTap.AutoUpdate\bin\release\Amazon.KinesisTap.AutoUpdate.???" "$releaseDir" 
 
 Write-Verbose 'Fix LastWriteTime of each file: https://github.com/PowerShell/Microsoft.PowerShell.Archive/issues/55'
 FixLastWriteTime $releaseDir
@@ -160,7 +158,7 @@ $null = New-Item -ItemType Directory -Path $chocolateyPackageDir -Force
 & Copy-Item -Path "$(Join-Path -Path $outputDir -ChildPath "$serviceName.$productVersion.msi")" -Destination "$chocolateyPackageDir\tools\$serviceName.msi"
 
 $nuspec = [xml](Get-Content -Path "$chocolateyPackageDir\KinesisTap.nuspec")
-$nuspec.SelectSingleNode("//package/metadata/version")."#text" = $productVersion
+$nuspec.SelectSingleNode("//package/metadata/version")."#text" = [string]$productVersion
 $nuspec.Save("$chocolateyPackageDir\KinesisTap.nuspec")
 
 Write-Verbose 'Create chocolatey package'
