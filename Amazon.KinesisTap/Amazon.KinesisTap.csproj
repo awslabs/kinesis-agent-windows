@@ -42,6 +42,7 @@
     <ProjectReference Include="..\Amazon.KinesisTap.Filesystem\Amazon.KinesisTap.Filesystem.csproj" />
     <ProjectReference Include="..\Amazon.KinesisTap.Hosting\Amazon.KinesisTap.Hosting.csproj" />
     <ProjectReference Include="..\Amazon.KinesisTap.Windows\Amazon.KinesisTap.Windows.csproj" />
+	<ProjectReference Include="..\Amazon.KinesisTap.AutoUpdate\Amazon.KinesisTap.AutoUpdate.csproj" />
   </ItemGroup>
   <ProjectExtensions>
     <VisualStudio>

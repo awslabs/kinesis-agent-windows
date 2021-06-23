@@ -98,38 +98,8 @@ $msiFile = Join-Path -Path $projDir -ChildPath "bin\$serviceName.$productVersion
 Write-Verbose 'Deleting XML files'
 Get-ChildItem -Path $releaseDir -Recurse *.xml | Remove-Item -Force
 
-$diagDir = Join-Path -Path $PSScriptRoot -ChildPath "Amazon.KinesisTap.DiagnosticTool"
-$diagReleaseDir = Join-Path -Path $diagDir -ChildPath "bin\Release\win10-x64"
-
-Write-Verbose 'Copying KTdiag.exe and its Configuration to bin\release'
-Copy-Item "$diagReleaseDir\KTDiag.exe" "$releaseDir"
-#Copy-Item "$diagReleaseDir\KTDiag.exe.config" "$releaseDir"
-
-Write-Verbose 'Copying log4net.dll to bin\release'
-Copy-Item "$diagReleaseDir\log4net.dll" "$releaseDir"
-
-Write-Verbose 'Copying Newtonsoft.Json.Schema.dll to bin\release'
-Copy-Item "$diagReleaseDir\Newtonsoft.Json.Schema.dll" "$releaseDir"
-
-Write-Verbose 'Copying System.Console.dll to bin\release'
-Copy-Item "$diagReleaseDir\System.Console.dll" "$releaseDir"
-
-$diagCoreDir = Join-Path -Path $PSScriptRoot -ChildPath "Amazon.KinesisTap.DiagnosticTool.Core\bin\Release\net5.0\"
-Write-Verbose 'Copying Amazon.KinesisTap.DiagnosticTool.Core.??? and .pdb to bin\release'
-Copy-Item "$diagCoreDir\Amazon.KinesisTap.DiagnosticTool.Core.???" "$releaseDir" 
-
 Copy-Item "$projDir\Nlog.xml" "$releaseDir"
 Copy-Item "$projDir\appsettingsTemplate.json" "$releaseDir\appsettings.json"
-
-#Write-Verbose "Duplicating $serviceName.exe.config in bin\release"
-#Copy-Item "$releaseDir\$serviceName.exe.config" "$releaseDir\$serviceName.exe.config.new" 
-
-#$ulsPlugInDir = Join-Path -Path $PSScriptRoot -ChildPath "Amazon.KinesisTap.Uls\bin\release\net5.0"
-#Write-Verbose 'Copying Amazon.KinesisTap.Uls.??? and .pdb to bin\release'
-#Copy-Item "$ulsPlugInDir\Amazon.KinesisTap.Uls.???" "$releaseDir" 
-
-Write-Verbose 'Copying Amazon.KinesisTap.AutoUpdate.??? and .pdb to bin\release'
-Copy-Item "$PSScriptRoot\Amazon.KinesisTap.AutoUpdate\bin\release\Amazon.KinesisTap.AutoUpdate.???" "$releaseDir" 
 
 Write-Verbose 'Fix LastWriteTime of each file: https://github.com/PowerShell/Microsoft.PowerShell.Archive/issues/55'
 FixLastWriteTime $releaseDir
