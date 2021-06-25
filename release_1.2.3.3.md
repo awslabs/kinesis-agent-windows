@@ -1,4 +1,4 @@
-# Amazon Kinesis Agent for Windows 1.2.3.3 (Prod) release notes
+# Amazon Kinesis Agent for Windows 1.2.3.3 release notes
 You can download Kinesis Agent for Windows [here](https://s3-us-west-2.amazonaws.com/kinesis-agent-windows/downloads/index.html).
 
 ## New feature:
@@ -17,10 +17,6 @@ KinesisTap now supports uniform timestamps so that events in the data can be cor
 ### S3 Sink feature to upload service monitoring and troubleshooting logs
 
 This feature enables KinesisTap customers to upload service monitoring and troubleshooting logs to S3 sink.
-
-### High Performance Windows event log source
-
-This build allows streaming high volumes of Windows events logs in JSON format with the use of “WindowsEventLogPollingSource”. With this new feature, KinesisTap processes events ~ 224 times faster than Sushi (average end-to-end delay: Sushi -19,095 secs, KinesisTap – 85 secs). KinesisTap now exposes a number of customizable parameters that can be further fine-tuned to increase throughput up to ~10.5 million events per hour assuming sufficient system resources are available.
 
 ## Stability and Performance fixes:
 
