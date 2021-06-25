@@ -3,9 +3,11 @@ version: 0.2
 phases:
   install:
     commands:
-      - .\SetupContainer.ps1
       - dotnet --list-sdks
       - dotnet --list-runtimes
+      - Set-Service -Name wuauserv -StartupType Manual
+      - DISM /Online /Enable-Feature:NetFx3 /All /Quiet
+      - choco install -y wixtoolset --version 3.11.0.20170506 --no-progress
   pre_build:
     commands:
       - mkdir c:\temp
