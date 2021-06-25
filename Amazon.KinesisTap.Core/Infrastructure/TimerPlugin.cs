@@ -30,7 +30,7 @@ namespace Amazon.KinesisTap.Core
         public TimerPlugin(IPlugInContext context) : base(context)
         {
             _networkStatus = context.NetworkStatus;
-            _timer = new Timer(this.OnTimerInternal, null, Timeout.Infinite, Timeout.Infinite);
+            _timer = new Timer(OnTimerInternal, null, Timeout.Infinite, Timeout.Infinite);
         }
 
         public override void Start()
@@ -66,7 +66,7 @@ namespace Amazon.KinesisTap.Core
             }
             catch(Exception ex)
             {
-                _logger?.LogError($"Plugin {this.Id} exception: {ex.ToMinimized()}");
+                _logger?.LogError($"Plugin {Id} exception: {ex.ToMinimized()}");
             }
             EnableTimer();
         }

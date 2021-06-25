@@ -13,9 +13,8 @@
  * permissions and limitations under the License.
  */
 using Amazon.KinesisTap.Core.Metrics;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
@@ -24,14 +23,12 @@ namespace Amazon.KinesisTap.Core.Test
 {
     public class SimpleMetricsSinkTest
     {
-        private readonly BookmarkManager _bookmarkManager = new BookmarkManager();
-
         [Fact]
         public void TestMetricsFilterSingleInstance()
         {
-            string id = "MetricsFilterSingleInstance";
-            MemoryLogger logger = new MemoryLogger(null);
-            MockMetricsSink sink = CreateMetricsSink(id, logger);
+            var id = "MetricsFilterSingleInstance";
+            var logger = new MemoryLogger(null);
+            var sink = CreateMetricsSink(id, logger);
             SendSampleMetrics(sink);
             sink.Stop(); //Cause flush
             Assert.Equal(2, sink.FilteredLastValues.Count);
@@ -43,9 +40,9 @@ namespace Amazon.KinesisTap.Core.Test
         [Fact]
         public void TestMetricsFilterMultipleInstance()
         {
-            string id = "MetricsFilterMultipleInstance";
-            MemoryLogger logger = new MemoryLogger(null);
-            MockMetricsSink sink = CreateMetricsSink(id, logger);
+            var id = "MetricsFilterMultipleInstance";
+            var logger = new MemoryLogger(null);
+            var sink = CreateMetricsSink(id, logger);
             SendSampleMetrics(sink);
             sink.Stop(); //Cause flush
             Assert.Equal(3, sink.FilteredLastValues.Count);
@@ -57,9 +54,9 @@ namespace Amazon.KinesisTap.Core.Test
         [Fact]
         public void TestMetricsFilterAll()
         {
-            string id = "MetricsFilterAll";
-            MemoryLogger logger = new MemoryLogger(null);
-            MockMetricsSink sink = CreateMetricsSink(id, logger);
+            var id = "MetricsFilterAll";
+            var logger = new MemoryLogger(null);
+            var sink = CreateMetricsSink(id, logger);
             SendSampleMetrics(sink);
             sink.Stop(); //Cause flush
             Assert.Equal(5, sink.FilteredLastValues.Count);
@@ -71,9 +68,9 @@ namespace Amazon.KinesisTap.Core.Test
         [Fact]
         public void TestMetricsFilterAllErrors()
         {
-            string id = "MetricsFilterAllErrors";
-            MemoryLogger logger = new MemoryLogger(null);
-            MockMetricsSink sink = CreateMetricsSink(id, logger);
+            var id = "MetricsFilterAllErrors";
+            var logger = new MemoryLogger(null);
+            var sink = CreateMetricsSink(id, logger);
             SendSampleMetrics(sink);
             sink.Stop(); //Cause flush
             Assert.Equal(1, sink.FilteredLastValues.Count);
@@ -85,9 +82,9 @@ namespace Amazon.KinesisTap.Core.Test
         [Fact]
         public void TestMetricsFilterMultipleErrorsAggregated()
         {
-            string id = "MetricsFilterMultipleErrorsAggregated";
-            MemoryLogger logger = new MemoryLogger(null);
-            MockMetricsSink sink = CreateMetricsSink(id, logger);
+            var id = "MetricsFilterMultipleErrorsAggregated";
+            var logger = new MemoryLogger(null);
+            var sink = CreateMetricsSink(id, logger);
             SendSampleMetrics(sink);
             sink.Stop(); //Cause flush
             Assert.Equal(0, sink.FilteredLastValues.Count);
@@ -100,9 +97,9 @@ namespace Amazon.KinesisTap.Core.Test
         [Fact]
         public void TestMetricsFilterLatestValueAggregated()
         {
-            string id = "MetricsFilterLatestValueAggregated";
-            MemoryLogger logger = new MemoryLogger(null);
-            MockMetricsSink sink = CreateMetricsSink(id, logger);
+            var id = "MetricsFilterLatestValueAggregated";
+            var logger = new MemoryLogger(null);
+            var sink = CreateMetricsSink(id, logger);
             SendSampleMetrics(sink);
             sink.Stop(); //Cause flush
             Assert.Equal(0, sink.FilteredLastValues.Count);
@@ -115,10 +112,10 @@ namespace Amazon.KinesisTap.Core.Test
         [Fact]
         public void TestMetricsInitialization()
         {
-            string id = "TextDecoration";
-            MemoryLogger logger = new MemoryLogger(null);
-            KinesisTapMetricsSource metrics = new KinesisTapMetricsSource(new PluginContext(null, null, null, _bookmarkManager, null, null));
-            MockMetricsSink sink = CreateMetricsSink(id, logger, metrics);
+            var id = "TextDecoration";
+            var logger = new MemoryLogger(null);
+            var metrics = new KinesisTapMetricsSource(nameof(TestMetricsInitialization), NullLogger.Instance);
+            var sink = CreateMetricsSink(id, logger, metrics);
             metrics.Subscribe(sink);
 
             metrics.InitializeCounters(id, "Sinks", CounterTypeEnum.Increment,
@@ -135,10 +132,10 @@ namespace Amazon.KinesisTap.Core.Test
         [Fact]
         public void TestOnSubscribe()
         {
-            string id = "TextDecoration";
-            MemoryLogger logger = new MemoryLogger(null);
-            KinesisTapMetricsSource metrics = new KinesisTapMetricsSource(new PluginContext(null, null, null, _bookmarkManager, null, null));
-            MockMetricsSink sink = CreateMetricsSink(id, logger, metrics);
+            var id = "TextDecoration";
+            var logger = new MemoryLogger(null);
+            var metrics = new KinesisTapMetricsSource(nameof(TestOnSubscribe), NullLogger.Instance);
+            var sink = CreateMetricsSink(id, logger, metrics);
 
             metrics.InitializeCounters(id, "Sinks", CounterTypeEnum.Increment,
                 new Dictionary<string, MetricValue>
@@ -151,58 +148,6 @@ namespace Amazon.KinesisTap.Core.Test
             sink.Stop();
             Assert.Equal(2, sink.AccumlatedValues.Count);
             Assert.Equal(3, TestUtility.GetMetricsCount(sink.AccumlatedValues));
-        }
-
-        [Fact]
-        public void TestDirectorySourceMetricsOnSubscribe()
-        {
-            IConfiguration config = GetConfig("directorySourceTest");
-            config[ConfigConstants.ID] = "TestDirectorySourceMetricsOnSubscribe";
-
-            MemoryLogger logger = new MemoryLogger(null);
-            KinesisTapMetricsSource metrics = new KinesisTapMetricsSource(new PluginContext(null, null, null, _bookmarkManager, null, null));
-
-            DirectorySource<string, LogContext> source = new DirectorySource<string, LogContext>(
-                TestUtility.GetTestHome(),
-                "*.log",
-                1000,
-                new PluginContext(config, logger, metrics, _bookmarkManager),
-                new SingleLineRecordParser());
-
-            MockMetricsSink metricsSink = new MockMetricsSink(3600, new PluginContext(config, logger, metrics, _bookmarkManager));
-
-            source.Start();
-            metrics.Subscribe(metricsSink);
-            metricsSink.Stop();
-            source.Stop();
-            Assert.Equal(2, metricsSink.AccumlatedValues.Count);
-            Assert.Equal(0, TestUtility.GetMetricsCount(metricsSink.AccumlatedValues));
-        }
-
-        [Fact]
-        public void TestDirectorySourceMetricsStart()
-        {
-            IConfiguration config = GetConfig("directorySourceTest");
-            config[ConfigConstants.ID] = "TestDirectorySourceMetricsStart";
-
-            MemoryLogger logger = new MemoryLogger(null);
-            KinesisTapMetricsSource metrics = new KinesisTapMetricsSource(new PluginContext(null, null, null, _bookmarkManager, null, null));
-
-            DirectorySource<string, LogContext> source = new DirectorySource<string, LogContext>(
-                TestUtility.GetTestHome(),
-                "*.log",
-                1000,
-                new PluginContext(config, logger, metrics, _bookmarkManager),
-                new SingleLineRecordParser());
-
-            MockMetricsSink metricsSink = new MockMetricsSink(3600, new PluginContext(config, logger, metrics, _bookmarkManager));
-
-            metrics.Subscribe(metricsSink);
-            source.Start();
-            source.Stop();
-            metricsSink.Stop();
-            Assert.Equal(2, metricsSink.AccumlatedValues.Count);
-            Assert.Equal(0, TestUtility.GetMetricsCount(metricsSink.AccumlatedValues));
         }
 
         private static void SendSampleMetrics(MockMetricsSink sink)
@@ -249,26 +194,8 @@ namespace Amazon.KinesisTap.Core.Test
         private MockMetricsSink CreateMetricsSink(string id, ILogger logger, IMetrics metrics = null)
         {
             var config = TestUtility.GetConfig("Sinks", id);
-            var sink = new MockMetricsSink(3600, new PluginContext(config, logger, metrics, _bookmarkManager));
+            var sink = new MockMetricsSink(3600, new PluginContext(config, logger, metrics));
             return sink;
         }
-
-        private static IConfiguration GetConfig(string id)
-        {
-            ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
-            string basePath = AppContext.BaseDirectory;
-            var config = configurationBuilder
-                .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("testSettings1.json", optional: false, reloadOnChange: false)
-                .Build();
-            var sections = config.GetSection("Sources").GetChildren();
-            foreach (var s in sections)
-            {
-                if (s[ConfigConstants.ID] == id)
-                    return s;
-            }
-            return null;
-        }
-
     }
 }

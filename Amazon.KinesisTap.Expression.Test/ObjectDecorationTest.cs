@@ -13,14 +13,11 @@
  * permissions and limitations under the License.
  */
 using System;
-
 using Xunit;
+using Amazon.KinesisTap.Shared.Ast;
+using Amazon.KinesisTap.Shared.ObjectDecoration;
 
-using Amazon.KinesisTap.Core;
-using Amazon.KinesisTap.Expression.Ast;
-using Amazon.KinesisTap.Expression.ObjectDecoration;
-
-namespace Amazon.KinesisTap.Expression.Test
+namespace Amazon.KinesisTap.Shared.Test
 {
     public class ObjectDecorationTest
     {
@@ -48,7 +45,7 @@ namespace Amazon.KinesisTap.Expression.Test
         [Fact]
         public void TestIncompleteObjectDecoration()
         {
-            Assert.Throws<Exception>(() => ObjectDecorationParserFacade.ParseObjectDecoration(INCOMPLETE_OBJECTDECORATION));          
+            Assert.Throws<Exception>(() => ObjectDecorationParserFacade.ParseObjectDecoration(INCOMPLETE_OBJECTDECORATION));
         }
     }
 }

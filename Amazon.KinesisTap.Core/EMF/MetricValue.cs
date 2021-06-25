@@ -12,10 +12,10 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using Newtonsoft.Json;
+
 namespace Amazon.KinesisTap.Core.EMF
 {
-    using Newtonsoft.Json;
-
     public class MetricValue
     {
         public string Name { get; set; }

@@ -15,23 +15,25 @@
 using Amazon.KinesisTap.DiagnosticTool.Core;
 using System;
 using System.Diagnostics;
+using System.Runtime.Versioning;
 
 namespace Amazon.KinesisTap.DiagnosticTool
 {
     /// <summary>
     /// Simulator for Windows Event log
     /// </summary>
+    [SupportedOSPlatform("windows")]
     public class WindowsEventLogSimulator : LogSimulator, IDisposable
     {
         const string EVENT_SOURCE = "KTDiag.exe";
-        private EventLog _log;
+        private readonly EventLog _log;
 
         public WindowsEventLogSimulator(string[] args) : base(1000, 1000, 1)
         {
             ParseOptionValues(args);
 
-            string logName = args[1];
-            string source = logName + "_" + EVENT_SOURCE;
+            var logName = args[1];
+            var source = logName + "_" + EVENT_SOURCE;
 
             if (!EventLog.SourceExists(source))
             {
@@ -46,23 +48,23 @@ namespace Amazon.KinesisTap.DiagnosticTool
         /// <param name="v"></param>
         protected override void WriteLog(string v)
         {
-            int eventId = (int)(DateTime.Now.Ticks % ushort.MaxValue);
+            var eventId = (int)(DateTime.Now.Ticks % ushort.MaxValue);
             _log.WriteEntry(v, EventLogEntryType.Information, eventId);
         }
 
         #region IDisposable Support
-        private bool disposedValue = false; // To detect redundant calls
+        private bool _disposedValue = false; // To detect redundant calls
 
         protected override void Dispose(bool disposing)
         {
-            if (!disposedValue)
+            if (!_disposedValue)
             {
                 base.Dispose(disposing);
                 if (disposing)
                 {
                     _log.Dispose();
                 }
-                disposedValue = true;
+                _disposedValue = true;
             }
         }
         #endregion

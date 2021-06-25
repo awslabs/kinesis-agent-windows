@@ -12,12 +12,8 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Amazon.KinesisTap.Core;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Amazon.KinesisTap.Core;
 
 namespace Amazon.KinesisTap.Windows
 {
@@ -27,6 +23,10 @@ namespace Amazon.KinesisTap.Windows
 
         public IEventSink CreateInstance(string entry, IPlugInContext context)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                throw new PlatformNotSupportedException($"Sink type '{entry}' is only supported on Windows");
+            }
             return new PerformanceCounterSink(5, context);
         }
 

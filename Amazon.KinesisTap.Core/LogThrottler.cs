@@ -24,7 +24,7 @@ namespace Amazon.KinesisTap.Core
     public static class LogThrottler
     {
         //Key: logTypeId, value: LastWritten
-        private static IDictionary<int, DateTime> _logTypes = new Dictionary<int, DateTime>();
+        private static readonly IDictionary<int, DateTime> _logTypes = new Dictionary<int, DateTime>();
 
         /// <summary>
         /// Tell a client whether it should write the log
@@ -34,10 +34,10 @@ namespace Amazon.KinesisTap.Core
         /// <returns></returns>
         public static bool ShouldWrite(int logTypeId, TimeSpan minimumDelayBetweenWrite)
         {
-            lock(_logTypes)
+            lock (_logTypes)
             {
                 DateTime now = DateTime.Now;
-                if (_logTypes.TryGetValue(logTypeId, out DateTime lastWrite) && lastWrite + minimumDelayBetweenWrite > now )
+                if (_logTypes.TryGetValue(logTypeId, out DateTime lastWrite) && lastWrite + minimumDelayBetweenWrite > now)
                 {
                     return false;
                 }
@@ -62,7 +62,7 @@ namespace Amazon.KinesisTap.Core
             StringBuilder keyStringBuilder = new StringBuilder()
                 .AppendFormat("{0}.{1}.{2}", className, methodName, blockName);
 
-            foreach(object keyArgument in keyArguments)
+            foreach (object keyArgument in keyArguments)
             {
                 keyStringBuilder.AppendFormat(".{0}", keyArgument);
             }

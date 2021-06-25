@@ -21,20 +21,22 @@ namespace Amazon.KinesisTap.DiagnosticTool
     class Program
     {
         // Source validators in Windows platform
-        private static readonly IDictionary<String, ISourceValidator> sourceValidators = new Dictionary<String, ISourceValidator>()
-        {
-            { "DirectorySource", new DirectorySourceValidator() },
-            { "WindowsEventLogSource", new EventLogValidator() },
-            { "WindowsPerformanceCounterSource", new PerformanceCounterValidator() }
-        };
+        private static readonly IDictionary<string, ISourceValidator> _sourceValidators = new Dictionary<string, ISourceValidator>();
 
         static void Main(string[] args)
         {
+            _sourceValidators["DirectorySource"] = new DirectorySourceValidator();
+            if (OperatingSystem.IsWindows())
+            {
+                _sourceValidators["WindowsEventLogSource"] = new EventLogValidator();
+            }
+            if (OperatingSystem.IsWindows())
+            {
+                _sourceValidators["WindowsPerformanceCounterSource"] = new PerformanceCounterValidator();
+            }
 
-            int exitCode = InvokeCommand(args);
-
+            var exitCode = InvokeCommand(args);
             Environment.Exit(exitCode);
-
         }
 
         private static int InvokeCommand(string[] args)
@@ -57,12 +59,16 @@ namespace Amazon.KinesisTap.DiagnosticTool
                 case "/c":
                 case "/config":
 
-                    return new ConfigValidatorCommand(sourceValidators, ConfigFileLoader.LoadConfigFile).ParseAndRunArgument(args);
+                    return new ConfigValidatorCommand(_sourceValidators, ConfigFileLoader.LoadConfigFile).ParseAndRunArgument(args);
 
                 case "/r":
-                    return new RecordParserValidatorCommand(sourceValidators, ConfigFileLoader.LoadConfigFile).ParseAndRunArgument(args);
+                    return new RecordParserValidatorCommand(_sourceValidators, ConfigFileLoader.LoadConfigFile).ParseAndRunArgument(args);
 
                 case "/e":
+                    if (!OperatingSystem.IsWindows())
+                    {
+                        throw new PlatformNotSupportedException();
+                    }
                     return new WindowsEventLogSimulatorCommand().ParseAndRunArgument(args);
 
                 case "/p":   // Validate the PackageVersion.json
@@ -80,7 +86,11 @@ namespace Amazon.KinesisTap.DiagnosticTool
         private static void WriteUsage()
         {
             Log4NetSimulatorCommand.WriteUsage();
-            WindowsEventLogSimulatorCommand.WriteUsage();
+            if (OperatingSystem.IsWindows())
+            {
+                WindowsEventLogSimulatorCommand.WriteUsage();
+            }
+
             DirectoryWatcherCommand.WriteUsage();
             ConfigValidatorCommand.WriteUsage();
             RecordParserValidatorCommand.WriteUsage();

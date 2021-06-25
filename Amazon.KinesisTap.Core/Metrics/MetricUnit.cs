@@ -12,8 +12,6 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System.ComponentModel;
-
 namespace Amazon.KinesisTap.Core.Metrics
 {
     public enum MetricUnit

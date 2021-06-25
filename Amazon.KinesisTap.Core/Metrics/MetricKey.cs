@@ -52,12 +52,27 @@ namespace Amazon.KinesisTap.Core.Metrics
             }
         }
 
+        /// <inheritdoc/>
         public override bool Equals(object obj) => obj is MetricKey other && Equals(other);
 
         /// <summary>
         /// Implements <see cref="IEquatable{T}"/> to use this struct as a hash table key.
         /// </summary>
-        /// <inheritdoc/>
         public bool Equals(MetricKey other) => Name == other.Name && Id == other.Id && Category == other.Category;
+
+        public static bool operator ==(MetricKey left, MetricKey right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(MetricKey left, MetricKey right)
+        {
+            return !(left == right);
+        }
+
+        /// <summary>
+        /// Mainly for debugging purpose.
+        /// </summary>
+        public override string ToString() => $"{Id}::{Category}::{Name}";
     }
 }

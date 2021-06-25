@@ -1,0 +1,19 @@
+{
+  /* JSON schema draft v3*/
+  "title": "Package Version Json Schema",
+  "type": "object",
+  "properties": {
+    "Name": {
+      "type": "string",
+      "required": true
+    },
+    "Version": {
+      "type": "string",
+      "required": true
+    },
+    "PackageUrl": {
+      "type": "string",
+      "required": true
+    }
+  }
+}

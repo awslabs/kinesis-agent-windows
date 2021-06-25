@@ -12,9 +12,6 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
 using System.IO;
 
 namespace Amazon.KinesisTap.Core
@@ -24,14 +21,14 @@ namespace Amazon.KinesisTap.Core
     /// </summary>
     public class DirectoryDependency : Dependency
     {
-        public string DirectoryPath { get; private set; }
+        public string DirectoryPath { get; }
         public override string Name => $"Directory {DirectoryPath}";
-       
+
 
         public DirectoryDependency(string directoryPath)
         {
             Guard.ArgumentNotNull(directoryPath, "directoryPath");
-            this.DirectoryPath = directoryPath;
+            DirectoryPath = directoryPath;
         }
 
         /// <summary>
@@ -40,7 +37,7 @@ namespace Amazon.KinesisTap.Core
         /// <returns>True if the directory is available for use.</returns>
         public override bool IsDependencyAvailable()
         {
-            return Directory.Exists(DirectoryPath);
+            return Directory.Exists(Utility.ResolveVariables(DirectoryPath, Utility.ResolveVariable));
         }
 
         /// <summary>

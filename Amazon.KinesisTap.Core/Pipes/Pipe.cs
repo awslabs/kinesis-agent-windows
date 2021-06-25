@@ -16,9 +16,9 @@ using Amazon.KinesisTap.Core.Metrics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.Reactive.Subjects;
-using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Amazon.KinesisTap.Core
 {
@@ -41,10 +41,10 @@ namespace Amazon.KinesisTap.Core
         /// <param name="context">The context object providing access to config, logging and metrics</param>
         protected Pipe(IPlugInContext context)
         {
-            this._context = context;
-            this._config = context.Configuration;
-            this._logger = context.Logger;
-            this._metrics = context.Metrics;
+            _context = context;
+            _config = context.Configuration;
+            _logger = context.Logger;
+            _metrics = context.Metrics;
         }
 
         /// <summary>
@@ -86,6 +86,18 @@ namespace Amazon.KinesisTap.Core
         /// Start the pipe
         /// </summary>
         public abstract void Start();
+
+        public ValueTask StartAsync(CancellationToken stopToken)
+        {
+            Start();
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask StopAsync(CancellationToken gracefulStopToken)
+        {
+            Stop();
+            return ValueTask.CompletedTask;
+        }
 
         /// <summary>
         /// Stop the pipe

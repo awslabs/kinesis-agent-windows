@@ -25,19 +25,19 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
     /// </summary>
     public class ConfigValidatorCommand : ICommand
     {
-        private IDictionary<String, ISourceValidator> _sourceValidators;
-        private Func<String, String, IConfigurationRoot> _loadConfigFile;
+        private readonly IDictionary<string, ISourceValidator> _sourceValidators;
+        private readonly Func<string, string, IConfigurationRoot> _loadConfigFile;
 
-        public ConfigValidatorCommand(IDictionary<String, ISourceValidator> sourceValidators, Func<string, string, IConfigurationRoot> loadConfigFile)
+        public ConfigValidatorCommand(IDictionary<string, ISourceValidator> sourceValidators, Func<string, string, IConfigurationRoot> loadConfigFile)
         {
-            this._sourceValidators = sourceValidators;
-            this._loadConfigFile = loadConfigFile;
+            _sourceValidators = sourceValidators;
+            _loadConfigFile = loadConfigFile;
         }
 
         public ConfigValidatorCommand(Func<string, string, IConfigurationRoot> loadConfigFile)
         {
-            this._sourceValidators = new Dictionary<String, ISourceValidator>();
-            this._loadConfigFile = loadConfigFile;
+            _sourceValidators = new Dictionary<string, ISourceValidator>();
+            _loadConfigFile = loadConfigFile;
         }
 
         /// <summary>
@@ -54,8 +54,8 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
                     string configPath = null;
                     IList<string> messages;
 
-                    ConfigValidator ConfigFileValidator = new ConfigValidator(AppContext.BaseDirectory, this._sourceValidators, this._loadConfigFile);
-                    bool isValid = false;
+                    var ConfigFileValidator = new ConfigValidator(AppContext.BaseDirectory, _sourceValidators, _loadConfigFile);
+                    var isValid = false;
 
                     if (args.Length == 2)
                     {
@@ -76,7 +76,7 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
                     else
                     {
                         Console.WriteLine("Diagnostic Test #2: Fail! Configuration file doesn't have the valid JSON schema: ");
-                        foreach (string message in messages)
+                        foreach (var message in messages)
                         {
                             Console.WriteLine(message);
                         }

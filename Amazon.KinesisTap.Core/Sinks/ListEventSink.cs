@@ -14,6 +14,8 @@
  */
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.Core
@@ -36,27 +38,29 @@ namespace Amazon.KinesisTap.Core
 
         public void OnCompleted()
         {
-            _logger?.LogInformation($"{this.GetType()} {this.Id} completed.");
+            _logger?.LogInformation($"{GetType()} {Id} completed.");
         }
 
         public void OnError(Exception error)
         {
-            _logger?.LogCritical($"{this.GetType()} {this.Id} error: {error}.");
+            _logger?.LogCritical($"{GetType()} {Id} error: {error}.");
         }
 
         public void OnNext(IEnvelope value)
         {
-            this.Add(value);
+            Add(value);
         }
 
-        public void Start()
+        public ValueTask StartAsync(CancellationToken stopToken)
         {
             _logger?.LogInformation("ListEventSink started");
+            return ValueTask.CompletedTask;
         }
 
-        public void Stop()
+        public ValueTask StopAsync(CancellationToken gracefulStopToken)
         {
             _logger?.LogInformation("ListEventSink stopped");
+            return ValueTask.CompletedTask;
         }
     }
 }

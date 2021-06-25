@@ -13,19 +13,17 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Amazon.KinesisTap.Core
 {
     public class Throttle
     {
-        private TokenBucket[] _tokenBuckets;
+        private readonly TokenBucket[] _tokenBuckets;
 
         protected double _rateAdjustmentFactor;
         protected int _consecutiveErrorCount;
 
-        public Throttle(TokenBucket tokenBucket) 
+        public Throttle(TokenBucket tokenBucket)
             : this(new TokenBucket[] { tokenBucket })
         {
         }
@@ -46,7 +44,7 @@ namespace Amazon.KinesisTap.Core
         public virtual long GetDelayMilliseconds(long[] tokensNeededArray)
         {
             long maxDelay = 0;
-            for(int i = 0; i < tokensNeededArray.Length; i++)
+            for (int i = 0; i < tokensNeededArray.Length; i++)
             {
                 long delay = _tokenBuckets[i].GetMillisecondsDelay(tokensNeededArray[i], _rateAdjustmentFactor);
                 if (delay > maxDelay)

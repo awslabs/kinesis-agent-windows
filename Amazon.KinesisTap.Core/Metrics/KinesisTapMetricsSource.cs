@@ -12,46 +12,33 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reactive.Subjects;
-using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.Core.Metrics
 {
-    public class KinesisTapMetricsSource : EventSource<IDictionary<string, MetricValue>>, IMetrics
+    public class KinesisTapMetricsSource : IMetrics
     {
-        private static KinesisTapMetricsSource _instance = null;
-        // mutex lock used forthread-safety.
-        private static readonly object mutex = new object();
-
-        private ISubject<IEnvelope<IDictionary<string, MetricValue>>> _subject;
+        private readonly ISubject<IEnvelope<IDictionary<string, MetricValue>>> _subject;
         private readonly IDictionary<string, MetricValue> _currentCounters;
         private readonly IDictionary<MetricKey, IDictionary<string, MetricValue>> _incrementalCounters;
+        private readonly ILogger _logger;
 
-        public KinesisTapMetricsSource(IPlugInContext context) : base(context)
+        public KinesisTapMetricsSource(string id, ILogger logger)
         {
-            _subject = new SubjectWrapper<IEnvelope<IDictionary<string, MetricValue>>>(this.OnSubscribe);
-            _currentCounters = new Dictionary<string, MetricValue>();
-            _incrementalCounters = new Dictionary<MetricKey, IDictionary<string, MetricValue>> ();
+            Id = id;
+            _logger = logger;
+            _subject = new SubjectWrapper<IEnvelope<IDictionary<string, MetricValue>>>(OnSubscribe);
+            _currentCounters = new ConcurrentDictionary<string, MetricValue>();
+            _incrementalCounters = new ConcurrentDictionary<MetricKey, IDictionary<string, MetricValue>>();
         }
 
-        public static KinesisTapMetricsSource GetInstance (IPlugInContext context)
-        {
-            lock (mutex)
-            {
-                if (_instance == null)
-                {
-                    _instance = new KinesisTapMetricsSource(context);
-                }
-
-                return _instance;
-            }
-        }
-
-        public static bool PerformanceCounterSinkLoaded { get; set; }
+        public string Id { get; set; }
 
         public void PublishCounter(string id, string category, CounterTypeEnum counterType, string counter, long value, MetricUnit unit)
         {
@@ -66,7 +53,7 @@ namespace Amazon.KinesisTap.Core.Metrics
             //Cache a copy of current global counters to publish to new subscribers
             if (string.IsNullOrEmpty(id) && counterType == CounterTypeEnum.CurrentValue)
             {
-                foreach(var kv in counters)
+                foreach (var kv in counters)
                 {
                     _currentCounters[kv.Key] = kv.Value;
                 }
@@ -85,7 +72,7 @@ namespace Amazon.KinesisTap.Core.Metrics
         {
             if (counterType == CounterTypeEnum.Increment)
             {
-                bool hasID = false;
+                var hasID = false;
                 foreach (var key in _incrementalCounters.Keys)
                 {
                     if (key.Id == id && key.Category == category)
@@ -110,19 +97,6 @@ namespace Amazon.KinesisTap.Core.Metrics
             ));
         }
 
-        public override void Start()
-        {
-        }
-
-        public override void Stop()
-        {
-        }
-
-        public override IDisposable Subscribe(IObserver<IEnvelope<IDictionary<string, MetricValue>>> observer)
-        {
-            return this._subject.Subscribe(observer);
-        }
-
         private void OnSubscribe(IObserver<IEnvelope<IDictionary<string, MetricValue>>> observer)
         {
             //Publish the global counters cached
@@ -133,5 +107,23 @@ namespace Amazon.KinesisTap.Core.Metrics
                 observer.OnNext(new MetricsEnvelope(counter.Key.Id, counter.Key.Category, CounterTypeEnum.Increment, counter.Value));
             }
         }
+
+        public Type GetOutputType() => typeof(IDictionary<string, MetricValue>);
+
+        public ValueTask StartAsync(CancellationToken stopToken)
+        {
+            _logger.LogInformation("Started");
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask StopAsync(CancellationToken gracefulStopToken)
+        {
+            _logger.LogInformation("Stopped");
+            return ValueTask.CompletedTask;
+        }
+
+        public IDisposable Subscribe(IObserver<IEnvelope> observer) => Subscribe((IObserver<IEnvelope<IDictionary<string, MetricValue>>>)observer);
+
+        public IDisposable Subscribe(IObserver<IEnvelope<IDictionary<string, MetricValue>>> observer) => _subject.Subscribe(observer);
     }
 }

@@ -14,14 +14,16 @@
  */
 using Amazon.KinesisTap.DiagnosticTool.Core;
 using System;
+using System.Runtime.Versioning;
 
 namespace Amazon.KinesisTap.DiagnosticTool
 {
     /// <summary>
     /// Command for simulating Windows event logs
     /// </summary>
+    [SupportedOSPlatform("windows")]
     public class WindowsEventLogSimulatorCommand : ICommand
-    { 
+    {
         /// <summary>
         /// Parse and run the command
         /// </summary>

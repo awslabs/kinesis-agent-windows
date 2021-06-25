@@ -26,7 +26,7 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
     /// </summary>
     public class Log4NetSimulator : LogSimulator
     {
-        private ILog _log;
+        private readonly ILog _log;
 
         /// <summary>
         /// Log4NetSimulator constructor
@@ -36,7 +36,7 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         {
             ParseOptionValues(args);
             ParseLog4NetOptionValues(args);
-            _log = LogManager.GetLogger(this.GetType());
+            _log = LogManager.GetLogger(GetType());
         }
 
         /// <summary>

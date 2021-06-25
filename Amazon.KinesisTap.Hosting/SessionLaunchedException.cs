@@ -19,7 +19,12 @@ namespace Amazon.KinesisTap.Hosting
     public class SessionLaunchedException : Exception
     {
         public SessionLaunchedException(string configFile, Exception innerException)
-            : base($"Error launch session with configuration '{configFile}'", innerException)
+            : base($"Error launching session with configuration '{configFile}'", innerException)
+        {
+            ConfigPath = configFile;
+        }
+
+        public SessionLaunchedException(string configFile, string message) : base(message)
         {
             ConfigPath = configFile;
         }

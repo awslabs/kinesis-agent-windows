@@ -24,16 +24,16 @@ namespace Amazon.KinesisTap.Core
     /// <typeparam name="T"></typeparam>
     public class Batch<T>
     {
-        TimeSpan _interval;
-        private long[] _limits;
-        private Func<T, long>[] _getCounts;
+        private readonly TimeSpan _interval;
+        private readonly long[] _limits;
+        private readonly Func<T, long>[] _getCounts;
         private readonly Action<List<T>, long[], FlushReason> _onBatch;
 
-        protected List<T> _queue = new List<T>();
+        protected List<T> _queue = new();
         protected long[] _counts;
 
-        protected object _lockObject = new object();
-        protected Timer _maxTimeSpanTimer;
+        protected readonly object _lockObject = new object();
+        protected readonly Timer _maxTimeSpanTimer;
 
         /// <summary>
         /// 
@@ -55,14 +55,14 @@ namespace Amazon.KinesisTap.Core
             _getCounts = getCounts;
             _onBatch = onBatch;
             _maxTimeSpanTimer = new Timer(
-                OnTimer, 
-                null, 
+                OnTimer,
+                null,
                 (int)(_interval.TotalMilliseconds * Utility.Random.NextDouble()), //Randomize the first start time
                 (int)_interval.TotalMilliseconds);
         }
 
         public Batch(TimeSpan interval, long limit, Func<T, long> getCount, Action<IList<T>, long[], FlushReason> onBatch)
-            : this(interval, new long[] { limit }, new Func<T, long>[] {  getCount }, onBatch)
+            : this(interval, new long[] { limit }, new Func<T, long>[] { getCount }, onBatch)
         {
         }
 
@@ -72,7 +72,7 @@ namespace Amazon.KinesisTap.Core
         /// <param name="item">Item to be added</param>
         public void Add(T item)
         {
-            long[] newCounts = GetNewCounts(item);
+            var newCounts = GetNewCounts(item);
 
             //Need to block and synchronize so that counts does not become outdated
             lock (_lockObject)
@@ -151,8 +151,8 @@ namespace Amazon.KinesisTap.Core
 
         private long[] GetNewCounts(T item)
         {
-            long[] newCounts = new long[_getCounts.Length];
-            for (int i = 0; i < newCounts.Length; i++)
+            var newCounts = new long[_getCounts.Length];
+            for (var i = 0; i < newCounts.Length; i++)
             {
                 newCounts[i] = _getCounts[i](item);
             }
@@ -161,7 +161,7 @@ namespace Amazon.KinesisTap.Core
 
         private bool ShouldFlushBeforeAdd(long[] newCounts)
         {
-            for(int i = 0; i < _limits.Length; i++)
+            for (var i = 0; i < _limits.Length; i++)
             {
                 if (newCounts[i] + _counts[i] > _limits[i])
                 {
@@ -173,7 +173,7 @@ namespace Amazon.KinesisTap.Core
 
         private void UpdateCounts(long[] newCounts)
         {
-            for (int i = 0; i < _limits.Length; i++)
+            for (var i = 0; i < _limits.Length; i++)
             {
                 _counts[i] += newCounts[i];
             }
@@ -181,7 +181,7 @@ namespace Amazon.KinesisTap.Core
 
         private bool ShouldFlushAfterAdd()
         {
-            for (int i = 0; i < _limits.Length; i++)
+            for (var i = 0; i < _limits.Length; i++)
             {
                 if (_counts[i] >= _limits[i])
                 {

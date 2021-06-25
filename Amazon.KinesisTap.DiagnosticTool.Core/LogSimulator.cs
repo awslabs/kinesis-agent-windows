@@ -27,7 +27,7 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         protected int _interval;
         private int _size;
         private int _batchSize;
-        private static Random random = new Random();
+        private static readonly Random random = new Random();
         private const int MIN_SIZE = 86;
         private const int MIN_BATCH_SIZE = 1;
 
@@ -87,7 +87,7 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
 
         protected void OnTimer(object stateInfo)
         {
-            for (int i = 0; i < this.BatchSize; i++)
+            for (int i = 0; i < BatchSize; i++)
             {
                 WriteLog($"{RandomString(_size - MIN_SIZE)}");
             }

@@ -12,49 +12,49 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using Microsoft.Extensions.Logging;
+
 namespace Amazon.KinesisTap.Core
 {
-    using System;
-    using Microsoft.Extensions.Logging;
-
     /// <summary>
     /// Buffer with high and low priority queue allowing requeue at lower priority
     /// </summary>
     /// <typeparam name="T">The type of item in the queue.</typeparam>
     public class HiLowBuffer<T> : Buffer<T>
     {
-        private readonly ISimpleQueue<T> lowPriorityQueue;
+        private readonly ISimpleQueue<T> _lowPriorityQueue;
 
         public HiLowBuffer(int sizeHint, ILogger logger, Action<T> onNext, ISimpleQueue<T> lowPriorityQueue)
             : base(sizeHint, logger, onNext)
         {
-            this.lowPriorityQueue = lowPriorityQueue;
+            _lowPriorityQueue = lowPriorityQueue;
         }
 
         /// <inheritdoc />
         public override bool Requeue(T item, bool highPriority)
         {
             if (highPriority) return base.Requeue(item, highPriority);
-            return this.lowPriorityQueue.TryEnqueue(item);
+            return _lowPriorityQueue.TryEnqueue(item);
         }
 
         /// <inheritdoc />
         public override int GetCurrentPersistentQueueSize()
         {
-            return this.lowPriorityQueue.Count;
+            return _lowPriorityQueue.Count;
         }
 
         /// <inheritdoc />
         public override int IsPersistentQueueFull()
         {
-            return (this.lowPriorityQueue.Count >= this.lowPriorityQueue.Capacity) ? 1 : 0;
+            return (_lowPriorityQueue.Count >= _lowPriorityQueue.Capacity) ? 1 : 0;
         }
 
         protected override bool LowPriorityPumpOne(Action<T> onNext)
         {
             // Try to dequeue an item and pass it to the onNext action,
             // Return true if there an item was processed, otherwise false.
-            if (!this.lowPriorityQueue.TryDequeue(out T item)) return false;
+            if (!_lowPriorityQueue.TryDequeue(out T item)) return false;
             onNext(item);
             return true;
         }

@@ -12,30 +12,29 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
+
 namespace Amazon.KinesisTap.Core.EMF
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using Amazon.KinesisTap.Core;
-    using Microsoft.Extensions.Logging;
-    using Newtonsoft.Json.Linq;
-
     /// <summary>
     /// Implement the filter pipe semantics. The type is converted to JObject.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     public class EMFPipe<T> : Pipe<T, JObject>
     {
-        private readonly CloudWatchMetric metric;
-        private readonly JArray jArray;
+        private readonly CloudWatchMetric _metric;
+        private readonly JArray _jArray;
 
         public EMFPipe(IPlugInContext context) : base(context)
         {
-            this.Id = context.Configuration[ConfigConstants.ID];
+            Id = context.Configuration[ConfigConstants.ID];
             var config = context.Configuration.GetSection("MetricDefinition");
-            this.metric = new CloudWatchMetric(config);
-            this.jArray = new JArray(new[] { JObject.FromObject(this.metric) });
+            _metric = new CloudWatchMetric(config);
+            _jArray = new JArray(new[] { JObject.FromObject(_metric) });
         }
 
         private static string CleanKeyName(string key)
@@ -69,13 +68,13 @@ namespace Amazon.KinesisTap.Core.EMF
                 return;
             }
 
-            foreach (var m in this.metric.Metrics)
+            foreach (var m in _metric.Metrics)
             {
                 if (jo.TryGetValue(m.Name, StringComparison.CurrentCultureIgnoreCase, out JToken mVal))
                 {
                     // The metric property MUST be a numeric, so if it has been parsed as a string,
-                    // we need to convert it to a long so that CW can convert it properly.
-                    if (mVal.Type == JTokenType.String && long.TryParse(mVal.ToObject<string>(), out long val))
+                    // we need to convert it to a double so that CW can convert it properly.
+                    if (mVal.Type == JTokenType.String && double.TryParse(mVal.ToObject<string>(), out double val))
                     {
                         jo.Remove(m.Name);
                         jo[m.Name] = val;
@@ -88,11 +87,13 @@ namespace Amazon.KinesisTap.Core.EMF
                 jo[m.Name] = m.Value ?? 1;
             }
 
-            jo["Timestamp"] = Utility.ToEpochMilliseconds(value.Timestamp);
-            jo["Version"] = "0";
-            jo["CloudWatchMetrics"] = this.jArray;
+            // Conform with the latest spec: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Embedded_Metric_Format_Specification.html
+            var joEMF = new JObject();
+            joEMF["Timestamp"] = Utility.ToEpochMilliseconds(value.Timestamp);
+            joEMF["CloudWatchMetrics"] = _jArray;
+            jo["_aws"] = joEMF;
 
-            this._subject.OnNext(new Envelope<JObject>(jo, value.Timestamp, value.BookmarkId, value.Position));
+            _subject.OnNext(new Envelope<JObject>(jo, value.Timestamp, value.BookmarkData, value.Position));
         }
 
         /// <inheritdoc />
@@ -104,5 +105,5 @@ namespace Amazon.KinesisTap.Core.EMF
         public override void Stop()
         {
         }
-    }    
+    }
 }

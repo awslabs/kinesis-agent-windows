@@ -12,29 +12,38 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System.Net.NetworkInformation;
+
 namespace Amazon.KinesisTap.Core
 {
     /// <summary>
     /// Interface for provider of network status information
     /// </summary>
-    public interface INetworkStatusProvider
+    public interface INetworkStatusProvider : IPlugIn
     {
         /// <summary>
         /// Indicate whether the network is available
         /// </summary>
         /// <returns>Whether the network is available</returns>
         bool IsAvailable();
+
         /// <summary>
-        /// Indicate whether can upload
+        /// Indicate whether the agent can upload.
         /// </summary>
         /// <param name="priority">Indicate the designed priority. Smaller number is higher.</param>
         /// <returns>Whether the program can upload</returns>
         bool CanUpload(int priority);
+
         /// <summary>
         /// Indicate whether can download
         /// </summary>
         /// <param name="priority">Indicate the designed priority. Smaller number is higher.</param>
         /// <returns>Whether the program can download</returns>
         bool CanDownload(int priority);
+
+        /// <summary>
+        /// Provide the unicast address information of that the agent is using to send traffic. Can be null if no valid address is detected.
+        /// </summary>
+        UnicastIPAddressInformation IPInfo { get; }
     }
 }

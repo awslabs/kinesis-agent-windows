@@ -31,9 +31,9 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
     {
 
         private readonly JSchema _schema;
-        private IDictionary<String, ISourceValidator> _sourceValidators;
-        private Func<String, String, IConfigurationRoot> _loadConfigFile;
-        private readonly HashSet<String> _initialPositions = new HashSet<String>() { "timestamp", "eos", "0", "bookmark" };
+        private readonly IDictionary<string, ISourceValidator> _sourceValidators;
+        private readonly Func<string, string, IConfigurationRoot> _loadConfigFile;
+        private readonly HashSet<string> _initialPositions = new HashSet<string>() { "timestamp", "eos", "0", "bookmark" };
 
         /// <summary>
         /// Configuration validator constructor
@@ -41,10 +41,10 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         /// <param name="schemaBaseDirectory"></param>
         /// <param name="sourceValidators"></param>
         /// <param name="loadConfigFile"></param>
-        public ConfigValidator(string schemaBaseDirectory, IDictionary<String, ISourceValidator> sourceValidators, Func<string, string, IConfigurationRoot> loadConfigFile)
+        public ConfigValidator(string schemaBaseDirectory, IDictionary<string, ISourceValidator> sourceValidators, Func<string, string, IConfigurationRoot> loadConfigFile)
         {
-            this._sourceValidators = sourceValidators;
-            this._loadConfigFile = loadConfigFile;
+            _sourceValidators = sourceValidators;
+            _loadConfigFile = loadConfigFile;
 
             using (StreamReader schemaReader = File.OpenText(Path.Combine(schemaBaseDirectory, Constant.CONFIG_SCHEMA_FILE)))
             using (JsonTextReader jsonReader = new JsonTextReader(schemaReader))
@@ -77,7 +77,7 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         /// <returns></returns>
         public bool ValidateSchema(string configBaseDirectory, string configFile, out IList<string> messages)
         {
-            IConfigurationRoot config = this._loadConfigFile(configBaseDirectory, configFile);
+            IConfigurationRoot config = _loadConfigFile(configBaseDirectory, configFile);
             return ValidateSchema(configBaseDirectory, configFile, config, out messages);
         }
 
@@ -91,8 +91,8 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         /// <returns></returns>
         public bool ValidateSchema(string configBaseDirectory, string configFile, IConfigurationRoot config, out IList<string> messages)
         {
-            IDictionary<String, String> sources = new Dictionary<String, String>();
-            IDictionary<String, String> sinks = new Dictionary<String, String>();
+            IDictionary<string, string> sources = new Dictionary<string, string>();
+            IDictionary<string, string> sinks = new Dictionary<string, string>();
 
             var configFilePath = Path.Combine(configBaseDirectory, configFile);
             using (StreamReader configReader = File.OpenText(configFilePath))
@@ -114,7 +114,7 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         /// <param name="config"></param>
         /// <param name="messages"></param>
         /// <returns></returns>
-        private bool LoadSources(IDictionary<String, String> sources, IConfigurationRoot config, IList<string> messages)
+        private bool LoadSources(IDictionary<string, string> sources, IConfigurationRoot config, IList<string> messages)
         {
             var sourcesSection = config.GetSection("Sources");
             var sourceSections = sourcesSection.GetChildren();
@@ -160,7 +160,7 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
                 if (!string.IsNullOrEmpty(initialPosition))
                 {
                     initialPosition = initialPosition.ToLower();
-                    if (!this._initialPositions.Contains(initialPosition))
+                    if (!_initialPositions.Contains(initialPosition))
                     {
                         messages.Add($"{initialPosition} is not a valid InitialPosition in source ID: {id}.");
                         return false;
@@ -200,9 +200,9 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         /// <param name="config"></param>
         /// <param name="messages"></param>
         /// <returns></returns>
-        private bool LoadSinks(IDictionary<String, String> sinks, IConfigurationRoot config, IList<string> messages)
+        private bool LoadSinks(IDictionary<string, string> sinks, IConfigurationRoot config, IList<string> messages)
         {
-            HashSet<String> credentialIDs = new HashSet<String>();
+            HashSet<string> credentialIDs = new HashSet<string>();
             LoadCredentials(credentialIDs, config);
 
             var sinksSection = config.GetSection("Sinks");
@@ -211,7 +211,7 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
             foreach (var sinkSection in sinkSections)
             {
                 string credentialRef = sinkSection["CredentialRef"];
-                if (!String.IsNullOrEmpty(credentialRef))
+                if (!string.IsNullOrEmpty(credentialRef))
                 {
                     if (!credentialIDs.Contains(credentialRef))
                     {
@@ -233,7 +233,7 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         /// </summary>
         /// <param name="credentialIDs"></param>
         /// <param name="config"></param>
-        private void LoadCredentials(HashSet<String> credentialIDs, IConfigurationRoot config)
+        private void LoadCredentials(HashSet<string> credentialIDs, IConfigurationRoot config)
         {
             var credendialsSection = config.GetSection("Credentials");
             var credentialSections = credendialsSection.GetChildren();
@@ -253,7 +253,7 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
         /// <param name="config"></param>
         /// <param name="messages"></param>
         /// <returns></returns>
-        private bool CheckPipes(IDictionary<String, String> sources, IDictionary<String, String> sinks, IConfigurationRoot config, IList<string> messages)
+        private bool CheckPipes(IDictionary<string, string> sources, IDictionary<string, string> sinks, IConfigurationRoot config, IList<string> messages)
         {
             var pipesSection = config.GetSection("Pipes");
             var pipeSections = pipesSection.GetChildren();

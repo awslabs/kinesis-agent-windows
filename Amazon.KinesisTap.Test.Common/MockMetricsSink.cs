@@ -13,10 +13,8 @@
  * permissions and limitations under the License.
  */
 using Amazon.KinesisTap.Core.Metrics;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace Amazon.KinesisTap.Core.Test
 {
@@ -35,15 +33,15 @@ namespace Amazon.KinesisTap.Core.Test
 
         protected override void OnFlush(IDictionary<MetricKey, MetricValue> accumlatedValues, IDictionary<MetricKey, MetricValue> lastValues)
         {
-            this.AccumlatedValues = accumlatedValues;
-            this.LastValues = lastValues;
+            AccumlatedValues = accumlatedValues;
+            LastValues = lastValues;
             if (!string.IsNullOrWhiteSpace(_metricsFilter))
             {
-                this.FilteredAccumulatedValues = FilterValues(accumlatedValues);
-                this.FilteredLastValues = FilterValues(lastValues);
-                this.FilteredAggregatedAccumulatedValues = FilterAndAggregateValues(accumlatedValues, 
+                FilteredAccumulatedValues = FilterValues(accumlatedValues);
+                FilteredLastValues = FilterValues(lastValues);
+                FilteredAggregatedAccumulatedValues = FilterAndAggregateValues(accumlatedValues, 
                     values => new MetricValue(values.Sum(v => v.Value), values.First().Unit));
-                this.FilteredAggregatedLastValues = FilterAndAggregateValues(lastValues, 
+                FilteredAggregatedLastValues = FilterAndAggregateValues(lastValues, 
                     values => new MetricValue((long)values.Average(v => v.Value), values.First().Unit));
             }
         }

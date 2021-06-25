@@ -12,13 +12,13 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.IO;
+
 namespace Amazon.KinesisTap.Core
 {
-    using System;
-    using System.IO;
-
     //Wrap around the underlying data to provide additional meta data
-    public interface IEnvelope
+    public interface IEnvelope : IDisposable
     {
         DateTime Timestamp { get; }
 
@@ -60,7 +60,7 @@ namespace Amazon.KinesisTap.Core
         /// <summary>
         /// Gets or sets the Id of the bookmark object registered in the <see cref="BookmarkManager"/>.
         /// </summary>
-        int? BookmarkId { get; set; }
+        RecordBookmark BookmarkData { get; set; }
     }
 
     public interface IEnvelope<out TData> : IEnvelope

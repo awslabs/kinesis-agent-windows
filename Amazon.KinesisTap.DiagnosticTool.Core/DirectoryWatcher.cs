@@ -25,10 +25,9 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
     {
         private readonly string _directory;
         private readonly string _filer;
-
-        FileSystemWatcher _watcher;
-        TextWriter _writer;
-        Timer _timer;
+        readonly FileSystemWatcher _watcher;
+        readonly TextWriter _writer;
+        readonly Timer _timer;
 
         /// <summary>
         /// Directory Watcher constructor
@@ -49,10 +48,10 @@ namespace Amazon.KinesisTap.DiagnosticTool.Core
             _watcher.Filter = filter;
             _watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size;
 
-            _watcher.Changed += new FileSystemEventHandler(this.OnChanged);
-            _watcher.Created += new FileSystemEventHandler(this.OnChanged);
-            _watcher.Deleted += new FileSystemEventHandler(this.OnChanged);
-            _watcher.Renamed += new RenamedEventHandler(this.OnRenamed);
+            _watcher.Changed += new FileSystemEventHandler(OnChanged);
+            _watcher.Created += new FileSystemEventHandler(OnChanged);
+            _watcher.Deleted += new FileSystemEventHandler(OnChanged);
+            _watcher.Renamed += new RenamedEventHandler(OnRenamed);
 
             _watcher.EnableRaisingEvents = true;
         }

@@ -12,18 +12,12 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Amazon.KinesisTap.Core;
-using System.Diagnostics;
 using Xunit;
-using System.IO;
 using Microsoft.Diagnostics.Tracing;
-using System.Threading;
 using Amazon.KinesisTap.Windows;
+using Amazon.KinesisTap.Test.Common;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Amazon.KinesisTap.EtwEvent.Test
 {
@@ -36,14 +30,14 @@ namespace Amazon.KinesisTap.EtwEvent.Test
         /// Create a mock ETW event source, start it (which injects a mock event), stop it, and confirm that a mock event was recorded and has values we 
         /// expect.
         /// </summary>
-        [Fact]
+        [WindowsOnlyFact]
         public void TestEventProcessing()
         {
             //Configure
-            ListEventSink mockSink = new ListEventSink();
+            var mockSink = new ListEventSink();
 
             using (EtwEventSource mockEtwSource = new MockEtwEventSource(MockTraceEvent.ClrProviderName, TraceEventLevel.Verbose, ulong.MaxValue,
-                new PluginContext(null, null, null, new BookmarkManager())))
+                new PluginContext(null, NullLogger.Instance, null)))
             {
                 mockEtwSource.Subscribe(mockSink);
 
@@ -56,7 +50,6 @@ namespace Amazon.KinesisTap.EtwEvent.Test
             Assert.True(mockSink.Count == 1);
             Assert.True(mockSink[0] is EtwEventEnvelope);
             Assert.True(MockEtwEventEnvelope.ValidateEnvelope((EtwEventEnvelope)mockSink[0]), "Event envelope data or event data does not match expected values.");
-
         }
     }
 }

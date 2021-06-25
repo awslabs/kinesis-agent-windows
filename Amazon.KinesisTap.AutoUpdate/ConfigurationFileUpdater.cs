@@ -41,9 +41,9 @@ namespace Amazon.KinesisTap.AutoUpdate
         {
             int minuteInterval = Utility.ParseInteger(_config[ConfigConstants.INTERVAL], 5); //Default to 5 minutes
             if (minuteInterval < 1) minuteInterval = 1; //Set minimum to 1 minute
-            this.Interval = TimeSpan.FromMinutes(minuteInterval);
-            this.Source = Utility.ResolveVariables(_config["Source"], Utility.ResolveVariable);
-            this.Destination = _config["Destination"];
+            Interval = TimeSpan.FromMinutes(minuteInterval);
+            Source = Utility.ResolveVariables(_config["Source"], Utility.ResolveVariable);
+            Destination = _config["Destination"];
             if (!int.TryParse(_config[ConfigConstants.DOWNLOAD_NETWORK_PRIORITY], out _downloadNetworkPriority))
             {
                 _downloadNetworkPriority = ConfigConstants.DEFAULT_NETWORK_PRIORITY;
@@ -61,10 +61,10 @@ namespace Amazon.KinesisTap.AutoUpdate
                     return;
                 }
 
-                _logger?.LogDebug($"Running config updater. Downloading {this.Source}.");
-                var configDownloader = UpdateUtility.CreateDownloaderFromUrl(this.Source, _context);
-                string newConfig = await configDownloader.ReadFileAsStringAsync(this.Source);
-                string configPath = UpdateUtility.ResolvePath(this.Destination);
+                _logger?.LogDebug($"Running config updater. Downloading {Source}.");
+                var configDownloader = UpdateUtility.CreateDownloaderFromUrl(Source, _context);
+                string newConfig = await configDownloader.ReadFileAsStringAsync(Source);
+                string configPath = UpdateUtility.ResolvePath(Destination);
                 if (!File.Exists(configPath) || !newConfig.Equals(File.ReadAllText(configPath)))
                 {
                     _logger?.LogInformation($"Config file changed. Updating configuration file.");
@@ -73,7 +73,7 @@ namespace Amazon.KinesisTap.AutoUpdate
             }
             catch (Exception ex)
             {
-                _logger?.LogError($"Error download {this.Source}. Exception: {ex.ToMinimized()}");
+                _logger?.LogError($"Error download {Source}. Exception: {ex.ToMinimized()}");
             }
         }
     }

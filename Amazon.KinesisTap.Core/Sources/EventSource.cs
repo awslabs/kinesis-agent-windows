@@ -13,10 +13,9 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.IO;
-
+using System.Threading;
+using System.Threading.Tasks;
 using Amazon.KinesisTap.Core.Metrics;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -33,7 +32,7 @@ namespace Amazon.KinesisTap.Core
         protected readonly ILogger _logger;
         protected readonly IMetrics _metrics;
         protected readonly bool _required;
-        protected DateTime? _initialPositionTimestamp;
+        protected DateTime _initialPositionTimestamp = DateTime.MinValue.ToUniversalTime();
 
         /// <summary>
         /// EventSource constructor that takes a context
@@ -41,10 +40,10 @@ namespace Amazon.KinesisTap.Core
         /// <param name="context">The context object providing access to config, logging and metrics</param>
         public EventSource(IPlugInContext context)
         {
-            this._context = context;
-            this._config = context.Configuration;
-            this._logger = context.Logger;
-            this._metrics = context.Metrics;
+            _context = context;
+            _config = context.Configuration;
+            _logger = context.Logger;
+            _metrics = context.Metrics;
             string required = _config?[ConfigConstants.REQUIRED];
             if (string.IsNullOrWhiteSpace(required))
             {
@@ -55,8 +54,6 @@ namespace Amazon.KinesisTap.Core
                 _required = bool.Parse(required);
             }
         }
-
-        protected BookmarkManager BookmarkManager => _context.BookmarkManager;
 
         /// <summary>
         /// Gets or Sets the Id of the EventSource
@@ -72,25 +69,20 @@ namespace Amazon.KinesisTap.Core
         /// Gets or sets optional InitialPositionTimestamp. Used only if InitialPosition == InitialPostionEnum.Timestamp
         /// This value will be converted to UTC-time.
         /// </summary>
-        public DateTime? InitialPositionTimestamp
+        public DateTime InitialPositionTimestamp
         {
             get => _initialPositionTimestamp;
             set
             {
-                if (!value.HasValue)
-                {
-                    _initialPositionTimestamp = value;
-                    return;
-                }
 
-                if (value.Value.Kind == DateTimeKind.Unspecified)
+                if (value.Kind == DateTimeKind.Unspecified)
                 {
                     throw new ArgumentException("InitialPositionTimestamp must have defined DateTimeKind");
                 }
 
-                if (value.Value.Kind == DateTimeKind.Local)
+                if (value.Kind == DateTimeKind.Local)
                 {
-                    _initialPositionTimestamp = value.Value.ToUniversalTime();
+                    _initialPositionTimestamp = value.ToUniversalTime();
                 }
                 else
                 {
@@ -151,13 +143,29 @@ namespace Amazon.KinesisTap.Core
             source.InitialPosition = initialPosition;
         }
 
+        /// <inheritdoc/>
+        public virtual ValueTask StartAsync(CancellationToken stopToken)
+        {
+            Start();
+            return ValueTask.CompletedTask;
+        }
+
+        /// <inheritdoc/>
+        public virtual ValueTask StopAsync(CancellationToken gracefulStopToken)
+        {
+            Stop();
+            return ValueTask.CompletedTask;
+        }
+
         /// <summary>
-        /// The abstract Start method. Must be implemented by the subclass.
+        /// When implemented, start the source synchronously.
+        /// Subclasses either implements this method or overwrite <see cref="StartAsync(CancellationToken)"/> if asynchronous start is required.
         /// </summary>
         public abstract void Start();
 
         /// <summary>
-        /// The abstract Stop method. Must be implemented by the subclass.
+        /// When implemented, stop the source synchronously.
+        /// Subclasses either implements this method or overwrite <see cref="StopAsync(CancellationToken)"/> if asynchronous stop is required.
         /// </summary>
         public abstract void Stop();
 
@@ -165,7 +173,6 @@ namespace Amazon.KinesisTap.Core
         /// Implementation of IObservable
         /// </summary>
         /// <param name="observer"></param>
-        /// <returns></returns>
         public abstract IDisposable Subscribe(IObserver<IEnvelope<T>> observer);
 
         public IDisposable Subscribe(IObserver<IEnvelope> observer)
@@ -178,17 +185,6 @@ namespace Amazon.KinesisTap.Core
         /// Each individual source decides whether to support this flag
         /// </summary>
         public bool Required => _required;
-
-        /// <summary>
-        /// Get the path for the bookmark file
-        /// </summary>
-        /// <returns></returns>
-        protected string GetBookmarkFilePath()
-        {
-            var sessionId = _context.SessionId;
-            string multipleConfigurationSuffix = sessionId == 0 ? string.Empty : $"_{sessionId}";
-            return Path.Combine(Utility.GetKinesisTapProgramDataPath(), ConfigConstants.BOOKMARKS, $"{$"{Id}"}{multipleConfigurationSuffix}.bm");
-        }
 
         public Type GetOutputType() => typeof(T);
     }

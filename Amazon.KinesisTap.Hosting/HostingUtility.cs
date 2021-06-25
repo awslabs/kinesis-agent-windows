@@ -24,15 +24,12 @@ namespace Amazon.KinesisTap.Hosting
     {
         public const string DefaultConfigFileName = "appsettings.json";
 
+        public const string NLogConfigFileName = "NLog.xml";
+
         /// <summary>
         /// The key used for storing the config file-id mapping in the parameter store.
         /// </summary>
         public const string PersistentConfigFileIdMapStoreKey = "ConfigFilePathIdMap";
-
-        /// <summary>
-        /// The key used for storing the path to the default configuration file in the parameter store.
-        /// </summary>
-        public const string DefaultConfigurationPathKey = "DefaultConfigurationPath";
 
         /// <summary>
         /// Key used for storing the path to the NLog config file.
@@ -40,14 +37,9 @@ namespace Amazon.KinesisTap.Hosting
         public const string NLogConfigPathKey = "DefaultNLogConfigPathKey";
 
         /// <summary>
-        /// The key used for storing the path to the directory that contains child configuration files in the parameter store.
+        /// The key used for storing configuration directory path.
         /// </summary>
-        public const string ExtraConfigurationDirectoryPathKey = "ExtraConfigurationDirectoryPath";
-
-        /// <summary>
-        /// The key used for storing the build number.
-        /// </summary>
-        public const string BuildNumberKey = "KinesisTapBuildNumber";
+        public const string ConfigDirPathKey = "ConfigDirPathKey";
 
         /// <summary>
         /// Store some KinesisTap conventional values to the parameter store.
@@ -61,28 +53,19 @@ namespace Amazon.KinesisTap.Hosting
         /// </remarks>
         public static void StoreConventionalValues(this IParameterStore store)
         {
+            store.SetParameter(ConfigDirPathKey,
+               Path.Combine(Utility.GetKinesisTapConfigPath()));
+
             store.SetParameter(NLogConfigPathKey,
-               Path.Combine(Utility.GetKinesisTapConfigPath(), "NLog.xml"));
-
-            store.SetParameter(DefaultConfigurationPathKey,
-                Path.Combine(Utility.GetKinesisTapConfigPath(), DefaultConfigFileName));
-
-            store.SetParameter(ExtraConfigurationDirectoryPathKey,
-                Utility.GetKinesisTapExtraConfigPath());
-
-            store.SetParameter(BuildNumberKey,
-                ProgramInfo.GetBuildNumber().ToString());
+               Path.Combine(Utility.GetNLogConfigDirectory(), NLogConfigFileName));
         }
 
-        /// <summary>
-        /// Get the current KinesisTap build number stored in the parameter store.
-        /// </summary>
-        public static int GetStoredBuildNumber(this IParameterStore store)
-        {
-            var storedValue = store.GetParameter(BuildNumberKey);
-            return int.TryParse(storedValue, out var buildNumber)
-                ? buildNumber
-                : 0;
-        }
+        public static string GetConfigDirPath(this IParameterStore store) => store.GetParameter(ConfigDirPathKey);
+
+        public static string GetDefaultConfigFilePath(this IParameterStore store)
+            => Path.Combine(store.GetParameter(ConfigDirPathKey), DefaultConfigFileName);
+
+        public static string GetExtraConfigDirPath(this IParameterStore store)
+            => Path.Combine(store.GetParameter(ConfigDirPathKey), Utility.ExtraConfigDirectoryName);
     }
 }

@@ -12,10 +12,10 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+
 namespace Amazon.KinesisTap.Core.EMF
 {
-    using System;
-
     /// <summary>
     /// An <see cref="Envelope{T}"/> implementation based on the <see cref="MetricScope"/> class.
     /// This class facilitates the transformation of the <see cref="MetricScope"/> objects returned
@@ -28,24 +28,24 @@ namespace Amazon.KinesisTap.Core.EMF
         }
 
         /// <inheritdoc />
-        public override DateTime Timestamp => this._data.EventTimestamp;
+        public override DateTime Timestamp => _data.EventTimestamp;
 
         /// <inheritdoc />
         public override string GetMessage(string format)
         {
-            return this._data.ToString();
+            return _data.ToString();
         }
 
         /// <inheritdoc />
         public override object ResolveLocalVariable(string variable)
         {
-            return this._data.DimensionValues.TryGetValue(variable, out string value) ? value : null;
+            return _data.DimensionValues.TryGetValue(variable, out string value) ? value : null;
         }
 
         /// <inheritdoc />
         public override object ResolveMetaVariable(string variable)
         {
-            return this.ResolveLocalVariable(variable);
+            return ResolveLocalVariable(variable);
         }
     }
 }

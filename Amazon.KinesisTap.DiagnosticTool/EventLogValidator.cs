@@ -17,15 +17,16 @@ using System.Diagnostics.Eventing.Reader;
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
 using Amazon.KinesisTap.DiagnosticTool.Core;
+using System.Runtime.Versioning;
 
 namespace Amazon.KinesisTap.DiagnosticTool
 {
     /// <summary>
     /// The validator for the Windows Event log source from the configuration file
     /// </summary>
+    [SupportedOSPlatform("windows")]
     public class EventLogValidator : ISourceValidator
     {
-
         /// <summary>
         /// Validate the Windows event log section
         /// </summary>
@@ -33,16 +34,17 @@ namespace Amazon.KinesisTap.DiagnosticTool
         /// <param name="id"></param>
         /// <param name="messages"></param>
         /// <returns></returns>
-        public bool ValidateSource(IConfigurationSection sourceSection, string id, IList<String> messages)
+        public bool ValidateSource(IConfigurationSection sourceSection, string id, IList<string> messages)
         {
-            string logName = sourceSection["LogName"];
+            var logName = sourceSection["LogName"];
 
-            EventLogQuery eventLogQuery = new EventLogQuery(logName, PathType.LogName);
-            EventLogWatcher watcher = new EventLogWatcher(eventLogQuery, null, true);
+            var eventLogQuery = new EventLogQuery(logName, PathType.LogName);
+            EventLogReader reader = null;
 
             try
             {
-                watcher.Enabled = true;
+                reader = new EventLogReader(eventLogQuery, null);
+                reader.ReadEvent();
                 return true;
             }
             catch (EventLogNotFoundException ex)
@@ -59,8 +61,7 @@ namespace Amazon.KinesisTap.DiagnosticTool
             }
             finally
             {
-                watcher.Enabled = false;
-                watcher.Dispose();
+                reader?.Dispose();
             }
         }
     }

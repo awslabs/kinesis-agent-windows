@@ -46,7 +46,7 @@ namespace Amazon.KinesisTap.AutoUpdate
             await AWSV4SignerExtensions.SignRequestAsync(message, RegionEndpoint.USWest2.SystemName, SERVICE_NAME, creds);
             using (var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5)))
             {
-                return await this.httpClient.SendRequest(message, cts.Token);
+                return await httpClient.SendRequest(message, cts.Token);
             }
         }
     }

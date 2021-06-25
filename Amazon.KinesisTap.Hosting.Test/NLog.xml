@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<nlog xmlns="http://www.nlog-project.org/schemas/NLog.xsd"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.nlog-project.org/schemas/NLog.xsd NLog.xsd"
+      autoReload="true"
+      throwExceptions="false"
+      internalLogLevel="Off" internalLogFile="c:\temp\nlog-internal.log" >
+  <targets>
+    <target name="console"
+            xsi:type="Console"
+            layout="[${longdate} ${level}] ${logger} (${threadid}) - ${message}" />
+    <target name="trace"
+            xsi:type="Trace"
+            layout="[${longdate} ${level}] ${logger} (${threadid}) - ${message}" />
+  </targets>
+
+  <rules>
+    <logger name="*" minlevel="Debug" writeTo="console" />
+    <logger name="*" minlevel="Debug" writeTo="trace" />
+  </rules>
+</nlog>

@@ -17,19 +17,23 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using Amazon.KinesisTap.Core;
 using Amazon.KinesisTap.Core.Metrics;
 using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.Windows
 {
+    [SupportedOSPlatform("windows")]
     public class PerformanceCounterSource : IDataSource<ICollection<KeyValuePair<MetricKey, MetricValue>>>
     {
         //Match the first. So more specific one first
-        private static readonly string[] SIZE_KEYWORDS = { "MBytes", "Megabytes", "KBytes", "Kilobytes", "Bytes" };
-        private static readonly string[] TIME_KEYWORDS = new[] { "Milliseconds", "Seconds", "100 ns", "Latency", "sec/" };
-        private static readonly string[] PERCENT_KEYWORDS = new[] { "%", "Percent" };
+        private static readonly string[] _sizeKeyWords = { "MBytes", "Megabytes", "KBytes", "Kilobytes", "Bytes" };
+        private static readonly string[] _timeKeyWords = new[] { "Milliseconds", "Seconds", "100 ns", "Latency", "sec/" };
+        private static readonly string[] _percentKeywords = new[] { "%", "Percent" };
 
         private readonly IPlugInContext _context;
 
@@ -54,6 +58,18 @@ namespace Amazon.KinesisTap.Windows
             {
                 throw new InvalidOperationException("WindowsPerformanceCounterSource missing required attribute 'Categories'.");
             }
+        }
+
+        public ValueTask StartAsync(CancellationToken stopToken)
+        {
+            Start();
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask StopAsync(CancellationToken gracefulStopToken)
+        {
+            Stop();
+            return ValueTask.CompletedTask;
         }
 
         #region public members
@@ -107,7 +123,7 @@ namespace Amazon.KinesisTap.Windows
 
         public static MetricUnit InferUnit(string category, string counterName)
         {
-            bool isPercent = PERCENT_KEYWORDS.Any(kw =>
+            bool isPercent = _percentKeywords.Any(kw =>
                 counterName.IndexOf(kw, StringComparison.InvariantCultureIgnoreCase) > -1);
             if (isPercent) return MetricUnit.Percent;
 
@@ -116,7 +132,7 @@ namespace Amazon.KinesisTap.Windows
                 || counterName.EndsWith("Rate", StringComparison.InvariantCultureIgnoreCase)
                 || counterName.StartsWith("Rate of");
 
-            string sizeKeyword = SIZE_KEYWORDS.FirstOrDefault(kw =>
+            string sizeKeyword = _sizeKeyWords.FirstOrDefault(kw =>
                 counterName.IndexOf(kw, StringComparison.InvariantCultureIgnoreCase) > -1);
             bool isSize = !string.IsNullOrEmpty(sizeKeyword);
 
@@ -154,7 +170,7 @@ namespace Amazon.KinesisTap.Windows
                     }
                 }
 
-                string timeKeyword = TIME_KEYWORDS.FirstOrDefault(kw =>
+                string timeKeyword = _timeKeyWords.FirstOrDefault(kw =>
                     counterName.IndexOf(kw, StringComparison.InvariantCultureIgnoreCase) > -1);
                 if (!string.IsNullOrEmpty(timeKeyword))
                 {

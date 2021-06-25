@@ -16,65 +16,74 @@ using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Amazon.KinesisTap.Core.Metrics;
+using System;
 
 namespace Amazon.KinesisTap.Core
 {
+    /// <inheritdoc/>
     public class PluginContext : IPlugInContext
     {
         public const string SOURCE_TYPE = "SOURCE_TYPE";
         public const string SINK_TYPE = "SINK_TYPE";
         public const string PARSER_FACTORIES = "PARSER_FACTORIES";
         public const string SOURCE_OUTPUT_TYPE = "SOURCE_OUTPUT_TYPE";
-
-        private readonly IConfiguration _config;
-        private readonly ILogger _logger;
-        private readonly IMetrics _metrics;
         private readonly IDictionary<string, ICredentialProvider> _credentialProviders;
-        private readonly IParameterStore _parameterStore;
-        private readonly IDictionary<string, object> _contextData = new Dictionary<string, object>();
-        private readonly BookmarkManager _bookmarkManager;
 
         public PluginContext(IConfiguration config, ILogger logger, IMetrics metrics)
-            : this(config, logger, metrics, new BookmarkManager(), null, null)
+            : this(config, logger, metrics, null, null, null)
         {
         }
 
-        public PluginContext(IConfiguration config, ILogger logger, IMetrics metrics, BookmarkManager bookmarkManager)
-            : this(config, logger, metrics, bookmarkManager, null, null)
+        public PluginContext(
+            IConfiguration config,
+            ILogger logger,
+            IMetrics metrics,
+            IBookmarkManager bookmarkManager,
+            IDictionary<string, ICredentialProvider> credentialProviders,
+            IParameterStore parameterStore)
         {
-        }
-
-        public PluginContext(IConfiguration config, ILogger logger, IMetrics metrics, BookmarkManager bookmarkManager,
-            IDictionary<string, ICredentialProvider> credentialProviders, IParameterStore parameterStore)
-        {
-            _config = config;
-            _logger = logger;
-            _metrics = metrics;
-            _bookmarkManager = bookmarkManager;
+            Configuration = config;
+            Logger = logger;
+            Metrics = metrics;
+            BookmarkManager = bookmarkManager;
             _credentialProviders = credentialProviders;
-            _parameterStore = parameterStore;
+            ParameterStore = parameterStore;
         }
 
-        public IConfiguration Configuration => _config;
+        /// <inheritdoc/>
+        public IConfiguration Configuration { get; }
 
-        public ILogger Logger => _logger;
+        /// <inheritdoc/>
+        public ILogger Logger { get; }
 
-        public IMetrics Metrics => _metrics;
+        /// <inheritdoc/>
+        public IMetrics Metrics { get; }
 
-        public BookmarkManager BookmarkManager => _bookmarkManager;
+        /// <inheritdoc/>
+        public IParameterStore ParameterStore { get; }
 
-        public IParameterStore ParameterStore => _parameterStore;
-
+        /// <inheritdoc/>
         public ICredentialProvider GetCredentialProvider(string id) => _credentialProviders?[id];
 
-        public IDictionary<string, object> ContextData => _contextData;
+        /// <inheritdoc/>
+        public IDictionary<string, object> ContextData { get; } = new Dictionary<string, object>();
 
-        public static ILogger ServiceLogger { get; internal set; }
+        /// <inheritdoc/>
+        public static ILogger ServiceLogger { get; set; }
 
+        /// <inheritdoc/>
         public NetworkStatus NetworkStatus { get; set; }
 
-        public int SessionId { get; set; }
+        /// <inheritdoc/>
+        public string SessionName { get; set; }
 
+        /// <inheritdoc/>
         public bool Validated { get; set; }
+
+        /// <inheritdoc/>
+        public IServiceProvider Services { get; set; }
+
+        /// <inheritdoc/>
+        public IBookmarkManager BookmarkManager { get; }
     }
 }

@@ -12,128 +12,146 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Amazon.KinesisTap.Core;
-using Amazon.KinesisTap.Core.Metrics;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Amazon.KinesisTap.Core;
+using Amazon.KinesisTap.Core.Metrics;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.Hosting
 {
     /// <summary>
-    /// Manages the initialization and termination of sessions based on configuration files.
+    /// Global manager for agent sessions
     /// </summary>
-    public class SessionManager : IDisposable
+    public class SessionManager : ISessionManager
     {
-        private static SessionManager instance;
-        private readonly HashSet<char> _forbiddenChars = new HashSet<char> { '>', '<', ':', '\'', '"', '/', '\\', '|', '?', '*' };
-        public const int DefaultSessionId = 0;
-
-        private readonly FileSystemWatcher _extraconfigWatcher;
-        private readonly FileSystemWatcher _defaultConfigWatcher;
-        private readonly ITypeLoader _typeLoader;
-        private readonly IParameterStore _parameterStore;
-        private readonly ISessionFactory _sessionFactory;
-        private readonly ILoggerFactory _loggerFactory;
-        private readonly ILogger _logger;
-        private readonly INetworkStatusProvider _defaultNetworkProvider;
-        private readonly CancellationTokenSource _cts = new CancellationTokenSource();
-        private readonly PersistentConfigFileIdMap _configIdMap;
-
-        private int _configChanged = 1;
-        private Task _configPoller = null;
-        private bool _disposed = false;
-        private volatile IConfigurationSection _defaultCredentialConfig = null;
-
-        internal SessionManager(ISessionFactory sessionFactory, ITypeLoader typeLoader,
-            IParameterStore parameterStore, INetworkStatusProvider defaultNetworkProvider, ILoggerFactory loggerFactory)
+        private static readonly HashSet<char> _forbiddenChars = new() { '>', '<', ':', '\'', '"', '/', '\\', '|', '?', '*' };
+        private static readonly string[] _reservedConfigFileNames = new[]
         {
-            StackTraceMinimizerExceptionExtensions.DoCompressStackTrace = true;
+            "default",
+            "aem"
+        };
 
-            _typeLoader = typeLoader;
+        private readonly FactoryCatalogs _factoryCatalogs;
+        private readonly ILogger _logger;
+        private readonly IParameterStore _parameterStore;
+        private readonly FileSystemWatcher _configWatcher;
+        private readonly ITypeLoader _typeLoader;
+        private readonly ISessionFactory _sessionFactory;
+        private readonly IMetrics _metrics;
+        private readonly Dictionary<string, MetricValue> _typeLoaderMetrics = new();
+
+        internal int ConfigChangePollingIntervalMs { get; set; } = 5 * 1000;
+        private int _configChanged = 1;
+        private bool _disposedValue;
+        private readonly string _defaultConfigFilePath;
+        private readonly string _extraConfigDirPath;
+
+        private Task _configChangePoller;
+
+        public SessionManager(FactoryCatalogs factoryCatalogs, ILoggerFactory loggerFactory,
+            IParameterStore parameterStore, ITypeLoader typeLoader, ISessionFactory sessionFactory, IMetrics metrics)
+        {
             _parameterStore = parameterStore;
+            _factoryCatalogs = factoryCatalogs;
+            _logger = loggerFactory.CreateLogger("KinesisTap");
+
+            _defaultConfigFilePath = _parameterStore.GetDefaultConfigFilePath();
+            _extraConfigDirPath = _parameterStore.GetExtraConfigDirPath();
+
+            _configWatcher = new FileSystemWatcher(parameterStore.GetConfigDirPath())
+            {
+                IncludeSubdirectories = true,
+                Filter = "*.json",
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.FileName
+            };
+            HookFileWatcherEvents(_configWatcher);
+            _typeLoader = typeLoader;
             _sessionFactory = sessionFactory;
-            _loggerFactory = loggerFactory;
-            _defaultNetworkProvider = defaultNetworkProvider;
-            _logger = _loggerFactory.CreateLogger<SessionManager>();
-            _configIdMap = new PersistentConfigFileIdMap(_parameterStore);
-
-            Directory.CreateDirectory(ExtraConfigDirPath);
-
-            _logger.LogInformation($"Default configuration file is '{DefaultConfigPath}'");
-            _logger.LogInformation($"Extra configuration directory is '{ExtraConfigDirPath}'");
-
-            _defaultConfigWatcher = new FileSystemWatcher(Path.GetDirectoryName(DefaultConfigPath))
-            {
-                Filter = Path.GetFileName(DefaultConfigPath)
-            };
-            _extraconfigWatcher = new FileSystemWatcher(ExtraConfigDirPath)
-            {
-                Filter = "*.json"
-            };
-            HookFileWatcherEvents(_defaultConfigWatcher);
-            HookFileWatcherEvents(_extraconfigWatcher);
-            instance = this;
+            LoadFactories();
+            _metrics = metrics;
         }
 
-        // made internal for testing
-        internal readonly ConcurrentDictionary<string, ISession> ConfigPathToSessionMap = new ConcurrentDictionary<string, ISession>();
+        /// <summary>
+        /// Mapping between configuration path to a session. Made internal for testing.
+        /// </summary>
+        internal readonly ConcurrentDictionary<string, ISession> ConfigPathToSessionMap = new();
 
-        internal int ConfigChangePollingIntervalMs { get; set; } = 10 * 1000;
+        /// <summary>
+        /// Maximum time to wait for a session to stop. Made internal for testing.
+        /// </summary>
+        internal readonly int SessionStopTimeoutMs = 30 * 1000;
 
-        public static ISession LaunchValidatedSession(string configPath)
+        /// <inheritdoc />
+        public async Task StartAsync(CancellationToken stopToken)
         {
-            if (instance == null)
-                throw new Exception("SessionManager singleton instance has not been initialized.");
+            await _metrics.StartAsync(stopToken);
+            _configWatcher.EnableRaisingEvents = true;
+            _configChangePoller = ConfigChangePoller(stopToken);
+        }
 
-            if (instance._cts.IsCancellationRequested)
-                throw new Exception("SessionManager is shutting down.");
+        /// <inheritdoc />
+        public async Task StopAsync(CancellationToken stoppingToken)
+        {
+            _configWatcher.EnableRaisingEvents = false;
+            if (_configChangePoller is not null)
+            {
+                await _configChangePoller;
+            }
 
-            if (instance._disposed)
-                throw new Exception("SessionManager has been disposed.");
+            _logger.LogInformation("Stopped watching for config file changes.");
 
-            var session = instance.LaunchSession(configPath, false, instance._configIdMap);
-            instance.ConfigPathToSessionMap[configPath] = session;
+            // Terminate all sessions, including ones that are managed externally.
+            var stopTasks = ConfigPathToSessionMap
+                .Select(i => TerminateSession(i.Value, stoppingToken))
+                .ToArray();
+
+            await Task.WhenAll(stopTasks);
+
+            _logger.LogInformation("All sessions stopped");
+        }
+
+        public async Task<ISession> LaunchValidatedSession(string configPath, CancellationToken cancellationToken)
+        {
+            var session = await LaunchSession(configPath, false, cancellationToken);
             return session;
         }
 
         private void HookFileWatcherEvents(FileSystemWatcher watcher)
         {
-            watcher.IncludeSubdirectories = false;
-            watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.FileName;
-
-            watcher.Created += OnExtraConfigChange;
-            watcher.Renamed += OnExtraConfigChange;
-            watcher.Changed += OnExtraConfigChange;
-            watcher.Deleted += OnExtraConfigChange;
+            watcher.Created += OnConfigChange;
+            watcher.Renamed += OnConfigChange;
+            watcher.Changed += OnConfigChange;
+            watcher.Deleted += OnConfigChange;
         }
 
         private void UnhookFileWatcherEvents(FileSystemWatcher watcher)
         {
-            watcher.Created -= OnExtraConfigChange;
-            watcher.Renamed -= OnExtraConfigChange;
-            watcher.Changed -= OnExtraConfigChange;
-            watcher.Deleted -= OnExtraConfigChange;
+            watcher.Created -= OnConfigChange;
+            watcher.Renamed -= OnConfigChange;
+            watcher.Changed -= OnConfigChange;
+            watcher.Deleted -= OnConfigChange;
         }
 
-        private void OnExtraConfigChange(object sender, FileSystemEventArgs e)
+        private void OnConfigChange(object sender, FileSystemEventArgs e)
         {
-            _logger.LogDebug("Change type '{0}' detected in file '{1}'", e.ChangeType, e.FullPath);
+            _logger.LogInformation("Change type '{0}' detected in file '{1}'", e.ChangeType, e.FullPath);
             Interlocked.Exchange(ref _configChanged, 1);
         }
 
-        private async Task ConfigChangePoller()
+        private async Task ConfigChangePoller(CancellationToken stopToken)
         {
             var extraConfigs = new HashSet<string>();
 
-            while (!_cts.Token.IsCancellationRequested)
+            while (!stopToken.IsCancellationRequested)
             {
                 try
                 {
@@ -141,42 +159,53 @@ namespace Amazon.KinesisTap.Hosting
                     if (shouldPoll)
                     {
                         // poll the default session first
-                        PollConfig(DefaultConfigPath, true, _configIdMap);
+                        await PollConfig(_defaultConfigFilePath, true, stopToken);
 
                         // get the set of extra config files
                         extraConfigs.Clear();
-                        foreach (var f in Directory.EnumerateFiles(ExtraConfigDirPath, "*.json", SearchOption.TopDirectoryOnly))
+                        if (!Directory.Exists(_extraConfigDirPath))
                         {
-                            if (ShouldIgnoreConfigFile(f)) continue;
+                            continue;
+                        }
+
+                        var searchExtraConfigs = Directory.EnumerateFiles(_extraConfigDirPath, "*.json", SearchOption.TopDirectoryOnly);
+                        foreach (var f in searchExtraConfigs)
+                        {
+                            if (ShouldIgnoreConfigFile(f))
+                            {
+                                continue;
+                            }
                             extraConfigs.Add(f);
                         }
 
                         // List the sessions that are currently running but are no longer present in the list of configuration files.
                         // Exclude configurations that have been loaded from another location, since these are managed by an external component.
                         var sessionsToStop = ConfigPathToSessionMap
-                            .Where(kv => kv.Value.Id != DefaultSessionId
+                            .Where(kv => kv.Key != _defaultConfigFilePath
                                 && !extraConfigs.Contains(kv.Key)
-                                && kv.Key.StartsWith(ExtraConfigDirPath))
+                                && kv.Key.StartsWith(_extraConfigDirPath))
                             .Select(kv => kv.Key)
                             .ToList(); // Force the enumerable into a List.
 
                         foreach (var configPath in sessionsToStop)
                         {
+                            stopToken.ThrowIfCancellationRequested();
                             if (ConfigPathToSessionMap.TryRemove(configPath, out var removedSession))
                             {
-                                TerminateSession(removedSession, false);
+                                // always stop the session AFTER it's been removed from the mapping
+                                await TerminateSession(removedSession, default);
                             }
                         }
 
                         // poll and start sessions as neccessary
                         foreach (var configFile in extraConfigs)
                         {
-                            if (_cts.Token.IsCancellationRequested) break;
-                            PollConfig(configFile, false, _configIdMap);
+                            stopToken.ThrowIfCancellationRequested();
+                            await PollConfig(configFile, false, stopToken);
                         }
                     }
 
-                    await Task.Delay(ConfigChangePollingIntervalMs, _cts.Token);
+                    await Task.Delay(ConfigChangePollingIntervalMs, stopToken);
                 }
                 catch (OperationCanceledException)
                 {
@@ -184,22 +213,23 @@ namespace Amazon.KinesisTap.Hosting
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(0, ex, "Error watching config file changes.");
+                    _logger.LogError(ex, "Error watching config file changes.");
                 }
             }
-
-            _logger.LogInformation($"Stopped watching for config file changes.");
         }
 
         /// <summary>
         /// Check the config file, if it has changed, start a new session and stop the old one.
         /// </summary>
         /// <returns>True iff a new session has been successfully started.</returns>
-        private void PollConfig(string configPath, bool isDefault, PersistentConfigFileIdMap configIdMap)
+        private async Task PollConfig(string configPath, bool isDefault, CancellationToken stopToken)
         {
             // Don't process any files outside of the expected directories.
             // This allows us to support validated sessions by placing them in different directories.
-            if (!configPath.StartsWith(DefaultConfigPath) && !configPath.StartsWith(ExtraConfigDirPath)) return;
+            if (!isDefault && Path.GetDirectoryName(configPath) != _extraConfigDirPath)
+            {
+                return;
+            }
 
             try
             {
@@ -216,8 +246,8 @@ namespace Amazon.KinesisTap.Hosting
                     _logger.LogInformation($"Config file '{configPath}' has changed.");
 
                     // stop the existing session
-                    TerminateSession(existingSession, false);
                     ConfigPathToSessionMap.TryRemove(configPath, out existingSession);
+                    await TerminateSession(existingSession, default);
                 }
                 else
                 {
@@ -225,9 +255,10 @@ namespace Amazon.KinesisTap.Hosting
                 }
 
                 // start new session
-                var newSession = LaunchSession(configPath, isDefault, configIdMap);
+                var newSession = await LaunchSession(configPath, isDefault, stopToken);
                 ConfigPathToSessionMap[configPath] = newSession;
-                PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
+
+                _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
                 {
                     { MetricsConstants.CONFIGS_LOADED, new MetricValue(1) },
                     { MetricsConstants.CONFIGS_FAILED_TO_LOAD, new MetricValue(0) },
@@ -236,7 +267,7 @@ namespace Amazon.KinesisTap.Hosting
             catch (SessionLaunchedException sessionLaunchEx)
             {
                 _logger.LogError(0, sessionLaunchEx.InnerException, $"Error lauching session '{sessionLaunchEx.ConfigPath}'");
-                PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
+                _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, new Dictionary<string, MetricValue>()
                 {
                     { MetricsConstants.CONFIGS_LOADED, new MetricValue(0) },
                     { MetricsConstants.CONFIGS_FAILED_TO_LOAD, new MetricValue(1) },
@@ -245,53 +276,14 @@ namespace Amazon.KinesisTap.Hosting
             }
             catch (Exception ex)
             {
-                _logger.LogError(0, ex, $"Error while monitoring config file '{configPath}'");
+                _logger.LogError(ex, $"Error while monitoring config file '{configPath}'");
                 return;
             }
         }
 
-        private string ExtraConfigDirPath => _parameterStore.GetParameter(HostingUtility.ExtraConfigurationDirectoryPathKey);
-
-        private string DefaultConfigPath => _parameterStore.GetParameter(HostingUtility.DefaultConfigurationPathKey);
-
-        internal Task StartAsync()
+        private async Task<ISession> LaunchSession(string configPath, bool isDefault, CancellationToken stopToken)
         {
-            _defaultConfigWatcher.EnableRaisingEvents = true;
-            _extraconfigWatcher.EnableRaisingEvents = true;
-
-            var defaultSession = LaunchSession(DefaultConfigPath, true, null);
-            ConfigPathToSessionMap[DefaultConfigPath] = defaultSession;
-
-            _configPoller = ConfigChangePoller();
-
-            return Task.CompletedTask;
-        }
-
-        internal async Task StopAsync()
-        {
-            _extraconfigWatcher.EnableRaisingEvents = false;
-            _defaultConfigWatcher.EnableRaisingEvents = false;
-
-            if (_configPoller == null)
-            {
-                // the poller never started, so nothing to do
-                return;
-            }
-
-            // cancel the cts to signal the config handler to stop
-            _cts.Cancel();
-            await _configPoller;
-
-            // Terminate all sessions, including ones that are managed externally.
-            foreach (var item in ConfigPathToSessionMap)
-            {
-                TerminateSession(item.Value, true);
-            }
-        }
-
-        private ISession LaunchSession(string configPath, bool isDefault, PersistentConfigFileIdMap configFileIdMap)
-        {
-            bool isValidated = !configPath.StartsWith(DefaultConfigPath) && !configPath.StartsWith(ExtraConfigDirPath);
+            var isValidated = !isDefault && Path.GetDirectoryName(configPath) != _extraConfigDirPath;
             try
             {
                 Guard.ArgumentNotNullOrEmpty(configPath, nameof(configPath));
@@ -300,56 +292,32 @@ namespace Amazon.KinesisTap.Hosting
 
                 if (isDefault)
                 {
-                    Debug.Assert(configPath == DefaultConfigPath,
-                        $"Default config path should be {DefaultConfigPath}, but {configPath} is initialized");
+                    Debug.Assert(configPath == _defaultConfigFilePath,
+                        $"Default config path should be {_defaultConfigFilePath}, but {configPath} is initialized instead");
                 }
-
-                var id = isDefault
-                    ? DefaultSessionId
-                    : GetIdOfConfigFile(configPath, configFileIdMap);
 
                 var config = new ConfigurationBuilder()
                   .AddJsonFile(configPath, optional: false, reloadOnChange: false)
                   .Build();
 
-                if (string.IsNullOrWhiteSpace(config[ConfigConstants.CONFIG_DESCRIPTIVE_NAME]))
+                var name = GetSessionName(config, configPath, isDefault);
+
+                var duplicateSession = ConfigPathToSessionMap.FirstOrDefault(p => p.Value.Name == name);
+                if (duplicateSession.Key is not null)
                 {
-                    config[ConfigConstants.CONFIG_DESCRIPTIVE_NAME] = isDefault
-                        ? "default"
-                        : Path.GetFileNameWithoutExtension(configPath);
+                    throw new Exception($"Session with name '{name}' already exists at '{duplicateSession.Key}'");
                 }
 
-                // If the configuration has it's own credentials, use them.
-                // Otherwise, use the creds from the default config file.
-                // If this is the default config, set the private field so subsequent configs can use it.
-                var credSection = config.GetSection("Credentials");
-                var configHasCredentials = credSection.GetChildren().Any();
-                if (configHasCredentials)
-                {
-                    _logger.LogDebug("Configuration {0} has credentials, these will be used for sources.", id);
-                    if (isDefault)
-                        _defaultCredentialConfig = credSection;
-                }
-                else
-                {
-                    _logger.LogDebug("Configuration {0} has no credentials, using default credential section for sources.", id);
-                    credSection = _defaultCredentialConfig;
-                }
-
-                var session = _sessionFactory.Create(id, config, startTime,
-                    _typeLoader, _parameterStore,
-                    _loggerFactory, _defaultNetworkProvider, credSection, isValidated);
+                var sess = isValidated
+                    ? _sessionFactory.CreateValidatedSession(name, config)
+                    : _sessionFactory.CreateSession(name, config);
 
                 // start the session
-                _logger.LogDebug("Starting session {0}", id);
-                session.Start();
+                _logger.LogInformation("Starting session '{0}' with configuration '{1}'", sess.DisplayName, configPath);
+                await sess.StartAsync(stopToken);
+                _metrics.PublishCounters(string.Empty, MetricsConstants.CATEGORY_PROGRAM, CounterTypeEnum.CurrentValue, _typeLoaderMetrics);
 
-                if (!isDefault)
-                {
-                    configFileIdMap[configPath] = id;
-                }
-
-                return session;
+                return sess;
             }
             catch (Exception ex)
             {
@@ -357,70 +325,133 @@ namespace Amazon.KinesisTap.Hosting
             }
         }
 
-        private void TerminateSession(ISession session, bool serviceStopping)
+        private static string GetSessionName(IConfiguration config, string configFilePath, bool isDefault)
         {
-            _logger.LogDebug("Stopping session {0}", session.Id);
+            if (isDefault)
+            {
+                return null;
+            }
+            var name = config[ConfigConstants.NAME];
+            if (name is not null)
+            {
+                return name;
+            }
+
+            return Path.GetFileNameWithoutExtension(configFilePath);
+        }
+
+        private async Task TerminateSession(ISession session, CancellationToken cancellationToken)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(SessionStopTimeoutMs);
+
+            _logger.LogDebug("Terminating session '{0}'", session.DisplayName);
+
+            await session.StopAsync(cts.Token);
+            session.Dispose();
+        }
+
+        private static bool ShouldIgnoreConfigFile(string file)
+        {
+            // Config files must have a .json file extension.
+            if (!".json".Equals(Path.GetExtension(file), StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            // Config files must not have the reservered names
+            var fileName = Path.GetFileNameWithoutExtension(file);
+            foreach (var reservedName in _reservedConfigFileNames)
+            {
+                if (reservedName.Equals(fileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            // Config files must not contain whitespaces or characters in the forbiddenChars list.
+            return Path.GetFileNameWithoutExtension(file)
+                .Any(c => char.IsWhiteSpace(c) || _forbiddenChars.Contains(c));
+        }
+
+        private void LoadFactories()
+        {
+            _logger.LogInformation("Loading factories");
+            LoadFactories(_factoryCatalogs.SinkFactoryCatalog,
+                MetricsConstants.SINK_FACTORIES_LOADED, MetricsConstants.SINK_FACTORIES_FAILED_TO_LOAD);
+
+            LoadFactories(_factoryCatalogs.RecordParserCatalog,
+                MetricsConstants.PARSER_FACTORIES_LOADED, MetricsConstants.PARSER_FACTORIES_FAILED_TO_LOAD);
+
+            LoadFactories(_factoryCatalogs.SourceFactoryCatalog,
+                MetricsConstants.SOURCE_FACTORIES_LOADED, MetricsConstants.SOURCE_FACTORIES_FAILED_TO_LOAD);
+
+            LoadFactories(_factoryCatalogs.PipeFactoryCatalog,
+                MetricsConstants.PIPE_FACTORIES_LOADED, MetricsConstants.PIPE_FACTORIES_FAILED_TO_LOAD);
+
+            LoadFactories(_factoryCatalogs.CredentialProviderFactoryCatalog,
+                MetricsConstants.CREDENTIAL_PROVIDER_FACTORIES_LOADED, MetricsConstants.CREDENTIAL_PROVIDER_FACTORIES_FAILED_TO_LOAD);
+
+            LoadFactories(_factoryCatalogs.GenericPluginFactoryCatalog,
+                MetricsConstants.GENERIC_PLUGIN_FACTORIES_LOADED, MetricsConstants.GENERIC_PLUGIN_FACTORIES_FAILED_TO_LOAD);
+        }
+
+        private void LoadFactories<T>(IFactoryCatalog<T> catalog, string loadedMetricKey, string failedMetricKey)
+        {
+            var loaded = 0;
+            var failed = 0;
             try
             {
-                session.Stop(serviceStopping);
-                session.Dispose();
+                var factories = _typeLoader.LoadTypes<IFactory<T>>();
+                foreach (var factory in factories)
+                {
+                    try
+                    {
+                        factory.RegisterFactory(catalog);
+                        loaded++;
+                        _logger.LogInformation("Registered factory {0}.", factory);
+                    }
+                    catch (Exception ex)
+                    {
+                        failed++;
+                        _logger.LogError("Failed to register factory {0}: {1}.", factory, ex.ToMinimized());
+                    }
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(0, ex, $"Error while stopping session {session.Id}");
+                failed++;
+                _logger.LogError(ex, "Error discovering IFactory<{0}>.", typeof(T));
+                // If the problem discovering the factory is a missing type then provide more details to make debugging easier.
+                if (ex is ReflectionTypeLoadException loaderEx)
+                {
+                    foreach (var innerEx in loaderEx.LoaderExceptions)
+                    {
+                        _logger.LogError(innerEx, "Loader exception");
+                    }
+                }
             }
-        }
 
-        /// <summary>
-        /// Determine the ID of a Session based on the config file path.
-        /// </summary>
-        /// <param name="configPath">Path of the config file</param>
-        /// <returns>ID of the <see cref="ISession"/></returns>
-        private int GetIdOfConfigFile(string configPath, PersistentConfigFileIdMap configFileIdMap)
-        {
-            if (configFileIdMap.TryGetValue(configPath, out int id))
-                return id;
-
-            return configFileIdMap.MaxUsedId + 1;
-        }
-
-        private void PublishCounters(string id, string category, CounterTypeEnum counterType, Dictionary<string, MetricValue> counters)
-        {
-            ConfigPathToSessionMap[DefaultConfigPath]
-                .PublishServiceLevelCounter(id, category, counterType, counters);
-        }
-
-        private bool ShouldIgnoreConfigFile(string file)
-        {
-            // Config files must have a .json file extension.
-            if (Path.GetExtension(file) != ".json") return true;
-
-            // Config files cannot contain whitespaces or characters in the forbiddenChars list.
-            return Path.GetFileNameWithoutExtension(file)
-                .Count(c => char.IsWhiteSpace(c) || _forbiddenChars.Contains(c)) > 0;
+            _typeLoaderMetrics[loadedMetricKey] = new MetricValue(loaded);
+            _typeLoaderMetrics[failedMetricKey] = new MetricValue(failed);
         }
 
         protected virtual void Dispose(bool disposing)
         {
-            if (!_disposed)
+            if (!_disposedValue)
             {
                 if (disposing)
                 {
-                    _cts.Dispose();
-
-                    UnhookFileWatcherEvents(_defaultConfigWatcher);
-                    UnhookFileWatcherEvents(_extraconfigWatcher);
-                    _defaultConfigWatcher.Dispose();
-                    _extraconfigWatcher.Dispose();
+                    UnhookFileWatcherEvents(_configWatcher);
+                    _configWatcher.Dispose();
                 }
 
-                _disposed = true;
+                _disposedValue = true;
             }
         }
 
         public void Dispose()
         {
-            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
         }

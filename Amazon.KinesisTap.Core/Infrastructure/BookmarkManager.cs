@@ -12,14 +12,14 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Threading;
+using Microsoft.Extensions.Logging;
+
 namespace Amazon.KinesisTap.Core
 {
-    using System;
-    using System.Collections.Concurrent;
-    using System.Collections.Generic;
-    using System.Threading;
-    using Microsoft.Extensions.Logging;
-
     public class BookmarkManager
     {
         // Start from 1, so anything that tries to save a bookmark with id '0' does nothing.

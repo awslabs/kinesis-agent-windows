@@ -24,7 +24,7 @@ namespace Amazon.KinesisTap.AWS
 {
     public static class AWSV4SignerExtensions
     {
-        private static AWSv4Signer signer = new AWSv4Signer();
+        private static readonly AWSv4Signer _signer = new AWSv4Signer();
 
         public static async Task SignRequestAsync(this HttpRequestMessage httpRequestMessage, string region, string service, AWSCredentials credentials)
         {
@@ -32,7 +32,7 @@ namespace Amazon.KinesisTap.AWS
             var canonicalizedQueryParameters = string.Empty;
 
             if (!string.IsNullOrEmpty(httpRequestMessage.RequestUri.Query))
-                canonicalizedQueryParameters = signer.CanonicalizeQueryParameters(httpRequestMessage.RequestUri.Query.TrimStart('?'));
+                canonicalizedQueryParameters = _signer.CanonicalizeQueryParameters(httpRequestMessage.RequestUri.Query.TrimStart('?'));
 
             DateTime requestDateTimeInUTC = AWSSDKUtils.CorrectedUtcNow;
             var dictionary = new Dictionary<string, string>
@@ -42,14 +42,12 @@ namespace Amazon.KinesisTap.AWS
             };
 
             var requestBody = await httpRequestMessage.Content.ReadAsStringAsync();
-            if (!string.IsNullOrEmpty(requestBody))
-                httpRequestMessage.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
 
             var uri = httpRequestMessage.RequestUri;
             string canonicalServiceUri = uri.LocalPath;
             string requestMethod = httpRequestMessage.Method.Method.ToUpper();
 
-            var aWSSigV4AuthorizationValue = signer.GetAWSSigV4AuthorizationValue(dictionary,
+            var aWSSigV4AuthorizationValue = _signer.GetAWSSigV4AuthorizationValue(dictionary,
                 canonicalizedQueryParameters,
                 canonicalServiceUri,
                 region,

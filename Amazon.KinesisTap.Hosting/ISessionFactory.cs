@@ -12,21 +12,20 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Amazon.KinesisTap.Core;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using System;
 
 namespace Amazon.KinesisTap.Hosting
 {
     public interface ISessionFactory
     {
         /// <summary>
-        /// Create a new instance of <see cref="ISession"/>.
+        /// Create a new instance of <see cref="ISession"/>
         /// </summary>
-        ISession Create(int id, IConfiguration config, DateTime startTime,
-            ITypeLoader typeLoader, IParameterStore parameterStore,
-            ILoggerFactory loggerFactory, INetworkStatusProvider networkStatusProvider,
-            IConfigurationSection defaultCredentialsSection, bool validated);
+        ISession CreateSession(string name, IConfiguration config);
+
+        /// <summary>
+        /// Create a new validated instance of <see cref="ISession"/>
+        /// </summary>
+        ISession CreateValidatedSession(string name, IConfiguration config);
     }
 }

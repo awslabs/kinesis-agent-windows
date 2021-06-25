@@ -13,35 +13,21 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using Microsoft.DotNet.PlatformAbstractions;
+using Amazon.KinesisTap.Shared;
 
 namespace Amazon.KinesisTap.Core
 {
     public static class ProgramInfo
     {
-        private static readonly Process _process = Process.GetCurrentProcess();
         private static double _prevProcessorTime;
         private static DateTime _prevSampleTime;
         private static double _cpuUsage;
-        private static readonly object _lockObject = new object();
+        private static readonly object _lockObject = new();
         private static string _kinesisTapPath;
-
-        /// <summary>
-        /// Get Build Number of KinesisTap
-        /// </summary>
-        /// <returns></returns>
-        public static int GetBuildNumber()
-        {
-            int build = GetKinesisTapVersion().FileBuildPart;
-            return build;
-        }
 
         /// <summary>
         /// Gets the full version number of KinesisTap.
@@ -49,16 +35,8 @@ namespace Amazon.KinesisTap.Core
         /// <returns>String representing KinesisTap's full version number.</returns>
         public static string GetVersionNumber()
         {
-            return GetKinesisTapVersion().FileVersion;
-        }
-
-        /// <summary>
-        /// Get the version of KinesisTap
-        /// </summary>
-        /// <returns></returns>
-        public static FileVersionInfo GetKinesisTapVersion()
-        {
-            return FileVersionInfo.GetVersionInfo(KinesisTapPath);
+            var fileVersionAttribute = Assembly.GetEntryAssembly().GetCustomAttribute<AssemblyFileVersionAttribute>();
+            return fileVersionAttribute?.Version ?? string.Empty;
         }
 
         /// <summary>
@@ -78,8 +56,8 @@ namespace Amazon.KinesisTap.Core
             {
                 if (string.IsNullOrWhiteSpace(_kinesisTapPath))
                 {
-                    string mainModulePath = _process.MainModule.FileName;
-                    if (Path.GetFileName(mainModulePath).Equals(ConfigConstants.KINESISTAP_EXE_NAME, StringComparison.CurrentCultureIgnoreCase))
+                    string mainModulePath = Process.GetCurrentProcess().MainModule.FileName;
+                    if (Path.GetFileName(mainModulePath).Equals(ConfigConstants.KINESISTAP_EXE_NAME, StringComparison.OrdinalIgnoreCase))
                     {
                         // This happens when running as normal.
                         _kinesisTapPath = mainModulePath;
@@ -111,19 +89,33 @@ namespace Amazon.KinesisTap.Core
             }
         }
 
+        /// <summary>
+        /// Get the memory and CPU utilization (in MB and %) of the process.
+        /// </summary>
+        public static (double memoryUsage, double cpuUsage) GetMemoryAndCpuUsage()
+        {
+            // Previously, a singleton Process object is used to query process information.
+            // Since .NET 5 that approach no longer returns the correct momentary info, 
+            // therefore a new Process object needs to be created every query.
+            using var process = Process.GetCurrentProcess();
+            return (GetMemoryUsage(process), GetCpuUsage(process));
+        }
+
+        /// <summary>
+        /// Get the current memory usage in MB.
+        /// </summary>
+        public static double GetMemoryUsage() => GetMemoryUsage(Process.GetCurrentProcess());
 
         /// <summary>
         /// Get memory usage in MB
         /// </summary>
-        /// <returns></returns>
-        public static double GetMemoryUsage()
-        {
-            return _process.PrivateMemorySize64 / 1024D / 1024;
-        }
+        private static double GetMemoryUsage(Process process) => Utility.IsMacOs
+            ? GetMacOSMemoryUsage(process)
+            : process.WorkingSet64 / 1024D / 1024;
 
-        public static double GetCpuUsage()
+        private static double GetCpuUsage(Process process)
         {
-            double processorTime = _process.TotalProcessorTime.TotalMilliseconds;
+            double processorTime = process.TotalProcessorTime.TotalMilliseconds;
             DateTime sampleTime = DateTime.Now;
             double processTimeUsed;
             double timeLapsed;
@@ -132,7 +124,7 @@ namespace Amazon.KinesisTap.Core
                 if (_prevProcessorTime == 0)
                 {
                     processTimeUsed = processorTime;
-                    timeLapsed = (sampleTime - _process.StartTime).TotalMilliseconds;
+                    timeLapsed = (sampleTime - process.StartTime).TotalMilliseconds;
                 }
                 else
                 {
@@ -151,6 +143,43 @@ namespace Amazon.KinesisTap.Core
                 _cpuUsage = processTimeUsed / timeLapsed * 100 / Environment.ProcessorCount;
                 return _cpuUsage;
             }
+        }
+
+        /// <summary>
+        /// Gets the memory usage on macOS. Process memory information is still unimplemented in .NET Core for macOS, so
+        /// we have to use the inbuilt `top` utility and parse the output manually to get the correct value.
+        /// </summary>
+        /// <returns>Double representing KinesisTap's current memory usage. -1 if we fail to get the right info.</returns>
+        private static double GetMacOSMemoryUsage(Process process)
+        {
+            int pid = process.Id;
+            string cmd = $"top -l 1 -pid {pid}";
+            IBashShell cmdProcessor = new BashShell();
+            string output = cmdProcessor.RunCommand(cmd);
+            string[] outputLines = output.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
+
+            string memoryUsagePattern = @"\d+M";
+            string memoryUsageStr = "";
+
+            // The `top` command prints some basic system information along with the specific process information, so we
+            // have to iterate through the output lines to find the one we need.
+            foreach (string line in outputLines)
+            {
+                // There should be only one output line starting with a number. The number should be the PID of
+                // KinesisTap and the line should contain "amazon" (process name is "amazon-kinesistap").
+                if (!line.StartsWith(pid.ToString()) || !line.Contains("amazon")) continue;
+
+                Match m = Regex.Match(line, memoryUsagePattern);
+                if (!m.Success) continue;
+
+                // The only part of the line we care about is the first occurrence of the format XXM (XX is a number
+                // representing the memory usage of KinesisTap). We're relying on `top` printing the memory usage first
+                // among the various megabyte numerical values, but `top` output is fairly well-defined and reliable.
+                memoryUsageStr = Regex.Replace(m.Value, "[^0-9]", "");
+                break;
+            }
+
+            return Utility.ParseInteger(memoryUsageStr, -1);
         }
     }
 }

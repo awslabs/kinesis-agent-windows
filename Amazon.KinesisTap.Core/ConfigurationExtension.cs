@@ -13,9 +13,6 @@
  * permissions and limitations under the License.
  */
 using Microsoft.Extensions.Configuration;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Amazon.KinesisTap.Core
 {

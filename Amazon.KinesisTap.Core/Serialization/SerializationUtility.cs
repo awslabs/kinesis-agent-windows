@@ -12,14 +12,14 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.Collections.Concurrent;
+using System.IO;
+using System.Xml.Serialization;
+using Newtonsoft.Json;
+
 namespace Amazon.KinesisTap.Core
 {
-    using System;
-    using System.Collections.Concurrent;
-    using System.IO;
-    using System.Xml.Serialization;
-    using Newtonsoft.Json;
-
     public static class SerializationUtility
     {
         /// <summary>

@@ -12,21 +12,32 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Amazon.KinesisTap.Core
 {
+    /// <summary>
+    /// Interface for all KinesisTap plugins.
+    /// </summary>
     public interface IPlugIn
     {
+        /// <summary>
+        /// Plugin's ID.
+        /// </summary>
         string Id { get; set; }
 
-        void Start();
+        /// <summary>
+        /// Start the plugin. 
+        /// </summary>
+        /// <param name="stopToken">A token that throws when the session that the plugin belongs to stops.</param>
+        /// <returns>A task that completes when the plugin is started.</returns>
+        ValueTask StartAsync(CancellationToken stopToken);
 
         /// <summary>
-        /// An opportunity to cleanup such as flushing the buffer and stop the timer if any
+        /// Stop the plugin.
         /// </summary>
-        void Stop();
+        /// <returns>A task that completes when the plugin is fully stopped.</returns>
+        ValueTask StopAsync(CancellationToken gracefulStopToken);
     }
 }

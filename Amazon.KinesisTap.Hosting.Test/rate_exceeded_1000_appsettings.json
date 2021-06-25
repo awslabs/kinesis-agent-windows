@@ -1,0 +1,22 @@
+﻿{
+  "Sources": [
+    {
+      "Id": "MockSource",
+      "SourceType": "MockSource"
+    }
+  ],
+  "Pipes": [
+    {
+      "Id": "Main",
+      "SinkRef": "MockSink",
+      "SourceRef": "MockSource"
+    }
+  ],
+  "Sinks": [
+    {
+      "Id": "MockSink",
+      "NumberOfExceptions": 1000,
+      "SinkType": "RateExceeded"
+    }
+  ]
+}

@@ -16,17 +16,12 @@
     See https://github.com/nlog/NLog/wiki/Targets for possible targets.
     See https://github.com/nlog/NLog/wiki/Layout-Renderers for the possible layout renderers.
     -->
-    
+
     <target name="logfile"
             xsi:type="File"
-            layout="${longdate} ${logger} ${uppercase:${level}} ${message}"
-            fileName="${specialfolder:folder=CommonApplicationData}/Amazon/AWSKinesisTap/logs/KinesisTap.log"
-	    maxArchiveFiles="90"
-	    archiveFileName="${specialfolder:folder=CommonApplicationData}/Amazon/AWSKinesisTap/logs/Archive-{################}.log"
-	    archiveNumbering="Date"
-	    archiveDateFormat="yyyy-MM-dd"
-	    archiveEvery="Day"
-	    />
+            layout="${longdate} ${logger} ${uppercase:${level}} ${message} ${exception:format=tostring}"
+            fileName="${specialfolder:folder=CommonApplicationData}/Amazon/AWSKinesisTap/logs/${shortdate}.log"
+	          maxArchiveFiles="90"/>
   </targets>
 
   <rules>

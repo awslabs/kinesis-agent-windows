@@ -12,15 +12,12 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
-
+using System.Threading.Tasks;
 using Amazon.KinesisTap.Core;
 
 namespace Amazon.KinesisTap.AWS
 {
-    public abstract class KinesisSink<TRecord> : AWSBufferedEventSink<TRecord>
+    public abstract class KinesisSink<TRequest, TResponse, TRecord> : AWSBufferedEventSink<TRecord>
     {
         protected int _maxRecordsPerSecond;
         protected long _maxBytesPerSecond;
@@ -36,9 +33,11 @@ namespace Amazon.KinesisTap.AWS
 
         }
 
+        protected abstract Task<TResponse> SendRequestAsync(TRequest putDataRequest);
+
         protected override long GetDelayMilliseconds(int recordCount, long batchBytes)
         {
-            long timeToWait = _throttle.GetDelayMilliseconds(new long[] { 1, recordCount, batchBytes }); //The 1st element indicates 1 API call.
+            var timeToWait = _throttle.GetDelayMilliseconds(new long[] { 1, recordCount, batchBytes }); //The 1st element indicates 1 API call.
             return timeToWait;
         }
     }

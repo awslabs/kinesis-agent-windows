@@ -12,15 +12,13 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using Amazon.KinesisTap.Expression.Ast;
-using Amazon.KinesisTap.Expression.Binder;
-using Amazon.KinesisTap.Expression.TextDecoration;
+using Amazon.KinesisTap.Shared.Ast;
+using Amazon.KinesisTap.Shared.Binder;
+using Amazon.KinesisTap.Shared.TextDecoration;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using Xunit;
 
-namespace Amazon.KinesisTap.Expression.Test
+namespace Amazon.KinesisTap.Shared.Test
 {
     public class TextDecorationTest
     {

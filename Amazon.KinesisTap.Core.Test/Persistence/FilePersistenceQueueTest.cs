@@ -12,14 +12,14 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Xunit;
+
 namespace Amazon.KinesisTap.Core.Test
 {
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Linq;
-    using Xunit;
-
     public class FilePersistenceQueueTest
     {
         public static readonly string QueueDirectory = Path.Combine(TestUtility.GetTestHome(), "queue");

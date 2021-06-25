@@ -12,33 +12,33 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Amazon.CloudWatchLogs.Model;
+using Amazon.KinesisTap.Core;
+
 namespace Amazon.KinesisTap.AWS
 {
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Text;
-    using System.Threading;
-    using System.Threading.Tasks;
-    using Amazon.CloudWatchLogs.Model;
-    using Amazon.KinesisTap.Core;
-
     /// <summary>
     /// An implementation of the <see cref="AWSBufferedEventSink{TRecord}"/> that writes logs to the File System.
     /// By implementing the buffered sink, we're able to replicate a throttle event by creating a write lock on the target file.
     /// </summary>
     public class FileSystemEventSink : AWSBufferedEventSink<InputLogEvent>
     {
-        private readonly SemaphoreSlim fileLock = new SemaphoreSlim(1, 1);
-        private bool isStopped;
+        private readonly SemaphoreSlim _fileLock = new SemaphoreSlim(1, 1);
+        private bool _isStopped;
 
         public FileSystemEventSink(IPlugInContext context)
             : this(
                   context,
-                  int.TryParse(context.Configuration[ConfigConstants.REQUESTS_PER_SECOND], out int rps) ? rps : 1000,
-                  int.TryParse(context.Configuration[ConfigConstants.INTERVAL], out int interval) ? interval : 1,
-                  int.TryParse(context.Configuration[ConfigConstants.RECORD_COUNT], out int recordCount) ? recordCount : 5,
-                  long.TryParse(context.Configuration[ConfigConstants.MAX_BATCH_SIZE], out long maxBatchSize) ? maxBatchSize : 5)
+                  int.TryParse(context.Configuration[ConfigConstants.REQUESTS_PER_SECOND], out var rps) ? rps : 1000,
+                  int.TryParse(context.Configuration[ConfigConstants.INTERVAL], out var interval) ? interval : 1,
+                  int.TryParse(context.Configuration[ConfigConstants.RECORD_COUNT], out var recordCount) ? recordCount : 100,
+                  long.TryParse(context.Configuration[ConfigConstants.MAX_BATCH_SIZE], out var maxBatchSize) ? maxBatchSize : 1024 * 1024)
         {
         }
 
@@ -46,9 +46,9 @@ namespace Amazon.KinesisTap.AWS
             : base(context, defaultInterval, defaultRecordCount, maxBatchSize)
         {
             // If the user hasn't specified a FilePath, generate one based on the Id of the sink, or the name if it doesn't have a value.
-            this.FilePath = this._context.Configuration["FilePath"] ?? Path.Combine(Path.GetTempPath(), (this.Id ?? nameof(FileSystemEventSink)) + ".txt");
+            FilePath = _context.Configuration["FilePath"] ?? Path.Combine(Path.GetTempPath(), (Id ?? nameof(FileSystemEventSink)) + ".txt");
 
-            this.Throttle = new AdaptiveThrottle(
+            Throttle = new AdaptiveThrottle(
                 new TokenBucket(1, requestRate),
                 _backoffFactor,
                 _recoveryFactor,
@@ -62,25 +62,25 @@ namespace Amazon.KinesisTap.AWS
         /// <inheritdoc />
         public override void Start()
         {
-            this.Start(true);
+            Start(true);
         }
 
         public void Start(bool deleteExisting)
         {
-            var directory = Path.GetDirectoryName(this.FilePath);
+            var directory = Path.GetDirectoryName(FilePath);
             if (!Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
-            else if (deleteExisting && File.Exists(this.FilePath))
-                File.Delete(this.FilePath);
+            else if (deleteExisting && File.Exists(FilePath))
+                File.Delete(FilePath);
 
-            this.isStopped = false;
+            _isStopped = false;
         }
 
         public override void Stop()
         {
-            this.isStopped = true;
-            this.Throttle.SetSuccess();
-            this._buffer.Stop();
+            _isStopped = true;
+            Throttle.SetSuccess();
+            _buffer.Stop();
             base.Stop();
         }
 
@@ -88,7 +88,7 @@ namespace Amazon.KinesisTap.AWS
         {
             const long CLOUDWATCH_OVERHEAD = 26L;
             const long TWO_FIFTY_SIX_KILOBYTES = 256 * 1024;
-            long recordSize = Encoding.UTF8.GetByteCount(record.Data.Message) + CLOUDWATCH_OVERHEAD;
+            var recordSize = Encoding.UTF8.GetByteCount(record.Data.Message) + CLOUDWATCH_OVERHEAD;
             if (recordSize > TWO_FIFTY_SIX_KILOBYTES)
             {
                 _recordsFailedNonrecoverable++;
@@ -108,7 +108,7 @@ namespace Amazon.KinesisTap.AWS
 
         protected override long GetDelayMilliseconds(int recordCount, long batchBytes)
         {
-            return this.Throttle.GetDelayMilliseconds(1);
+            return Throttle.GetDelayMilliseconds(1);
         }
 
         protected override ISerializer<List<Envelope<InputLogEvent>>> GetSerializer()
@@ -119,18 +119,18 @@ namespace Amazon.KinesisTap.AWS
         protected override async Task OnNextAsync(List<Envelope<InputLogEvent>> records, long batchBytes)
         {
             // If the sink has been stopped, don't keep trying to write to the file.
-            if (this.isStopped) return;
+            if (_isStopped) return;
 
             // Obtain the fileLock semaphore to ensure that only a single process can call this method at any given time.
             // This does not lock the file itself; we rely on the OS to manage file locking when we open the file stream.
-            await this.fileLock.WaitAsync();
+            await _fileLock.WaitAsync();
 
             try
             {
                 // Create a stream writer on a new FileStream object pointing to the target output file.
                 // This method will fail if the OS already has a lock on the file, which will trigger throttling behavior.
                 // This allows us to effectively reproduce throttling at the sink level, and also helps debug issues outside of the IDE.
-                using (var sw = new StreamWriter(new FileStream(this.FilePath, FileMode.Append, FileAccess.Write, FileShare.Read)))
+                using (var sw = new StreamWriter(new FileStream(FilePath, FileMode.Append, FileAccess.Write, FileShare.Read)))
                 {
                     foreach (var record in records)
                     {
@@ -140,24 +140,24 @@ namespace Amazon.KinesisTap.AWS
                     await sw.FlushAsync();
                 }
 
-                this.SaveBookmarks(records);
-                this.Throttle.SetSuccess();
+             await   SaveBookmarks(records);
+                Throttle.SetSuccess();
             }
             catch (Exception)
             {
                 // If the sink has been stopped, don't keep trying to write to the file.
-                if (this.isStopped) return;
+                if (_isStopped) return;
 
                 // This is the magic that reproduces the throttling behavior.
                 // We call the SetError method on the throttle object and requeue the events.
                 // This uses the same logic as the CloudWatchLogs sink.
-                this.Throttle.SetError();
-                this._buffer.Requeue(records, this.Throttle.ConsecutiveErrorCount < this._maxAttempts);
+                Throttle.SetError();
+                _buffer.Requeue(records, Throttle.ConsecutiveErrorCount < _maxAttempts);
             }
             finally
             {
                 // Release the semaphore. This doesn't release any locks on the file.
-                this.fileLock.Release();
+                _fileLock.Release();
             }
         }
     }

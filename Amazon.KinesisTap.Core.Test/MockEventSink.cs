@@ -38,7 +38,7 @@ namespace Amazon.KinesisTap.Core.Test
 
         public override void Start()
         {
-            _metrics?.InitializeCounters(this.Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.Increment,
+            _metrics?.InitializeCounters(Id, MetricsConstants.CATEGORY_SINK, CounterTypeEnum.Increment,
                 new Dictionary<string, MetricValue>()
             {
                 { "MockSink" + MetricsConstants.RECORDS_SUCCESS, MetricValue.ZeroCount },

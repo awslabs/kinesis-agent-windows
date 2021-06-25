@@ -12,52 +12,39 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.Eventing.Reader;
+using System.Globalization;
+using System.IO;
+using System.Runtime.Versioning;
+using System.Xml;
+using System.Xml.Linq;
+using Amazon.KinesisTap.Core;
+using Microsoft.Extensions.Logging;
+
 namespace Amazon.KinesisTap.Windows
 {
-    using System;
-    using System.Diagnostics.Eventing.Reader;
-    using System.Globalization;
-    using System.IO;
-    using System.Xml;
-    using System.Xml.Linq;
-    using Amazon.KinesisTap.Core;
-    using Microsoft.Extensions.Logging;
-
     /// <summary>
     /// Unlike <see cref="EventRecordEnvelope"/>, this class defers converting Event log data until requested to format them.
     /// </summary>
+    [SupportedOSPlatform("windows")]
     internal class RawEventRecordEnvelope : Envelope<EventRecord>
     {
         private readonly bool _includeEventData;
+        private bool _disposed = false;
 
-        public RawEventRecordEnvelope(EventRecord record, bool includeEventData, int bookmarkId)
-            : base(record)
+        public RawEventRecordEnvelope(EventRecord record, bool includeEventData, IntegerPositionRecordBookmark bookmarkData)
+            : base(record, record.TimeCreated?.ToUniversalTime() ?? DateTime.UtcNow, bookmarkData, record.RecordId ?? 0)
         {
             _includeEventData = includeEventData;
-            BookmarkId = bookmarkId;
-            Position = record.RecordId ?? 0;
-
-            if (_data.TimeCreated.HasValue)
-            {
-                var time = _data.TimeCreated.Value.Kind == DateTimeKind.Unspecified
-                    ? DateTime.SpecifyKind(_data.TimeCreated.Value, DateTimeKind.Local)
-                    : _data.TimeCreated.Value;
-                Timestamp = time.ToUniversalTime();
-            }
-            else
-            {
-                Timestamp = DateTime.UtcNow;
-            }
         }
-
-        public override DateTime Timestamp { get; }
 
         public override string GetMessage(string format)
         {
             if (string.IsNullOrEmpty(format)) //plain text
             {
-                return _data.ToString();
-                //return $"[{_data.LogName}] [{_data.LevelDisplayName}] [{_data.Id}] [{_data.ProviderName}] [{ _data.MachineName}] [{_data.FormatDescription()}]";
+                return $"[{_data.LogName}] [{_data.LevelDisplayName}] [{_data.Id}] [{_data.ProviderName}] [{ _data.MachineName}] [{_data.FormatDescription()}]";
             }
             if (ConfigConstants.FORMAT_RENDERED_XML.Equals(format, StringComparison.CurrentCultureIgnoreCase))
             {
@@ -72,7 +59,11 @@ namespace Amazon.KinesisTap.Windows
         }
 
         private string GetFallbackEnvelopeFormat(string format)
-            => new EventRecordEnvelope(_data, _includeEventData, BookmarkId.Value).GetMessage(format);
+        {
+            using var ere = new EventRecordEnvelope(_data, _includeEventData, BookmarkData as IntegerPositionRecordBookmark);
+            var message = ere.GetMessage(format);
+            return message;
+        }
 
         private string FormatRenderedXml()
         {
@@ -84,7 +75,7 @@ namespace Amazon.KinesisTap.Windows
                 AddXElementWithoutNamespace(eventNode, renderingInfo);
 
                 AddXElementWithoutNamespace(renderingInfo, new XElement("Message", _data.FormatDescription()));
-                AddXElementWithoutNamespace(renderingInfo, new XElement("Level", _data.LevelDisplayName));
+                AddXElementWithoutNamespace(renderingInfo, new XElement("Level", GetLevelDisplayName(_data)));
                 AddXElementWithoutNamespace(renderingInfo, new XElement("Task", _data.Task));
                 AddXElementWithoutNamespace(renderingInfo, new XElement("Opcode", _data.Opcode));
                 AddXElementWithoutNamespace(renderingInfo, new XElement("Channel", _data.LogName));
@@ -93,7 +84,7 @@ namespace Amazon.KinesisTap.Windows
                 var keywordElement = new XElement("Keywords");
                 AddXElementWithoutNamespace(renderingInfo, keywordElement);
 
-                foreach (var keyword in _data.KeywordsDisplayNames)
+                foreach (var keyword in GetKeywords(_data))
                 {
                     AddXElementWithoutNamespace(keywordElement, new XElement("Keyword", keyword));
                 }
@@ -101,7 +92,7 @@ namespace Amazon.KinesisTap.Windows
                 using (var sw = new StringWriter())
                 using (var xtw = new XmlTextWriter(sw)
                 {
-                    Formatting = System.Xml.Formatting.Indented,
+                    Formatting = Formatting.Indented,
                     QuoteChar = '\''
                 })
                 {
@@ -119,6 +110,40 @@ namespace Amazon.KinesisTap.Windows
             }
         }
 
+        private static IEnumerable<string> GetKeywords(EventRecord eventRecord)
+        {
+            try
+            {
+                IEnumerable<string> names = eventRecord.KeywordsDisplayNames;
+                if (names != null)
+                {
+                    return names;
+                }
+            }
+            catch (EventLogNotFoundException)
+            {
+            }
+
+            return Array.Empty<string>();
+        }
+
+        private static string GetLevelDisplayName(EventRecord eventRecord)
+        {
+            try
+            {
+                return eventRecord.LevelDisplayName;
+            }
+            catch (EventLogException)
+            {
+                if (eventRecord.Level.HasValue)
+                {
+                    return ((StandardEventLevel)eventRecord.Level).ToString();
+                }
+            }
+
+            return string.Empty;
+        }
+
         /// <summary>
         /// Append <paramref name="child"/> to the list of child node of <paramref name="parent"/> without adding 'xmlns'.
         /// </summary>
@@ -128,6 +153,24 @@ namespace Amazon.KinesisTap.Windows
             child.Attributes("xmlns").Remove();
             // Inherit the parent namespace instead
             child.Name = child.Parent.Name.Namespace + child.Name.LocalName;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (disposing)
+            {
+                _data.Dispose();
+            }
+
+            _disposed = true;
+
+            // Call base class implementation.
+            base.Dispose(disposing);
         }
     }
 }
