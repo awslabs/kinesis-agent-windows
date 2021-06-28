@@ -17,11 +17,10 @@ phases:
       - nuget restore AWSKinesisTap.sln
       - nuget restore .\KinesisTapMsiBuild.sln
       - dotnet build AWSKinesisTap.sln -c Release
-      - msbuild KinesisTapMsiBuild.sln /p:Configuration=Release /p:Platform="x64"
       - dotnet test .\AWSKinesisTap.sln -c Release --filter Category!=Integration
   post_build:
     commands:
-      - .\build.ps1 -packageOnly
+      - .\build.ps1
 artifacts:
   files:
     - Amazon.KinesisTap/bin/Release/AWSKinesisTap.exe
