@@ -75,10 +75,10 @@
       <AutorunsX64 Include="$(SolutionDir)Library\autoruns*64.*" />
     </ItemGroup>
     <Copy SourceFiles="@(MainArtifacts)" DestinationFolder="$(SolutionDir)msibuild" />
-    <Delete Files="$(SolutionDir)msibuild\KinesisTap.exe" />
+    <Delete Files="$(SolutionDir)msibuild\AWSKinesisTap.exe" />
     <Copy SourceFiles="$(SolutionDir)Amazon.KinesisTap\NLog.xml" DestinationFiles="$(SolutionDir)msibuild\NLogTemplate.xml" />
     <Copy SourceFiles="@(AutorunsX64)" DestinationFolder="$(SolutionDir)msibuild\amd64" />
-    <Move Condition="Exists('$(SolutionDir)signed_artifacts')" SourceFiles="$(SolutionDir)signed_artifacts\KinesisTap.exe" DestinationFolder="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)" />
+    <Move Condition="Exists('$(SolutionDir)signed_artifacts')" SourceFiles="$(SolutionDir)signed_artifacts\AWSKinesisTap.exe" DestinationFolder="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)" />
     <Exec Condition="Exists('$(SolutionDir)signed_artifacts')" Command="xcopy &quot;$(SolutionDir)signed_artifacts\%2a&quot; &quot;$(SolutionDir)\msibuild&quot; /y /i" />
     <Exec Command="&quot;C:\Program Files (x86)\WiX Toolset v3.11\bin\heat.exe&quot; dir &quot;$(SolutionDir)msibuild&quot; -dr INSTALLFOLDER -cg KinesisTapComponents -gg -g1 -scom -sreg -sfrag -srd -var var.SourcePath -platform  -out &quot;$(SolutionDir)KinesisTapWixSetup\Amazon.KinesisTap.wxs&quot;" />
   </Target>
