@@ -41,7 +41,7 @@ namespace Amazon.KinesisTap.Windows
 
         public override string ToString()
         {
-            return $"[{Environment.GetEnvironmentVariable(ConfigConstants.UNIQUE_CLIENT_ID)}] [{_data.LogName}] [{_data.LevelDisplayName}] [{_data.EventId}] [{_data.ProviderName}] [{ _data.MachineName}] [{_data.Description}]";
+            return $"[{_data.LogName}] [{_data.LevelDisplayName}] [{_data.EventId}] [{_data.ProviderName}] [{ _data.MachineName}] [{_data.Description}]";
         }
 
         public override string GetMessage(string format)
