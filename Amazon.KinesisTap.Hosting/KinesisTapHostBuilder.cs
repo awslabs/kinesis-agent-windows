@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License").
@@ -68,8 +68,14 @@ namespace Amazon.KinesisTap.Hosting
                         => new KinesisTapMetricsSource("_KinesisTapMetricsSource", services.GetService<ILogger<IMetrics>>()));
                     services.AddSingleton<ISessionFactory, DefaultSessionFactory>();
                     services.AddHostedService<Worker>();
-                })
-                .ConfigureLogging(logging =>
+                });
+
+            return builder;
+        }
+
+        public static void ConfigureDefaultLogging(this IHostBuilder hostBuilder)
+        {
+            hostBuilder.ConfigureLogging(logging =>
                 {
                     // this is important so that NLog does not stop logging when SIGTERM is catched
                     NLog.LogManager.AutoShutdown = false;
@@ -88,8 +94,6 @@ namespace Amazon.KinesisTap.Hosting
 #endif
                         .AddNLog(nlogPath);
                 });
-
-            return builder;
         }
 
         private static void SetComputerNameEnvironmentVariable()
