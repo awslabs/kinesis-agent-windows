@@ -110,6 +110,8 @@ namespace Amazon.KinesisTap.AWS
                         events.Sort((r1, r2) => r1.Timestamp.CompareTo(r2.Timestamp));
                     }
 
+                    RemoveEmptyRecords(events);
+
                     await ThrottleAsync(events, stopToken);
 
                     await SendBatchAsync(events, stopToken);
@@ -146,6 +148,24 @@ namespace Amazon.KinesisTap.AWS
                     events.Clear();
                     continue;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Remove any empty records in the list of events.
+        /// </summary>
+        private static void RemoveEmptyRecords(List<Envelope<InputLogEvent>> records)
+        {
+            var idx = 0;
+            while (idx < records.Count)
+            {
+                if (string.IsNullOrEmpty(records[idx].Data?.Message))
+                {
+                    records.RemoveAt(idx);
+                    continue;
+                }
+
+                idx++;
             }
         }
 
@@ -359,6 +379,11 @@ namespace Amazon.KinesisTap.AWS
         /// <inheritdoc/>
         protected override long GetRecordSize(Envelope<InputLogEvent> record)
         {
+            if (record?.Data?.Message is null)
+            {
+                return 0;
+            }
+
             long recordSize = Encoding.UTF8.GetByteCount(record.Data.Message) + CloudWatchOverhead;
             if (recordSize > TwoHundredFiftySixKilobytes)
             {

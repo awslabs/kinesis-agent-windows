@@ -45,6 +45,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.Filesyste
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Amazon.KinesisTap.Hosting.Test", "Amazon.KinesisTap.Hosting.Test\Amazon.KinesisTap.Hosting.Test.csproj", "{AC5B4658-0667-42D5-8EE1-C947366775C7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Amazon.KinesisTap.AWS.Test", "Amazon.KinesisTap.AWS.Test\Amazon.KinesisTap.AWS.Test.csproj", "{09F48554-A7B2-4AAE-A457-19055C555C04}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -259,6 +261,18 @@ Global
 		{AC5B4658-0667-42D5-8EE1-C947366775C7}.Release|x64.Build.0 = Release|Any CPU
 		{AC5B4658-0667-42D5-8EE1-C947366775C7}.Release|x86.ActiveCfg = Release|Any CPU
 		{AC5B4658-0667-42D5-8EE1-C947366775C7}.Release|x86.Build.0 = Release|Any CPU
+		{09F48554-A7B2-4AAE-A457-19055C555C04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{09F48554-A7B2-4AAE-A457-19055C555C04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{09F48554-A7B2-4AAE-A457-19055C555C04}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{09F48554-A7B2-4AAE-A457-19055C555C04}.Debug|x64.Build.0 = Debug|Any CPU
+		{09F48554-A7B2-4AAE-A457-19055C555C04}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{09F48554-A7B2-4AAE-A457-19055C555C04}.Debug|x86.Build.0 = Debug|Any CPU
+		{09F48554-A7B2-4AAE-A457-19055C555C04}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{09F48554-A7B2-4AAE-A457-19055C555C04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{09F48554-A7B2-4AAE-A457-19055C555C04}.Release|x64.ActiveCfg = Release|Any CPU
+		{09F48554-A7B2-4AAE-A457-19055C555C04}.Release|x64.Build.0 = Release|Any CPU
+		{09F48554-A7B2-4AAE-A457-19055C555C04}.Release|x86.ActiveCfg = Release|Any CPU
+		{09F48554-A7B2-4AAE-A457-19055C555C04}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -281,6 +295,7 @@ Global
 		{7D4D8F7E-1EB7-445D-8041-320E1D52AC31} = {6CE3DFA4-D689-476E-832D-9CCA261CA1AB}
 		{93DC0001-7A15-440E-BAE9-0BBD7CA46C34} = {59AF3E35-C33A-4A3B-9E1B-BAA76439D006}
 		{AC5B4658-0667-42D5-8EE1-C947366775C7} = {59AF3E35-C33A-4A3B-9E1B-BAA76439D006}
+		{09F48554-A7B2-4AAE-A457-19055C555C04} = {59AF3E35-C33A-4A3B-9E1B-BAA76439D006}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F17B29AD-BF48-46EE-8A30-6CE143282C1D}

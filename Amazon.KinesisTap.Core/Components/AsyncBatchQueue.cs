@@ -221,32 +221,24 @@ namespace Amazon.KinesisTap.Core
                 return;
             }
 
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cts.CancelAfter(timeoutMs);
+            // if we've reached this point, it means the batch is not full but the channel is empty
+            // instead of using ReadAsync(), we simply wait for the timeout period 
+            await Task.Delay(timeoutMs, cancellationToken);
 
-            try
+            // attempt to fill the batch again one more time
+            while (_channel.Reader.TryRead(out var item))
             {
-                while (!cts.IsCancellationRequested)
+                for (var i = 0; i < counts.Length; i++)
                 {
-                    var item = await _channel.Reader.ReadAsync(cts.Token);
-                    for (var i = 0; i < counts.Length; i++)
+                    counts[i] += _counters[i].Invoke(item);
+                    if (counts[i] > _limits[i])
                     {
-                        counts[i] += _counters[i].Invoke(item);
-                        if (counts[i] > _limits[i])
-                        {
-                            _outstandingQ.Enqueue(item);
-                            return;
-                        }
+                        _outstandingQ.Enqueue(item);
+                        return;
                     }
-
-                    output.Add(item);
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                // this can either be due to timeout or the cancellationToken is cancelled
-                // if this is a timeout then the try/catch clause will exit, the function would just return
-                cancellationToken.ThrowIfCancellationRequested();
+
+                output.Add(item);
             }
         }
     }

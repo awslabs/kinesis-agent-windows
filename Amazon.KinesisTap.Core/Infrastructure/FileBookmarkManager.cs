@@ -48,7 +48,7 @@ namespace Amazon.KinesisTap.Core
         /// Channel used to serialize bookmark event callbacks to avoid race conditions.
         /// </summary>
         private readonly Channel<(SourceInfo, IEnumerable<RecordBookmark>)> _callbackChannel
-            = Channel.CreateBounded<(SourceInfo, IEnumerable<RecordBookmark>)>(1000);
+            = Channel.CreateBounded<(SourceInfo, IEnumerable<RecordBookmark>)>(512);
 
         private Task _bookmarkDataSyncTask;
         private Task _callbackTask;

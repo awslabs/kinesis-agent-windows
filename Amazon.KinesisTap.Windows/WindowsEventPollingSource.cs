@@ -37,7 +37,7 @@ namespace Amazon.KinesisTap.Windows
         private Task _readingTask;
         private Task _processingTask;
 
-        private readonly Channel<EventRecord> _eventChannel = Channel.CreateBounded<EventRecord>(2000);
+        private readonly Channel<EventRecord> _eventChannel = Channel.CreateBounded<EventRecord>(1024);
 
         public WindowsEventPollingSource(string id, string logName, string query, IBookmarkManager bookmarkManager,
             WindowsEventLogPollingSourceOptions options, IPlugInContext context)
@@ -185,12 +185,16 @@ namespace Amazon.KinesisTap.Windows
 #if DEBUG
                             Interlocked.Increment(ref _total);
 #endif
-                            _eventBookmark = entry.Bookmark;
-                            if (!OnEventRecord(entry, ref prevRecordId))
+                            var newEventBookmark = entry.Bookmark;
+                            if (!OnEventRecord(entry, prevRecordId, stopToken))
                             {
                                 await EnsureDependencyAvailable(stopToken);
                                 break;
                             }
+
+                            _eventBookmark = newEventBookmark;
+                            prevRecordId = entry.RecordId;
+
                             if (batchCount == BatchSize)
                             {
                                 _logger.LogDebug($"Read max possible number of events: {BatchSize}");
@@ -251,7 +255,7 @@ namespace Amazon.KinesisTap.Windows
         /// Handles the incoming <see cref="EventRecord"/>
         /// </summary>
         /// <returns>True iff the reader should continue reading new records.</returns>
-        private bool OnEventRecord(EventRecord eventRecord, ref long? prevRecordId)
+        private bool OnEventRecord(EventRecord eventRecord, long? prevRecordId, CancellationToken cancellationToken)
         {
             try
             {
@@ -260,7 +264,6 @@ namespace Amazon.KinesisTap.Windows
                     //This code deduplicate the events with the same RecordId
                     _logger.LogInformation("WindowsEventPollingSource Id {0} skipped duplicated log: {1}.", Id, eventRecord.ToXml());
                 }
-                prevRecordId = eventRecord.RecordId;
 
                 if (InitialPosition == InitialPositionEnum.Timestamp
                     && eventRecord.TimeCreated.HasValue
@@ -276,7 +279,7 @@ namespace Amazon.KinesisTap.Windows
                     return true;
                 }
 
-                var task = _eventChannel.Writer.WriteAsync(eventRecord);
+                var task = _eventChannel.Writer.WriteAsync(eventRecord, cancellationToken);
                 if (!task.IsCompleted)
                 {
                     // wait only if writing to buffer does not finish synchronously
