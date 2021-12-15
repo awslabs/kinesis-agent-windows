@@ -63,6 +63,7 @@ namespace Amazon.KinesisTap.AWS
         protected int _hasBookmarkableSource = -1;
 
         public AWSBufferedSink(string id, string sessionName,
+            IAppDataFileProvider appDataFileProvider,
             ILogger logger,
             IMetrics metrics,
             IBookmarkManager bookmarkManager,
@@ -77,7 +78,7 @@ namespace Amazon.KinesisTap.AWS
             _bufferIntervalMs = options.BufferIntervalMs;
             _format = options.Format;
             _maxSecondaryQueueBatches = options.QueueMaxBatches;
-            var secondaryQueue = CreateSecondaryQueue(options, sessionName, logger);
+            var secondaryQueue = CreateSecondaryQueue(options, sessionName, appDataFileProvider, logger);
             _queue = new AsyncBatchQueue<Envelope<T>>(options.QueueSizeItems,
                 new long[] { options.MaxBatchSize, options.MaxBatchBytes },
                 new Func<Envelope<T>, long>[] { r => 1, GetRecordSize },
@@ -111,7 +112,7 @@ namespace Amazon.KinesisTap.AWS
             }
         }
 
-        private ISimpleQueue<List<Envelope<T>>> CreateSecondaryQueue(AWSBufferedSinkOptions options, string sessionName, ILogger logger)
+        private ISimpleQueue<List<Envelope<T>>> CreateSecondaryQueue(AWSBufferedSinkOptions options, string sessionName, IAppDataFileProvider appDataFileProvider, ILogger logger)
         {
             if (options.SecondaryQueueType is null || options.QueueMaxBatches < 1)
             {
@@ -125,8 +126,8 @@ namespace Amazon.KinesisTap.AWS
 
             if (options.SecondaryQueueType.Equals(ConfigConstants.QUEUE_TYPE_FILE, StringComparison.OrdinalIgnoreCase))
             {
-                var queuePath = Path.Combine(Utility.GetSessionQueuesDirectory(sessionName), Id);
-                return new FilePersistentQueue<List<Envelope<T>>>(options.QueueMaxBatches, queuePath, GetPersistentQueueSerializer(), logger);
+                var queuePath = Path.Combine(Utility.GetSessionQueuesDirectoryRelativePath(sessionName), Id);
+                return new FilePersistentQueue<List<Envelope<T>>>(options.QueueMaxBatches, queuePath, GetPersistentQueueSerializer(), appDataFileProvider, logger);
             }
 
             return null;

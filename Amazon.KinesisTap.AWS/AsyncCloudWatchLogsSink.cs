@@ -46,16 +46,17 @@ namespace Amazon.KinesisTap.AWS
 
         public AsyncCloudWatchLogsSink(string id, string sessionName, string logGroup, string logStream,
             IAmazonCloudWatchLogs cloudWatchLogsClient,
+            IAppDataFileProvider appDataFileProvider,
             ILogger logger,
             IMetrics metrics,
             IBookmarkManager bookmarkManager,
             NetworkStatus networkStatus,
             AWSBufferedSinkOptions options)
-            : base(id, sessionName, logger, metrics, bookmarkManager, networkStatus, options)
+            : base(id, sessionName, appDataFileProvider, logger, metrics, bookmarkManager, networkStatus, options)
         {
             Id = id;
-            _logGroup = ResolveVariables(logGroup);
-            _logStream = ResolveVariables(logStream);
+            _logGroup = logGroup;
+            _logStream = logStream;
             _cloudWatchLogsClient = cloudWatchLogsClient;
             // Set throttle at 5 requests per second
             _throttle = new AdaptiveThrottle(new TokenBucket(1, 5), _backoffFactor, _recoveryFactor, _minRateAdjustmentFactor);
@@ -172,7 +173,7 @@ namespace Amazon.KinesisTap.AWS
         /// <summary>
         /// Determines if this exception can be considered 'recoverable'
         /// </summary>
-        /// <param name="ex">Exception encoutered.</param>
+        /// <param name="ex">Exception encountered.</param>
         protected override bool IsRecoverableException(Exception ex)
         {
             return base.IsRecoverableException(ex) ||
@@ -188,14 +189,21 @@ namespace Amazon.KinesisTap.AWS
                 return;
             }
 
-            var logStreamName = ResolveTimestampInLogStreamName(records[0].Timestamp);
+            // resolve log group name
+            var logGroup = ResolveVariables(_logGroup);
+
+            // resolve log stream name, including the timestamp.
+            var logStreamName = ResolveVariables(_logStream);
+            logStreamName = ResolveTimestampInLogStreamName(logStreamName, records[0].Timestamp);
+
             var batchBytes = records.Sum(r => GetRecordSize(r));
 
             Interlocked.Add(ref _recordsAttempted, records.Count);
             Interlocked.Add(ref _bytesAttempted, batchBytes);
             Interlocked.Exchange(ref _clientLatency, (long)records.Average(r => (DateTime.UtcNow - r.Timestamp).TotalMilliseconds));
 
-            _logger.LogDebug("Sending {0} records {1} bytes.", records.Count, batchBytes);
+            _logger.LogDebug("Sending {0} records {1} bytes to log group '{2}', log stream '{3}'.",
+                records.Count, batchBytes, logGroup, logStreamName);
 
             var sendCount = 0;
             if (records[records.Count - 1].Timestamp - records[0].Timestamp <= _batchMaximumTimeSpan)
@@ -220,12 +228,12 @@ namespace Amazon.KinesisTap.AWS
             // so there is no need to handle a ResourceNotFound exception later.
             if (string.IsNullOrEmpty(_sequenceToken) || AWSConstants.NullString.Equals(_sequenceToken))
             {
-                await GetSequenceTokenAsync(logStreamName, true, stopToken);
+                await GetSequenceTokenAsync(logGroup, logStreamName, true, stopToken);
             }
 
             var request = new PutLogEventsRequest
             {
-                LogGroupName = _logGroup,
+                LogGroupName = logGroup,
                 LogStreamName = logStreamName,
                 SequenceToken = _sequenceToken,
                 LogEvents = recordsToSend
@@ -287,7 +295,7 @@ namespace Amazon.KinesisTap.AWS
                         _sequenceToken = iste.ExpectedSequenceToken;
                         break;
                     case ResourceNotFoundException:
-                        await GetSequenceTokenAsync(logStreamName, true, stopToken);
+                        await GetSequenceTokenAsync(logGroup, logStreamName, true, stopToken);
                         break;
                     case DataAlreadyAcceptedException:
                         // this batch won't be accepted, skip it
@@ -309,11 +317,11 @@ namespace Amazon.KinesisTap.AWS
             }
         }
 
-        private async Task GetSequenceTokenAsync(string logStreamName, bool createStreamIfNotExists, CancellationToken stopToken)
+        private async Task GetSequenceTokenAsync(string logGroup, string logStreamName, bool createStreamIfNotExists, CancellationToken stopToken)
         {
             var request = new DescribeLogStreamsRequest
             {
-                LogGroupName = _logGroup,
+                LogGroupName = logGroup,
                 LogStreamNamePrefix = logStreamName
             };
 
@@ -328,7 +336,7 @@ namespace Amazon.KinesisTap.AWS
                 {
                     if (createStreamIfNotExists)
                     {
-                        await CreateLogStreamAsync(logStreamName, stopToken);
+                        await CreateLogStreamAsync(logGroup, logStreamName, stopToken);
                     }
                 }
                 else
@@ -342,44 +350,44 @@ namespace Amazon.KinesisTap.AWS
                 // Create the log group if it doesn't exist.
                 if (rex.Message.Contains("log group does not exist", StringComparison.OrdinalIgnoreCase))
                 {
-                    _logger?.LogInformation("Log group {0} does not exist. Creating it.", _logGroup);
-                    await CreateLogGroupAsync(stopToken);
+                    _logger?.LogInformation("Log group {0} does not exist. Creating it.", logGroup);
+                    await CreateLogGroupAsync(logGroup, stopToken);
 
                     if (createStreamIfNotExists)
                     {
-                        await CreateLogStreamAsync(logStreamName, stopToken);
+                        await CreateLogStreamAsync(logGroup, logStreamName, stopToken);
                     }
                     return;
                 }
             }
         }
 
-        private async Task CreateLogStreamAsync(string logStreamName, CancellationToken stopToken)
+        private async Task CreateLogStreamAsync(string logGroup, string logStreamName, CancellationToken stopToken)
         {
-            _logger?.LogInformation("CloudWatchLogsSink creating log stream {0} in log group {1}", logStreamName, _logGroup);
+            _logger?.LogInformation("CloudWatchLogsSink creating log stream {0} in log group {1}", logStreamName, logGroup);
             _ = await _cloudWatchLogsClient.CreateLogStreamAsync(new CreateLogStreamRequest
             {
-                LogGroupName = _logGroup,
+                LogGroupName = logGroup,
                 LogStreamName = logStreamName
             }, stopToken);
             _throttle.SetSuccess();
         }
 
-        protected virtual async Task CreateLogGroupAsync(CancellationToken cancellationToken)
+        protected virtual async Task CreateLogGroupAsync(string logGroup, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("CloudWatchLogsSink creating log group {0}", _logGroup);
+            _logger.LogInformation("CloudWatchLogsSink creating log group {0}", logGroup);
 
-            await _cloudWatchLogsClient.CreateLogGroupAsync(new CreateLogGroupRequest(_logGroup), cancellationToken);
+            await _cloudWatchLogsClient.CreateLogGroupAsync(new CreateLogGroupRequest(logGroup), cancellationToken);
             _throttle.SetSuccess();
         }
 
-        protected string ResolveTimestampInLogStreamName(DateTime timestamp)
-            => Utility.ResolveVariables(_logStream, v => Utility.ResolveTimestampVariable(v, timestamp));
+        protected static string ResolveTimestampInLogStreamName(string logStream, DateTime timestamp)
+            => Utility.ResolveVariables(logStream, v => Utility.ResolveTimestampVariable(v, timestamp));
 
         /// <inheritdoc/>
         protected override long GetRecordSize(Envelope<InputLogEvent> record)
         {
-            if (record?.Data?.Message is null)
+            if (record.Data.Message is null)
             {
                 return 0;
             }

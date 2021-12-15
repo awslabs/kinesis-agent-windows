@@ -18,6 +18,7 @@ using System.IO;
 using System.Text;
 
 using Amazon.KinesisTap.Core;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 
 namespace Amazon.KinesisTap.AutoUpdate
@@ -28,6 +29,37 @@ namespace Amazon.KinesisTap.AutoUpdate
     public static class UpdateUtility
     {
         /// <summary>
+        /// Defines the metrics published by this module.
+        /// </summary>
+        public static class UpdateMetricsConstants
+        {
+            /// <summary>
+            /// Plugin metric prefix.
+            /// </summary>
+            public const string Prefix = "AutoUpdate";
+
+            /// <summary>
+            /// Count packages downloaded.
+            /// </summary>
+            public const string PackagesDownloaded = "PackagesDownloaded";
+
+            /// <summary>
+            /// Count signatures verified to be valid.
+            /// </summary>
+            public const string PackageSignaturesValid = "PackageSignaturesValid";
+
+            /// <summary>
+            /// Count signatures verified to be invalid.
+            /// </summary>
+            public const string PackageSignaturesInvalid = "PackageSignaturesInvalid";
+
+            /// <summary>
+            /// Count Powershell executions.
+            /// </summary>
+            public const string PowershellExecutions = "PowershellExecutions";
+        }
+
+        /// <summary>
         /// Create a downloader according to the url
         /// </summary>
         /// <param name="url">Could be https://, s3:// or file:// urls</param>
@@ -35,16 +67,18 @@ namespace Amazon.KinesisTap.AutoUpdate
         /// <returns>One of the File Downloaders</returns>
         public static IFileDownloader CreateDownloaderFromUrl(string url, IPlugInContext context)
         {
+            var appDataFileProvider = context.Services.GetService<IAppDataFileProvider>();
+
             if (Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
             {
                 switch (uri.Scheme)
                 {
                     case "https":
-                        return new HttpDownloader();
+                        return new HttpDownloader(appDataFileProvider);
                     case "file":
-                        return new FileDownloader();
+                        return new FileDownloader(appDataFileProvider);
                     case "s3":
-                        return new S3Downloader(context);
+                        return new S3Downloader(context, appDataFileProvider);
                     default:
                         throw new InvalidOperationException("Invalid PackageVersion. Only https://, file:// and s3// are supported");
                 }

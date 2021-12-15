@@ -35,6 +35,16 @@ namespace Amazon.KinesisTap.Core
 {
     public static class Utility
     {
+        /// <summary>
+        /// Product code name. Subject to change depending on distribution.
+        /// </summary>
+        public const string ProductCodeName = "AWSKinesisTap";
+
+        /// <summary>
+        /// Company name.
+        /// </summary>
+        public const string CompanyName = "Amazon";
+
         // Cache the OS platform information
         public static readonly bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         public static readonly bool IsMacOs = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
@@ -655,7 +665,8 @@ namespace Amazon.KinesisTap.Core
             {
                 if (IsWindows)
                 {
-                    kinesisTapProgramDataPath = Path.Combine(Environment.GetEnvironmentVariable("ProgramData"), "Amazon", "AWSKinesisTap");
+                    var commonAppDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+                    kinesisTapProgramDataPath = Path.Combine(commonAppDataFolder, CompanyName, ProductCodeName);
                 }
                 else
                 {
@@ -665,9 +676,13 @@ namespace Amazon.KinesisTap.Core
             return kinesisTapProgramDataPath;
         }
 
+        /// <summary>
+        /// Gets the path to the session bookmark directory, relative to the AppData directory.
+        /// </summary>
+        /// <param name="sessionName">Session name, null for default session.</param>
         public static string GetBookmarkDirectory(string sessionName)
         {
-            var bookmarksDir = Path.Combine(GetKinesisTapProgramDataPath(), ConfigConstants.BOOKMARKS);
+            var bookmarksDir = ConfigConstants.BOOKMARKS;
             if (sessionName is not null)
             {
                 bookmarksDir = Path.Combine(bookmarksDir, sessionName);
@@ -675,9 +690,13 @@ namespace Amazon.KinesisTap.Core
             return bookmarksDir;
         }
 
-        public static string GetSessionQueuesDirectory(string sessionName)
+        /// <summary>
+        /// Gets the path to the session queue directory, relative to the AppData directory.
+        /// </summary>
+        /// <param name="sessionName">Session name, null for default session.</param>
+        public static string GetSessionQueuesDirectoryRelativePath(string sessionName)
         {
-            var path = Path.Combine(GetKinesisTapProgramDataPath(), ConfigConstants.QUEUE);
+            var path = ConfigConstants.QUEUE;
             if (sessionName is not null)
             {
                 path = Path.Combine(path, sessionName);

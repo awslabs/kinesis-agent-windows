@@ -42,6 +42,7 @@ namespace Amazon.KinesisTap.Hosting
             var builder = new HostBuilder()
                 .ConfigureServices((hostContext, services) =>
                 {
+                    services.AddSingleton<IAppDataFileProvider>(sp => new ProtectedAppDataFileProvider(Utility.GetKinesisTapProgramDataPath()));
                     services.AddSingleton<ITypeLoader>(_ => new PluginLoader());
                     services.AddSingleton(_ =>
                     {

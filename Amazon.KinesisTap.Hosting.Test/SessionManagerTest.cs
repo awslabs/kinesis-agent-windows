@@ -27,6 +27,7 @@ using System.Threading;
 using Newtonsoft.Json;
 using Xunit.Abstractions;
 using Amazon.KinesisTap.Core.Metrics;
+using Amazon.KinesisTap.Test.Common;
 
 namespace Amazon.KinesisTap.Hosting.Test
 {
@@ -66,6 +67,7 @@ namespace Amazon.KinesisTap.Hosting.Test
             File.Copy("appsettings.json", Path.Combine(_testConfigDir, HostingUtility.DefaultConfigFileName));
             _parameterStore.SetParameter(HostingUtility.ConfigDirPathKey, _testConfigDir);
             _output = output;
+            NLog.LogManager.LoadConfiguration("NLog.xml");
         }
 
         public void Dispose()
@@ -91,7 +93,8 @@ namespace Amazon.KinesisTap.Hosting.Test
                 WriteConfigFile($"test_{i}.json");
             }
 
-            using var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(), _parameterStore, _typeLoader, mockSessionFactory.Object, _mockMetrics)
+            using var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(), new NoopAppDataFileProvider(),
+                _parameterStore, _typeLoader, mockSessionFactory.Object, _mockMetrics)
             {
                 ConfigChangePollingIntervalMs = 100
             };
@@ -127,7 +130,7 @@ namespace Amazon.KinesisTap.Hosting.Test
                 WriteConfigFile($"test_{i}.json");
             }
 
-            using (var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(),
+            using (var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(), new NoopAppDataFileProvider(),
                  _parameterStore, _typeLoader, mockSessionFactory.Object, _mockMetrics)
             {
                 ConfigChangePollingIntervalMs = 100
@@ -186,7 +189,7 @@ namespace Amazon.KinesisTap.Hosting.Test
             var defaultConfigPath = Path.Combine(_testConfigDir, HostingUtility.DefaultConfigFileName);
             var extraConfigPath = Path.Combine(_testMultiConfigDir, extraConfigName);
 
-            using (var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(),
+            using (var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(), new NoopAppDataFileProvider(),
                  _parameterStore, _typeLoader, mockSessionFactory.Object, _mockMetrics)
             {
                 ConfigChangePollingIntervalMs = 100
@@ -228,7 +231,7 @@ namespace Amazon.KinesisTap.Hosting.Test
                 WriteConfigFile($"test_{i}.json");
             }
 
-            using (var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(),
+            using (var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(), new NoopAppDataFileProvider(),
                  _parameterStore, _typeLoader, mockSessionFactory.Object, _mockMetrics)
             {
                 ConfigChangePollingIntervalMs = 100
@@ -263,7 +266,6 @@ namespace Amazon.KinesisTap.Hosting.Test
         }
 
         [Theory]
-        [InlineData("aem.json")]
         [InlineData("default.json")]
         [InlineData("extra config.json")]
         [InlineData("extra>config.json")]
@@ -280,7 +282,7 @@ namespace Amazon.KinesisTap.Hosting.Test
             // setup
             var mockSessionFactory = MockSessionFactory((id, val) => new MockSession(id, true, val));
 
-            using var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(),
+            using var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(), new NoopAppDataFileProvider(),
                  _parameterStore, _typeLoader, mockSessionFactory.Object, _mockMetrics)
             {
                 ConfigChangePollingIntervalMs = 100
@@ -324,7 +326,7 @@ namespace Amazon.KinesisTap.Hosting.Test
             // setup
             var mockSessionFactory = MockSessionFactory((id, val) => new MockSession(id, true, val));
 
-            var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(),
+            var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(), new NoopAppDataFileProvider(),
                  _parameterStore, _typeLoader, mockSessionFactory.Object, _mockMetrics)
             {
                 ConfigChangePollingIntervalMs = 100
@@ -352,7 +354,7 @@ namespace Amazon.KinesisTap.Hosting.Test
             sessionManager.Dispose();
 
             // create another Session Manager instance
-            sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(),
+            sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(), new NoopAppDataFileProvider(),
                  _parameterStore, _typeLoader, mockSessionFactory.Object, _mockMetrics)
             {
                 ConfigChangePollingIntervalMs = 100
@@ -390,7 +392,7 @@ namespace Amazon.KinesisTap.Hosting.Test
                 : new MockSession(id, true, val)
             );
 
-            var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(),
+            var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(), new NoopAppDataFileProvider(),
                  _parameterStore, _typeLoader, mockSessionFactory.Object, _mockMetrics)
             {
                 ConfigChangePollingIntervalMs = 100
@@ -425,7 +427,7 @@ namespace Amazon.KinesisTap.Hosting.Test
                      ? new MockSession(name, false, val)
                      : new MockSession(name, true, val));
 
-            using var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(),
+            using var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(), new NoopAppDataFileProvider(),
                     _parameterStore, _typeLoader, mockSessionFactory.Object, _mockMetrics)
             {
                 ConfigChangePollingIntervalMs = 100
@@ -451,7 +453,7 @@ namespace Amazon.KinesisTap.Hosting.Test
         {
             var mockSessionFactory = MockSessionFactory((id, val) => new MockSession(id, true, val));
 
-            using var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(),
+            using var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(), new NoopAppDataFileProvider(),
                  _parameterStore, _typeLoader, mockSessionFactory.Object, _mockMetrics)
             {
                 ConfigChangePollingIntervalMs = 100
@@ -481,7 +483,7 @@ namespace Amazon.KinesisTap.Hosting.Test
         {
             var mockSessionFactory = MockSessionFactory((id, val) => new MockSession(id, true, val));
             var fileFullPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("n") + ".json");
-            using (var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(),
+            using (var sessionManager = new SessionManager(_factoryCatalogs, new LoggerFactory(), new NoopAppDataFileProvider(),
                  _parameterStore, _typeLoader, mockSessionFactory.Object, _mockMetrics))
             {
                 await sessionManager.StartAsync(_cts.Token);

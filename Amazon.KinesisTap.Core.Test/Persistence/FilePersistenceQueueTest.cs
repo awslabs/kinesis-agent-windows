@@ -16,49 +16,60 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Amazon.KinesisTap.Core.Test
 {
+    [Collection(nameof(FilePersistenceQueueTest))]
     public class FilePersistenceQueueTest
     {
-        public static readonly string QueueDirectory = Path.Combine(TestUtility.GetTestHome(), "queue");
+        private readonly string _appDataDir = Path.Combine(TestUtility.GetTestHome(), Guid.NewGuid().ToString());
+        private readonly string _queueDirectory = "queue";
+        private readonly IAppDataFileProvider _dataFileProvider;
+
+        public FilePersistenceQueueTest()
+        {
+            _dataFileProvider = new ProtectedAppDataFileProvider(_appDataDir);
+        }
 
         [Fact]
         public void TestFilePersistentQueue()
         {
             var serializer = new BinarySerializer<MockClass>(BinarySerializerTest.MockSerializer, BinarySerializerTest.MockDeserializer);
-            var directory = Path.Combine(QueueDirectory, "TestFilePersistentQueue");
-            if (Directory.Exists(directory)) Directory.Delete(directory, true);
 
-            var queue = new FilePersistentQueue<MockClass>(1000, directory, serializer);
+            var queue = new FilePersistentQueue<MockClass>(1000, _queueDirectory, serializer, _dataFileProvider, NullLogger.Instance);
             var list = BinarySerializerTest.CreateList().Where(i => queue.TryEnqueue(i)).ToList();
 
             Assert.Equal(list.Count, queue.Count);
-            Assert.Equal(list.Count, Directory.GetFiles(directory, "0*").Count());
+            Assert.Equal(list.Count, Directory.GetFiles(Path.Combine(_appDataDir, _queueDirectory), "0*").Count());
 
             var list2 = new List<MockClass>();
             while (queue.TryDequeue(out var item))
+            {
                 list2.Add(item);
+            }
 
             Assert.True(list.SequenceEqual(list2, new MockClassComparer()));
             Assert.Equal(0, queue.Count);
-            Assert.Empty(Directory.GetFiles(directory, "0*"));
+            Assert.Empty(Directory.GetFiles(Path.Combine(_appDataDir, _queueDirectory), "0*"));
         }
 
         [Fact]
         public void TestEmptyQueue()
         {
-            var queue = CreateQueue("empty");
+            var queue = CreateQueue();
             Assert.False(queue.TryDequeue(out _));
         }
 
         [Fact]
         public void TestQueueCapacity()
         {
-            var queue = CreateQueue("capacity");
+            var queue = CreateQueue();
             for (int i = 0; i < 10; i++)
+            {
                 Assert.True(queue.TryEnqueue(i));
+            }
 
             Assert.False(queue.TryEnqueue(10));
         }
@@ -76,14 +87,12 @@ namespace Amazon.KinesisTap.Core.Test
         public void TestLoadIndex(string contents, bool isValid)
         {
             var serializer = new BinarySerializer<MockClass>(BinarySerializerTest.MockSerializer, BinarySerializerTest.MockDeserializer);
-            var directory = Path.Combine(QueueDirectory, "TestLoadIndex");
-            if (Directory.Exists(directory)) Directory.Delete(directory, true);
 
             var logger = new MemoryLogger("TestLoadIndex");
-            var queue = new FilePersistentQueue<MockClass>(1000, directory, serializer, logger);
+            var queue = new FilePersistentQueue<MockClass>(1000, _queueDirectory, serializer, _dataFileProvider, logger);
             LoadQueue(queue);
 
-            var index = Path.Combine(queue.QueueDirectory, "Index");
+            var index = Path.Combine(_appDataDir, queue.QueueDirectory, "Index");
             File.WriteAllText(index, contents);
             Assert.Equal(isValid, queue.LoadIndex());
             if (isValid)
@@ -107,11 +116,9 @@ namespace Amazon.KinesisTap.Core.Test
         public void TestDiscoverIndex()
         {
             var serializer = new BinarySerializer<MockClass>(BinarySerializerTest.MockSerializer, BinarySerializerTest.MockDeserializer);
-            var directory = Path.Combine(QueueDirectory, "TestDiscoverIndex");
-            if (Directory.Exists(directory)) Directory.Delete(directory, true);
 
             var logger = new MemoryLogger("TestDiscoverIndex");
-            var queue = new FilePersistentQueue<MockClass>(1000, directory, serializer, logger);
+            var queue = new FilePersistentQueue<MockClass>(1000, _queueDirectory, serializer, _dataFileProvider, logger);
             LoadQueue(queue);
 
             // Increment the tail to 20 to simulate the first records being bad ones.
@@ -119,8 +126,8 @@ namespace Amazon.KinesisTap.Core.Test
             queue.Tail = 20;
             LoadQueue(queue);
 
-            var index = Path.Combine(queue.QueueDirectory, "Index");
-            File.Delete(index);
+            var indexFile = Path.Combine(_appDataDir, queue.QueueDirectory, "Index");
+            File.Delete(indexFile);
             queue.Head = -10;
             queue.Tail = -10;
             queue.DiscoverIndex();
@@ -147,22 +154,14 @@ namespace Amazon.KinesisTap.Core.Test
             }
         }
 
-        private static FilePersistentQueue<int> CreateQueue(string id)
+        private FilePersistentQueue<int> CreateQueue()
         {
-            string directory = Path.Combine(QueueDirectory, id);
-            if (Directory.Exists(directory))
-                Directory.Delete(directory, true);
-
             var serializer = new BinarySerializer<int>(
                 (writer, i) => writer.Write(i),
                 (reader) => reader.ReadInt32()
             );
 
-            return new FilePersistentQueue<int>(
-                10,
-                directory,
-                serializer
-            );
+            return new FilePersistentQueue<int>(10, _queueDirectory, serializer, _dataFileProvider, NullLogger.Instance);
         }
     }
 }

@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.Core
@@ -69,8 +70,9 @@ namespace Amazon.KinesisTap.Core
                 if (maxBatches == 0) maxBatches = 10000;
                 string queuePath = _config[ConfigConstants.QUEUE_PATH];
                 if (string.IsNullOrWhiteSpace(queuePath))
-                    queuePath = Path.Combine(Utility.GetSessionQueuesDirectory(_context.SessionName), Id);
-                lowerPriorityQueue = new FilePersistentQueue<List<Envelope<TRecord>>>(maxBatches, queuePath, GetSerializer(), _logger);
+                    queuePath = Path.Combine(Utility.GetSessionQueuesDirectoryRelativePath(_context.SessionName), Id);
+                lowerPriorityQueue = new FilePersistentQueue<List<Envelope<TRecord>>>(
+                    maxBatches, queuePath, GetSerializer(), context.Services.GetService<IAppDataFileProvider>(), _logger);
             }
             else //in memory
             {

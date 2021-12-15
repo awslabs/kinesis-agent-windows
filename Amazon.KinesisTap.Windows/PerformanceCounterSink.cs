@@ -26,9 +26,9 @@ namespace Amazon.KinesisTap.Windows
     [SupportedOSPlatform("windows")]
     public class PerformanceCounterSink : SimpleMetricsSink
     {
-        private const string KINESISTAP_PERFORMANCE_COUNTER_CATEGORY = "AWSKinesisTap";
-        private const string KINESISTAP_PERFORMANCE_COUNTER_SOURCES_CATEGORY = "AWSKinesisTap Sources";
-        private const string KINESISTAP_PERFORMANCE_COUNTER_SINKS_CATEGORY = "AWSKinesisTap Sinks";
+        private static readonly string KINESISTAP_PERFORMANCE_COUNTER_CATEGORY = $"{Utility.ProductCodeName}";
+        private static readonly string KINESISTAP_PERFORMANCE_COUNTER_SOURCES_CATEGORY = $"{Utility.ProductCodeName} Sources";
+        private static readonly string KINESISTAP_PERFORMANCE_COUNTER_SINKS_CATEGORY = $"{Utility.ProductCodeName} Sinks";
 
         public PerformanceCounterSink(int defaultInterval, IPlugInContext context) : base(defaultInterval, context)
         {
@@ -133,49 +133,52 @@ namespace Amazon.KinesisTap.Windows
 
         private static CounterCreationDataCollection GetCounterData(string category)
         {
-            switch (category)
+            if (category == KINESISTAP_PERFORMANCE_COUNTER_CATEGORY)
             {
-                case KINESISTAP_PERFORMANCE_COUNTER_CATEGORY:
-                    return new CounterCreationDataCollection()
-                    {
-                        CreateCounterCreationData(string.Empty, MetricsConstants.SOURCE_FACTORIES_LOADED, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.SOURCE_FACTORIES_FAILED_TO_LOAD, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.SINK_FACTORIES_LOADED, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.SINK_FACTORIES_FAILED_TO_LOAD, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.SINKS_STARTED, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.SINKS_FAILED_TO_START, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.SOURCES_STARTED, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.SOURCES_FAILED_TO_START, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.PIPES_CONNECTED, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.PIPES_FAILED_TO_CONNECT, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.SELF_UPDATE_FREQUENCY, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.CONFIG_RELOAD_COUNT, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.CONFIG_RELOAD_FAILED_COUNT, PerformanceCounterType.NumberOfItems32)
-                    };
+                return new CounterCreationDataCollection()
+                {
+                    CreateCounterCreationData(string.Empty, MetricsConstants.SOURCE_FACTORIES_LOADED, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.SOURCE_FACTORIES_FAILED_TO_LOAD, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.SINK_FACTORIES_LOADED, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.SINK_FACTORIES_FAILED_TO_LOAD, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.SINKS_STARTED, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.SINKS_FAILED_TO_START, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.SOURCES_STARTED, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.SOURCES_FAILED_TO_START, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.PIPES_CONNECTED, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.PIPES_FAILED_TO_CONNECT, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.SELF_UPDATE_FREQUENCY, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.CONFIG_RELOAD_COUNT, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.CONFIG_RELOAD_FAILED_COUNT, PerformanceCounterType.NumberOfItems32)
+                };
+            }
 
-                case KINESISTAP_PERFORMANCE_COUNTER_SOURCES_CATEGORY:
-                    return new CounterCreationDataCollection()
-                    {
-                        CreateCounterCreationData(string.Empty, MetricsConstants.DIRECTORY_SOURCE_BYTES_TO_READ, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.DIRECTORY_SOURCE_FILES_TO_PROCESS, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.DIRECTORY_SOURCE_BYTES_READ, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.DIRECTORY_SOURCE_RECORDS_READ, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.EVENTLOG_SOURCE_EVENTS_READ, PerformanceCounterType.NumberOfItems32),
-                        CreateCounterCreationData(string.Empty, MetricsConstants.EVENTLOG_SOURCE_EVENTS_ERROR, PerformanceCounterType.NumberOfItems32),
-                    };
+            if (category == KINESISTAP_PERFORMANCE_COUNTER_SOURCES_CATEGORY)
+            {
+                return new CounterCreationDataCollection()
+                {
+                    CreateCounterCreationData(string.Empty, MetricsConstants.DIRECTORY_SOURCE_BYTES_TO_READ, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.DIRECTORY_SOURCE_FILES_TO_PROCESS, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.DIRECTORY_SOURCE_BYTES_READ, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.DIRECTORY_SOURCE_RECORDS_READ, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.EVENTLOG_SOURCE_EVENTS_READ, PerformanceCounterType.NumberOfItems32),
+                    CreateCounterCreationData(string.Empty, MetricsConstants.EVENTLOG_SOURCE_EVENTS_ERROR, PerformanceCounterType.NumberOfItems32),
+                };
+            }
 
-                case KINESISTAP_PERFORMANCE_COUNTER_SINKS_CATEGORY:
-                    var counterData = new CounterCreationDataCollection();
-                    var prefixes = new string[]
-                    {
+            if (category == KINESISTAP_PERFORMANCE_COUNTER_SINKS_CATEGORY)
+            {
+                var counterData = new CounterCreationDataCollection();
+                var prefixes = new string[]
+                {
                         MetricsConstants.CLOUDWATCHLOG_PREFIX,
                         MetricsConstants.KINESIS_FIREHOSE_PREFIX,
                         MetricsConstants.KINESIS_STREAM_PREFIX
-                    };
+                };
 
-                    foreach (var prefix in prefixes)
-                    {
-                        var sinkCounterData = new CounterCreationDataCollection()
+                foreach (var prefix in prefixes)
+                {
+                    var sinkCounterData = new CounterCreationDataCollection()
                         {
                             CreateCounterCreationData(prefix, MetricsConstants.RECOVERABLE_SERVICE_ERRORS, PerformanceCounterType.NumberOfItems32),
                             CreateCounterCreationData(prefix, MetricsConstants.NONRECOVERABLE_SERVICE_ERRORS, PerformanceCounterType.NumberOfItems32),
@@ -186,13 +189,12 @@ namespace Amazon.KinesisTap.Windows
                             CreateCounterCreationData(prefix, MetricsConstants.RECORDS_FAILED_NONRECOVERABLE, PerformanceCounterType.NumberOfItems32),
                             CreateCounterCreationData(prefix, MetricsConstants.LATENCY, PerformanceCounterType.NumberOfItems32),
                         };
-                        counterData.AddRange(sinkCounterData);
-                    }
-                    return counterData;
-
-                default:
-                    throw new NotImplementedException($"Category {category} not implemented");
+                    counterData.AddRange(sinkCounterData);
+                }
+                return counterData;
             }
+
+            throw new NotImplementedException($"Category {category} not implemented");
         }
 
         private static CounterCreationData CreateCounterCreationData(string counterPrefix, string counterName, PerformanceCounterType counterType)

@@ -28,12 +28,15 @@ namespace Amazon.KinesisTap.Core.Test
     [Collection(nameof(FileBookmarkManagerTest))]
     public class FileBookmarkManagerTest : IDisposable
     {
+        private static readonly string _bookmarkDirName = "Bookmark";
         private readonly string _testDir = Path.Combine(AppContext.BaseDirectory, Guid.NewGuid().ToString());
+        private readonly IAppDataFileProvider _appDataFileProvider;
         private long _position = -1;
 
         public FileBookmarkManagerTest()
         {
-            Directory.CreateDirectory(_testDir);
+            Directory.CreateDirectory(Path.Combine(_testDir, _bookmarkDirName));
+            _appDataFileProvider = new ProtectedAppDataFileProvider(_testDir);
         }
 
         public void Dispose()
@@ -55,12 +58,12 @@ namespace Amazon.KinesisTap.Core.Test
 
             // start the system
             var cts = new CancellationTokenSource();
-            var system = new FileBookmarkManager(_testDir, NullLogger.Instance);
+            var system = new FileBookmarkManager(_bookmarkDirName, NullLogger.Instance, _appDataFileProvider);
             await system.StartAsync(cts.Token);
             cts.Cancel();
             await system.StopAsync(default);
 
-            Assert.True(Directory.Exists(_testDir));
+            Assert.True(Directory.Exists(Path.Combine(_testDir, _bookmarkDirName)));
         }
 
         [Theory]
@@ -73,14 +76,14 @@ namespace Amazon.KinesisTap.Core.Test
             var id = $"{nameof(SourceRegistration_DataIsLoaded)}-{guid}";
             if (existingBookmark is not null)
             {
-                await File.WriteAllTextAsync(Path.Combine(_testDir, $"{id}.bm"), existingBookmark);
+                await File.WriteAllTextAsync(Path.Combine(_testDir, _bookmarkDirName, $"{id}.bm"), existingBookmark);
             }
 
             var source = MockSource_WithPosition(id);
 
             // start the system and register the source
             var cts = new CancellationTokenSource();
-            var system = new FileBookmarkManager(_testDir, NullLogger.Instance);
+            var system = new FileBookmarkManager(_bookmarkDirName, NullLogger.Instance, _appDataFileProvider);
             await system.StartAsync(cts.Token);
             await system.RegisterSourceAsync(source, cts.Token);
 
@@ -98,7 +101,7 @@ namespace Amazon.KinesisTap.Core.Test
             var source = MockSource_WithPosition(nameof(SourceRegistration_DataIsLoaded));
 
             var cts = new CancellationTokenSource();
-            var system = new FileBookmarkManager(_testDir, NullLogger.Instance);
+            var system = new FileBookmarkManager(_bookmarkDirName, NullLogger.Instance, _appDataFileProvider);
             await system.StartAsync(cts.Token);
             await system.RegisterSourceAsync(source, cts.Token);
             _position = position;
@@ -107,7 +110,7 @@ namespace Amazon.KinesisTap.Core.Test
             cts.Cancel();
             await system.StopAsync(default);
 
-            var content = await File.ReadAllTextAsync(Path.Combine(_testDir, $"{nameof(SourceRegistration_DataIsLoaded)}.bm"));
+            var content = await File.ReadAllTextAsync(Path.Combine(_testDir, _bookmarkDirName, $"{nameof(SourceRegistration_DataIsLoaded)}.bm"));
             Assert.Equal(expectedData, content);
         }
 
@@ -118,7 +121,7 @@ namespace Amazon.KinesisTap.Core.Test
             const int syncPeriodMs = 100;
             var source = MockSource_WithPosition(nameof(SourceRegistration_DataIsLoaded));
             var cts = new CancellationTokenSource();
-            var system = new FileBookmarkManager(_testDir, syncPeriodMs, NullLogger.Instance);
+            var system = new FileBookmarkManager(_bookmarkDirName, syncPeriodMs, NullLogger.Instance, _appDataFileProvider);
             await system.StartAsync(cts.Token);
             await system.RegisterSourceAsync(source, cts.Token);
             _position = position;
@@ -131,7 +134,7 @@ namespace Amazon.KinesisTap.Core.Test
             {
                 try
                 {
-                    bmFileContent = await File.ReadAllTextAsync(Path.Combine(_testDir, $"{nameof(SourceRegistration_DataIsLoaded)}.bm"));
+                    bmFileContent = await File.ReadAllTextAsync(Path.Combine(_testDir, _bookmarkDirName, $"{nameof(SourceRegistration_DataIsLoaded)}.bm"));
                     break;
                 }
                 catch (IOException)
@@ -163,7 +166,7 @@ namespace Amazon.KinesisTap.Core.Test
             var source = mockSource.Object;
 
             var cts = new CancellationTokenSource();
-            var system = new FileBookmarkManager(_testDir, NullLogger.Instance);
+            var system = new FileBookmarkManager(_bookmarkDirName, NullLogger.Instance, _appDataFileProvider);
             await system.StartAsync(cts.Token);
             await system.RegisterSourceAsync(source, cts.Token);
             _position = 123456;
@@ -172,7 +175,7 @@ namespace Amazon.KinesisTap.Core.Test
             cts.Cancel();
             await system.StopAsync(default);
             // check the content of the bookmark file
-            var content = await File.ReadAllTextAsync(Path.Combine(_testDir, $"{nameof(SourceLoadingError_BookmarkIsStillSaved)}.bm"));
+            var content = await File.ReadAllTextAsync(Path.Combine(_testDir, _bookmarkDirName, $"{nameof(SourceLoadingError_BookmarkIsStillSaved)}.bm"));
             Assert.Equal(_position.ToString(), content);
         }
 
@@ -204,7 +207,7 @@ namespace Amazon.KinesisTap.Core.Test
             var source = mockSource.Object;
 
             var cts = new CancellationTokenSource();
-            var system = new FileBookmarkManager(_testDir, NullLogger.Instance);
+            var system = new FileBookmarkManager(_bookmarkDirName, NullLogger.Instance, _appDataFileProvider);
             await system.StartAsync(cts.Token);
             await system.RegisterSourceAsync(source, cts.Token);
 
@@ -238,7 +241,7 @@ namespace Amazon.KinesisTap.Core.Test
             var source = mockSource.Object;
 
             var cts = new CancellationTokenSource();
-            var system = new FileBookmarkManager(_testDir, NullLogger.Instance);
+            var system = new FileBookmarkManager(_bookmarkDirName, NullLogger.Instance, _appDataFileProvider);
             await system.StartAsync(cts.Token);
             await system.RegisterSourceAsync(source, cts.Token);
 

@@ -48,6 +48,7 @@ namespace Amazon.KinesisTap.Hosting
         private readonly ISessionFactory _sessionFactory;
         private readonly IMetrics _metrics;
         private readonly Dictionary<string, MetricValue> _typeLoaderMetrics = new();
+        private readonly AppDataController _appDataController;
 
         internal int ConfigChangePollingIntervalMs { get; set; } = 5 * 1000;
         private int _configChanged = 1;
@@ -55,15 +56,22 @@ namespace Amazon.KinesisTap.Hosting
         private readonly string _defaultConfigFilePath;
         private readonly string _extraConfigDirPath;
 
+        private Task _appDataControllerTask;
         private Task _configChangePoller;
 
-        public SessionManager(FactoryCatalogs factoryCatalogs, ILoggerFactory loggerFactory,
-            IParameterStore parameterStore, ITypeLoader typeLoader, ISessionFactory sessionFactory, IMetrics metrics)
+        public SessionManager(
+            FactoryCatalogs factoryCatalogs,
+            ILoggerFactory loggerFactory,
+            IAppDataFileProvider appDataFileProvider,
+            IParameterStore parameterStore,
+            ITypeLoader typeLoader,
+            ISessionFactory sessionFactory,
+            IMetrics metrics)
         {
             _parameterStore = parameterStore;
             _factoryCatalogs = factoryCatalogs;
             _logger = loggerFactory.CreateLogger("KinesisTap");
-
+            _appDataController = new AppDataController(Utility.GetKinesisTapProgramDataPath(), TimeSpan.FromHours(1), appDataFileProvider);
             _defaultConfigFilePath = _parameterStore.GetDefaultConfigFilePath();
             _extraConfigDirPath = _parameterStore.GetExtraConfigDirPath();
 
@@ -96,6 +104,8 @@ namespace Amazon.KinesisTap.Hosting
             await _metrics.StartAsync(stopToken);
             _configWatcher.EnableRaisingEvents = true;
             _configChangePoller = ConfigChangePoller(stopToken);
+
+            _appDataControllerTask = _appDataController.StartAsync(stopToken).AsTask();
         }
 
         /// <inheritdoc />

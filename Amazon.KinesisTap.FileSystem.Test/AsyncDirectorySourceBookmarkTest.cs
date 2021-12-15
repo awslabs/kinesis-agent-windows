@@ -19,7 +19,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Amazon.KinesisTap.Core;
-using Amazon.KinesisTap.Core.Test;
 using Amazon.KinesisTap.Test.Common;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -30,11 +29,13 @@ namespace Amazon.KinesisTap.Filesystem.Test
     [Collection(nameof(AsyncDirectorySourceBookmarkTest))]
     public class AsyncDirectorySourceBookmarkTest : AsyncDirectorySourceTestBase
     {
-        private readonly string _bookmarkDir = Path.Combine(TestUtility.GetTestHome(), Guid.NewGuid().ToString());
+        private const string _bookmarkDirName = "Bookmark";
+        private readonly IAppDataFileProvider _appDataFileProvider;
         private readonly CancellationTokenSource _cts = new();
 
         public AsyncDirectorySourceBookmarkTest(ITestOutputHelper output) : base(output)
         {
+            _appDataFileProvider = new ProtectedAppDataFileProvider(_testDir);
         }
 
         private bool _disposed;
@@ -47,9 +48,9 @@ namespace Amazon.KinesisTap.Filesystem.Test
 
             if (disposing)
             {
-                if (Directory.Exists(_bookmarkDir))
+                if (Directory.Exists(_testDir))
                 {
-                    Directory.Delete(_bookmarkDir, true);
+                    Directory.Delete(_testDir, true);
                 }
                 _cts.Dispose();
             }
@@ -399,7 +400,7 @@ namespace Amazon.KinesisTap.Filesystem.Test
             const string fileA = "file_A.log";
             const string fileB = "file_B.log";
 
-            var bookmarkPath = Path.Combine(_bookmarkDir, $"{_sourceId}.bm");
+            var bookmarkPath = Path.Combine(_testDir, _bookmarkDirName, $"{_sourceId}.bm");
             var bm = await StartBookmarkManager();
             var sink = new ThrottledListEventSink(bm);
             using (var source = CreateSource("*.log", sink, InitialPositionEnum.Bookmark, bm, true))
@@ -473,7 +474,7 @@ namespace Amazon.KinesisTap.Filesystem.Test
 
         private async ValueTask<IBookmarkManager> StartBookmarkManager(CancellationToken cancellationToken)
         {
-            var manager = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+            var manager = new FileBookmarkManager(_bookmarkDirName, NullLogger.Instance, _appDataFileProvider);
             await manager.StartAsync(cancellationToken);
             return manager;
         }

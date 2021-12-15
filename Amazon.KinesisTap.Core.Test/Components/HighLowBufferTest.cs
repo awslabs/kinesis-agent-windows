@@ -18,6 +18,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Amazon.KinesisTap.Core.Test.Components
@@ -57,18 +58,22 @@ namespace Amazon.KinesisTap.Core.Test.Components
         {
             List<int> output = new List<int>();
             ManualResetEvent sinkWaitHandle = new ManualResetEvent(false);
-            string directory = Path.Combine(FilePersistenceQueueTest.QueueDirectory, "HighLowTest");
-            if (Directory.Exists(directory))
+            var dataDir = Path.Combine(AppContext.BaseDirectory, Guid.NewGuid().ToString());
+            var queueDir = Path.Combine(dataDir, "HighLowTest");
+            Directory.CreateDirectory(queueDir);
+            if (Directory.Exists(queueDir))
             {
-                Directory.Delete(directory, true);
+                Directory.Delete(queueDir, true);
             }
             BinarySerializer<int> integerSerializer = new BinarySerializer<int>(
                 (w, i) => w.Write(i),
                 (r) => r.ReadInt32());
             FilePersistentQueue<int> queue = new FilePersistentQueue<int>(
                 100,
-                directory,
-                integerSerializer);
+                queueDir,
+                integerSerializer,
+                new ProtectedAppDataFileProvider(dataDir),
+                NullLogger.Instance);
             HiLowBuffer<int> buffer = new HiLowBuffer<int>(1, null, l =>
             {
                 sinkWaitHandle.WaitOne();
@@ -88,7 +93,7 @@ namespace Amazon.KinesisTap.Core.Test.Components
             Thread.Sleep(500);
             Assert.Equal(3, output.Count);
             Assert.Equal(-1, output[2]); //Requeue item come out last
-            Assert.True(File.Exists(Path.Combine(directory, "index")));
+            Assert.True(File.Exists(Path.Combine(queueDir, "index")));
         }
     }
 }

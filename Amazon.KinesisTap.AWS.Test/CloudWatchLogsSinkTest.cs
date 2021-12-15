@@ -1,3 +1,9 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
 using Amazon.CloudWatchLogs;
 using Amazon.CloudWatchLogs.Model;
 using Amazon.KinesisTap.Core;
@@ -6,12 +12,6 @@ using Amazon.KinesisTap.Test.Common;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -46,7 +46,7 @@ namespace Amazon.KinesisTap.AWS.Test
             var metrics = new InMemoryMetricsSource();
 
             using var cts = new CancellationTokenSource();
-            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "group", "logStream", mock.Object,
+            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "group", "logStream", mock.Object, new NoopAppDataFileProvider(),
                 NullLogger.Instance, metrics, _mockBm, new NetworkStatus(new AlwaysAvailableNetworkProvider()), _cloudWatchOptions);
 
             await sink.StartAsync(cts.Token);
@@ -92,7 +92,8 @@ namespace Amazon.KinesisTap.AWS.Test
             var client = mock.Object;
 
             using var cts = new CancellationTokenSource();
-            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "logGroup", "logStream", client,
+            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "logGroup", "logStream",
+                client, new NoopAppDataFileProvider(),
                 NullLogger.Instance, _mockMetrics, _mockBm, new NetworkStatus(new AlwaysAvailableNetworkProvider()), _cloudWatchOptions);
             await sink.StartAsync(cts.Token);
 
@@ -134,7 +135,7 @@ namespace Amazon.KinesisTap.AWS.Test
             var client = mock.Object;
 
             using var cts = new CancellationTokenSource();
-            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "logGroup", "logStream", client,
+            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "logGroup", "logStream", client, new NoopAppDataFileProvider(),
                 NullLogger.Instance, _mockMetrics, _mockBm, new NetworkStatus(new AlwaysAvailableNetworkProvider()), _cloudWatchOptions);
             await sink.StartAsync(cts.Token);
 
@@ -195,7 +196,7 @@ namespace Amazon.KinesisTap.AWS.Test
             var client = mock.Object;
 
             using var cts = new CancellationTokenSource();
-            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, logGroupConfig, logStream, client,
+            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, logGroupConfig, logStream, client, new NoopAppDataFileProvider(),
                 NullLogger.Instance, _mockMetrics, _mockBm, new NetworkStatus(new AlwaysAvailableNetworkProvider()), _cloudWatchOptions);
             await sink.StartAsync(cts.Token);
             sink.OnNext(records);
@@ -237,7 +238,7 @@ namespace Amazon.KinesisTap.AWS.Test
                 });
 
             using var cts = new CancellationTokenSource();
-            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, logGroup, "logStream", mock.Object,
+            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, logGroup, "logStream", mock.Object, new NoopAppDataFileProvider(),
                 NullLogger.Instance, _mockMetrics, _mockBm, new NetworkStatus(new AlwaysAvailableNetworkProvider()), _cloudWatchOptions);
             var records = new LogEnvelope<string>(msg, DateTime.UtcNow, msg, null, 0, 1);
             await sink.StartAsync(cts.Token);
@@ -282,7 +283,7 @@ namespace Amazon.KinesisTap.AWS.Test
                 });
 
             using var cts = new CancellationTokenSource();
-            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "logGroup", logStream, mock.Object,
+            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "logGroup", logStream, mock.Object, new NoopAppDataFileProvider(),
                 NullLogger.Instance, _mockMetrics, _mockBm, new NetworkStatus(new AlwaysAvailableNetworkProvider()), _cloudWatchOptions);
             var records = new LogEnvelope<string>(msg, DateTime.UtcNow, msg, null, 0, 1);
             await sink.StartAsync(cts.Token);
@@ -343,7 +344,7 @@ namespace Amazon.KinesisTap.AWS.Test
                 });
 
             using var cts = new CancellationTokenSource();
-            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "logGroup", logStream, mock.Object,
+            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "logGroup", logStream, mock.Object, new NoopAppDataFileProvider(),
                 NullLogger.Instance, _mockMetrics, _mockBm, new NetworkStatus(new AlwaysAvailableNetworkProvider()), _cloudWatchOptions);
             var records = new LogEnvelope<string>(msg, DateTime.UtcNow, msg, null, 0, 1);
             await sink.StartAsync(cts.Token);
@@ -395,7 +396,7 @@ namespace Amazon.KinesisTap.AWS.Test
                 });
 
             using var cts = new CancellationTokenSource();
-            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "logGroup", logStream, mock.Object,
+            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "logGroup", logStream, mock.Object, new NoopAppDataFileProvider(),
                 NullLogger.Instance, _mockMetrics, _mockBm, new NetworkStatus(new AlwaysAvailableNetworkProvider()), _cloudWatchOptions);
             var records = new LogEnvelope<string>(msg, DateTime.UtcNow, msg, null, 0, 1);
             await sink.StartAsync(cts.Token);
@@ -447,7 +448,7 @@ namespace Amazon.KinesisTap.AWS.Test
                 });
 
             using var cts = new CancellationTokenSource();
-            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "logGroup", "logStream", mockClient.Object,
+            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "logGroup", "logStream", mockClient.Object, new NoopAppDataFileProvider(),
                 NullLogger.Instance, _mockMetrics, mockBookmarkManager.Object, new NetworkStatus(new AlwaysAvailableNetworkProvider()), _cloudWatchOptions);
             var record = new LogEnvelope<string>("msg", DateTime.UtcNow, "msg", null, expectedPosition, expectedPosition)
             {
@@ -490,7 +491,7 @@ namespace Amazon.KinesisTap.AWS.Test
                 });
 
             using var cts = new CancellationTokenSource();
-            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "logGroup", "logStream", mock.Object,
+            var sink = new AsyncCloudWatchLogsSink(nameof(LogGroupStreamVariable_ShouldResolve), null, "logGroup", "logStream", mock.Object, new NoopAppDataFileProvider(),
                 NullLogger.Instance, _mockMetrics, _mockBm, new NetworkStatus(new AlwaysAvailableNetworkProvider()), _cloudWatchOptions);
             var records = new LogEnvelope<string>("msg", DateTime.UtcNow, "msg", null, 0, 1);
             await sink.StartAsync(cts.Token);

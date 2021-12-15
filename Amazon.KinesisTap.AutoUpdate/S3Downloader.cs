@@ -13,12 +13,9 @@
  * permissions and limitations under the License.
  */
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
-
 using Amazon.S3;
 using Amazon.S3.Model;
-
 using Amazon.KinesisTap.AWS;
 using Amazon.KinesisTap.Core;
 
@@ -29,19 +26,31 @@ namespace Amazon.KinesisTap.AutoUpdate
     /// </summary>
     public class S3Downloader : IFileDownloader
     {
-        private IAmazonS3 _s3Client;
+        private readonly IAmazonS3 _s3Client;
+        private readonly IAppDataFileProvider _appDataFileProvider;
 
-        public S3Downloader(IPlugInContext context)
+        public S3Downloader(IPlugInContext context, IAppDataFileProvider appDataFileProvider)
         {
+            Guard.ArgumentNotNull(appDataFileProvider, nameof(appDataFileProvider));
             _s3Client = AWSUtilities.CreateAWSClient<AmazonS3Client>(context);
+            _appDataFileProvider = appDataFileProvider;
         }
 
+        /// <inheritdoc/>
         public async Task DownloadFileAsync(string url, string path)
         {
-            GetObjectResponse response = await GetS3Object(url);
-            await response.WriteResponseStreamToFileAsync(path, false, default(CancellationToken));
+            if (!_appDataFileProvider.IsWriteEnabled)
+            {
+                return;
+            }
+
+            using var response = await GetS3Object(url);
+            using var targetStream = _appDataFileProvider.OpenFile(path, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
+
+            await response.ResponseStream.CopyToAsync(targetStream);
         }
 
+        /// <inheritdoc/>
         public async Task<string> ReadFileAsStringAsync(string url)
         {
             GetObjectResponse response = await GetS3Object(url);

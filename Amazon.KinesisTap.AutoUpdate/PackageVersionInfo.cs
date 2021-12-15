@@ -12,9 +12,7 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
-using System.Text;
+using Amazon.KinesisTap.Core;
 
 namespace Amazon.KinesisTap.AutoUpdate
 {
@@ -23,7 +21,7 @@ namespace Amazon.KinesisTap.AutoUpdate
     /// </summary>
     public class PackageVersionInfo
     {
-        public string Name { get; set; } = "KinesisTap";
+        public string Name { get; set; } = Utility.ProductCodeName;
         public string Version { get; set; }
         public string PackageUrl { get; set; }
     }

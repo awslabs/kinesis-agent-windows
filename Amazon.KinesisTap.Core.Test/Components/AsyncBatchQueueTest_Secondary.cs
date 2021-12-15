@@ -27,6 +27,7 @@ namespace Amazon.KinesisTap.Core.Test
     [Collection(nameof(AsyncBatchQueueTest_Secondary))]
     public class AsyncBatchQueueTest_Secondary
     {
+        private static readonly string _queueDirName = "Queue";
         private readonly ITestOutputHelper _output;
 
         public AsyncBatchQueueTest_Secondary(ITestOutputHelper output)
@@ -95,11 +96,12 @@ namespace Amazon.KinesisTap.Core.Test
         public async Task PersistentQueue_PushAndGet(int batchCount)
         {
             var dataDir = Path.Combine(AppContext.BaseDirectory, Guid.NewGuid().ToString());
-            Directory.CreateDirectory(dataDir);
-
+            var queueDir = Path.Combine(dataDir, _queueDirName);
+            Directory.CreateDirectory(queueDir);
+            var fileProvider = new ProtectedAppDataFileProvider(dataDir);
             try
             {
-                var secondary = new FilePersistentQueue<List<int>>(100, dataDir, new IntegerListSerializer(), NullLogger.Instance);
+                var secondary = new FilePersistentQueue<List<int>>(100, queueDir, new IntegerListSerializer(), fileProvider, NullLogger.Instance);
 
                 var q = new AsyncBatchQueue<int>(1000,
                     new long[] { batchCount },
@@ -159,11 +161,12 @@ namespace Amazon.KinesisTap.Core.Test
         public async Task PersistentQueue_PullBothQueues()
         {
             var dataDir = Path.Combine(AppContext.BaseDirectory, Guid.NewGuid().ToString());
-            Directory.CreateDirectory(dataDir);
-
+            var queueDir = Path.Combine(dataDir, _queueDirName);
+            Directory.CreateDirectory(queueDir);
+            var fileProvider = new ProtectedAppDataFileProvider(dataDir);
             try
             {
-                var secondary = new FilePersistentQueue<List<int>>(10, dataDir, new IntegerListSerializer(), NullLogger.Instance);
+                var secondary = new FilePersistentQueue<List<int>>(10, queueDir, new IntegerListSerializer(), fileProvider, NullLogger.Instance);
                 var q = new AsyncBatchQueue<int>(500,
                     new long[] { 500 },
                     new Func<int, long>[] { s => 1 }, secondary);
@@ -253,11 +256,12 @@ namespace Amazon.KinesisTap.Core.Test
         public async Task PersistentQueue_ConcurrentRead(int readerCount, int itemCount)
         {
             var dataDir = Path.Combine(AppContext.BaseDirectory, Guid.NewGuid().ToString());
-            Directory.CreateDirectory(dataDir);
-
+            var queueDir = Path.Combine(dataDir, _queueDirName);
+            Directory.CreateDirectory(queueDir);
+            var fileProvider = new ProtectedAppDataFileProvider(dataDir);
             try
             {
-                var secondary = new FilePersistentQueue<List<int>>(100000, dataDir, new IntegerListSerializer(), NullLogger.Instance);
+                var secondary = new FilePersistentQueue<List<int>>(100000, queueDir, new IntegerListSerializer(), fileProvider, NullLogger.Instance);
                 using var cts = new CancellationTokenSource();
                 using var semaphore = new SemaphoreSlim(0, readerCount);
                 var results = new List<int>();

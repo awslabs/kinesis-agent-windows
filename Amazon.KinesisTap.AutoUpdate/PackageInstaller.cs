@@ -13,15 +13,19 @@
  * permissions and limitations under the License.
  */
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Management.Automation;
+using System.Management.Automation.Runspaces;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-
 using Amazon.KinesisTap.Core;
+using Amazon.KinesisTap.Core.Metrics;
 using Microsoft.Extensions.Logging;
+using static Amazon.KinesisTap.AutoUpdate.UpdateUtility;
 
 namespace Amazon.KinesisTap.AutoUpdate
 {
@@ -32,13 +36,41 @@ namespace Amazon.KinesisTap.AutoUpdate
         const string EXT_MSI = ".msi";
         const string EXT_PKG = ".pkg";
 
+        /// <summary>
+        /// Set of KinesisTap's verified publishers.
+        /// </summary>
+        private static readonly ISet<string> _builtInMsiAllowedPublishers = new HashSet<string>
+        {
+            "Amazon.com Services LLC", "Amazon Web Services, Inc."
+        };
+
         private readonly ILogger _logger;
         private readonly IPlugInContext _context;
+        private readonly IMetrics _metrics;
+        private readonly ISet<string> _allowedPublishers;
+        private readonly IAppDataFileProvider _appDataFileProvider;
+        private readonly bool _skipSignatureVerification;
 
-        public PackageInstaller(IPlugInContext context)
+        public PackageInstaller(IPlugInContext context,
+            IAppDataFileProvider appDataFileProvider,
+            ISet<string> allowedPublishers,
+            bool skipSignatureVerification)
         {
             _context = context;
             _logger = context.Logger;
+            _allowedPublishers = allowedPublishers;
+            _skipSignatureVerification = skipSignatureVerification;
+            _logger = context.Logger;
+            _metrics = context.Metrics;
+
+            _metrics?.InitializeCounters(string.Empty, MetricsConstants.CATEGORY_PLUGIN, CounterTypeEnum.Increment, new Dictionary<string, MetricValue>
+            {
+                { $"{UpdateMetricsConstants.Prefix}{UpdateMetricsConstants.PackagesDownloaded}", MetricValue.ZeroCount },
+                { $"{UpdateMetricsConstants.Prefix}{UpdateMetricsConstants.PackageSignaturesValid}", MetricValue.ZeroCount },
+                { $"{UpdateMetricsConstants.Prefix}{UpdateMetricsConstants.PackageSignaturesInvalid}", MetricValue.ZeroCount },
+                { $"{UpdateMetricsConstants.Prefix}{UpdateMetricsConstants.PowershellExecutions}", MetricValue.ZeroCount }
+            });
+            _appDataFileProvider = appDataFileProvider;
         }
 
         /// <summary>
@@ -55,11 +87,11 @@ namespace Amazon.KinesisTap.AutoUpdate
                 _logger.LogWarning($"Extension {extension} is not supported on {Utility.Platform}");
                 return;
             }
-            _logger?.LogInformation($"Downloading {packageVersion.Name} version {packageVersion.Version} from {packageUrl}...");        
-            
-            IFileDownloader downloader = UpdateUtility.CreateDownloaderFromUrl(packageUrl, _context);
-  
-            string updateDirectory = Path.Combine(Utility.GetKinesisTapProgramDataPath(), "update");
+            _logger?.LogInformation($"Downloading {packageVersion.Name} version {packageVersion.Version} from {packageUrl}...");
+
+            IFileDownloader downloader = CreateDownloaderFromUrl(packageUrl, _context);
+
+            string updateDirectory = "update";
             if (!Directory.Exists(updateDirectory))
             {
                 Directory.CreateDirectory(updateDirectory);
@@ -71,6 +103,25 @@ namespace Amazon.KinesisTap.AutoUpdate
             }
             await downloader.DownloadFileAsync(packageUrl, downloadPath);
             _logger?.LogInformation($"Package downloaded to {downloadPath}. Expanding package...");
+
+            if (!_skipSignatureVerification)
+            {
+                if (EXT_MSI.Equals(extension, StringComparison.Ordinal))
+                {
+                    if (!await VerifyAuthenticodeSignatureAsync(_appDataFileProvider.GetFullPath(downloadPath)))
+                    {
+                        PublishCounter(UpdateMetricsConstants.PackageSignaturesInvalid, CounterTypeEnum.Increment, 1);
+                        _logger.LogWarning("Cannot verify digital signature for package {0}", downloadPath);
+                        return;
+                    }
+
+                    PublishCounter(UpdateMetricsConstants.PackageSignaturesValid, CounterTypeEnum.Increment, 1);
+                }
+            }
+            else
+            {
+                _logger.LogInformation("Skipping digital signature verification");
+            }
 
             if (EXT_NUPKG.Equals(extension))
             {
@@ -106,6 +157,65 @@ namespace Amazon.KinesisTap.AutoUpdate
                     throw new NotImplementedException($"Unknown extension {extension}");
             }
             await RunCommand(command, arguments);
+        }
+
+        /// <summary>
+        /// Verify that the authenticode signature of the file is valid, and publisher is included in the allowed list.
+        /// </summary>
+        /// <param name="filePath">Path to file.</param>
+        /// <returns>True iff the signature and publisher is valid.</returns>
+        /// <remarks>
+        /// This code might throw an exception, however, we won't catch it here.
+        /// This function is called within the update cycle which will catch & log any exception that bubbles up.
+        /// </remarks>
+        internal async Task<bool> VerifyAuthenticodeSignatureAsync(string filePath)
+        {
+            const string psGetPublisherCommandTemplate =
+                "Return (Get-AuthenticodeSignature \"{0}\").SignerCertificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)";
+
+            if (!OperatingSystem.IsWindows())
+            {
+                throw new PlatformNotSupportedException("Authenticode signature verification is only available on Windows");
+            }
+
+            _logger.LogInformation("Verifying authenticode signature of package");
+
+            using var psProcess = new PowerShellProcessInstance(new Version(5, 1), null, null, false);
+            using var runspace = RunspaceFactory.CreateOutOfProcessRunspace(new TypeTable(Array.Empty<string>()), psProcess);
+            runspace.Open();
+
+            // first we need to get the signature and verify that it's "Valid"
+            using var powershell = PowerShell.Create(runspace);
+            powershell.AddCommand("Get-AuthenticodeSignature").AddParameter("FilePath", filePath);
+            var results = await powershell.InvokeAsync();
+            PublishCounter(UpdateMetricsConstants.PowershellExecutions, CounterTypeEnum.Increment, 1);
+
+            if (results.Count == 0)
+            {
+                return false;
+            }
+            var signature = results[0];
+            var signatureStatus = signature.Properties["Status"]?.Value?.ToString();
+            _logger.LogDebug("Signature status: {0}", signatureStatus);
+            if (signatureStatus != nameof(SignatureStatus.Valid))
+            {
+                return false;
+            }
+
+            // then we get the publisher of the signing certificate
+            var allowedPublishers = _allowedPublishers ?? _builtInMsiAllowedPublishers;
+            powershell.AddScript(string.Format(psGetPublisherCommandTemplate, filePath));
+            results = await powershell.InvokeAsync();
+            PublishCounter(UpdateMetricsConstants.PowershellExecutions, CounterTypeEnum.Increment, 1);
+
+            if (results.Count == 0)
+            {
+                return false;
+            }
+            var publisher = results[0].ToString();
+            _logger.LogDebug("Signature publisher: {0}", publisher);
+
+            return allowedPublishers.Contains(publisher);
         }
 
         private async Task InstallNugetPackageAsync(string downloadPath)
@@ -191,5 +301,8 @@ namespace Amazon.KinesisTap.AutoUpdate
             string output = await process.StandardOutput.ReadLineAsync();
             _logger?.LogInformation(output);
         }
+
+        private void PublishCounter(string name, CounterTypeEnum counterType, long count)
+            => _metrics?.PublishCounter(string.Empty, MetricsConstants.CATEGORY_PLUGIN, counterType, $"{UpdateMetricsConstants.Prefix}{name}", count, MetricUnit.Count);
     }
 }

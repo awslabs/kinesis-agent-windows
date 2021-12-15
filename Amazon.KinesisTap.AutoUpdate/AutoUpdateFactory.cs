@@ -18,6 +18,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 using Amazon.KinesisTap.Core;
+using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Generic;
 
 namespace Amazon.KinesisTap.AutoUpdate
 {
@@ -25,6 +27,9 @@ namespace Amazon.KinesisTap.AutoUpdate
     {
         const string PACKAGE_UPDATE = "packageupdate";
         const string CONFIG_UPDATE = "configupdate";
+
+        const string SKIP_SIGNATURE_VERIFICATION_SETTING = "SkipSignatureVerification";
+        const string ALLOWED_PUBLISHERS_SETTING = "AllowedPublishers";
 
         public void RegisterFactory(IFactoryCatalog<IGenericPlugin> catalog)
         {
@@ -40,7 +45,18 @@ namespace Amazon.KinesisTap.AutoUpdate
             switch (entry.ToLower())
             {
                 case PACKAGE_UPDATE:
-                    return new PackageUpdater(context, new AutoUpdateServiceHttpClient(), new PackageInstaller(context));
+                    var allowedPublishers = new HashSet<string>();
+                    var allowedPublishersConfig = config.GetSection(ALLOWED_PUBLISHERS_SETTING);
+                    foreach (var val in allowedPublishersConfig.GetChildren())
+                    {
+                        allowedPublishers.Add(val.Value);
+                    }
+                    var appDataFileProvider = context.Services.GetService<IAppDataFileProvider>();
+                    var skipSigVerification = bool.TryParse(config[SKIP_SIGNATURE_VERIFICATION_SETTING], out var ssv) && ssv;
+
+                    return new PackageUpdater(context,
+                        new AutoUpdateServiceHttpClient(), 
+                        new PackageInstaller(context, appDataFileProvider, allowedPublishers.Count > 0 ? allowedPublishers : null, skipSigVerification));
                 case CONFIG_UPDATE:
                     return new ConfigurationFileUpdater(context);
                 default:

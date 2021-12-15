@@ -13,10 +13,9 @@
  * permissions and limitations under the License.
  */
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Threading.Tasks;
+using Amazon.KinesisTap.Core;
 
 namespace Amazon.KinesisTap.AutoUpdate
 {
@@ -26,16 +25,31 @@ namespace Amazon.KinesisTap.AutoUpdate
     /// </summary>
     public class FileDownloader : IFileDownloader
     {
+        private readonly IAppDataFileProvider _appDataFileProvider;
+
+        public FileDownloader(IAppDataFileProvider appDataFileProvider)
+        {
+            Guard.ArgumentNotNull(appDataFileProvider, nameof(appDataFileProvider));
+            _appDataFileProvider = appDataFileProvider;
+        }
+
+        /// <inheritdoc/>
         public async Task DownloadFileAsync(string url, string toPath)
         {
+            if (!_appDataFileProvider.IsWriteEnabled)
+            {
+                return;
+            }
+
             string path = ConvertFileUrlToPath(url);
-            using (var streamTo = File.Open(toPath, FileMode.Create))
             using (var streamFrom = File.OpenRead(path))
+            using (var streamTo = _appDataFileProvider.OpenFile(toPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None))
             {
                 await streamFrom.CopyToAsync(streamTo);
             }
         }
 
+        /// <inheritdoc/>
         public async Task<string> ReadFileAsStringAsync(string url)
         {
             string path = ConvertFileUrlToPath(url);

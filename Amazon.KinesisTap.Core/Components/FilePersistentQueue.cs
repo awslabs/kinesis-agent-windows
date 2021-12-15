@@ -27,27 +27,35 @@ namespace Amazon.KinesisTap.Core
     public class FilePersistentQueue<T> : ISimpleQueue<T>
     {
         private readonly ISerializer<T> _serializer;
+        private readonly IAppDataFileProvider _fileProvider;
         private readonly ILogger _logger;
         private readonly string _indexFilePath;
         private readonly object _fileLock = new object();
 
         const int MAX_CAPACITY = 1000000000;
 
-        public FilePersistentQueue(int capacity, string directory, ISerializer<T> serializer, ILogger logger = null)
+        public FilePersistentQueue(int capacity, string directory,
+            ISerializer<T> serializer,
+            IAppDataFileProvider fileProvider,
+            ILogger logger)
         {
             _logger = logger;
             _serializer = serializer;
+            _fileProvider = fileProvider;
             Capacity = capacity;
             if (Capacity > MAX_CAPACITY)
+            {
                 throw new ArgumentException($"The maximum capacity is {MAX_CAPACITY}");
+            }
 
             QueueDirectory = directory;
-            if (!Directory.Exists(QueueDirectory))
-                Directory.CreateDirectory(QueueDirectory);
+            fileProvider.CreateDirectory(QueueDirectory);
 
             _indexFilePath = Path.Combine(QueueDirectory, "Index");
             if (!LoadIndex())
+            {
                 DiscoverIndex();
+            }
         }
 
         /// <summary>
@@ -61,7 +69,7 @@ namespace Amazon.KinesisTap.Core
         public int Tail { get; internal set; }
 
         /// <summary>
-        /// Gets the directory containing the queued items.
+        /// Gets the directory containing the queued items. This is relative to the AppData directory.
         /// </summary>
         public string QueueDirectory { get; }
 
@@ -82,6 +90,10 @@ namespace Amazon.KinesisTap.Core
         /// <inheritdoc />
         public int Capacity { get; }
 
+        public void Dispose()
+        {
+        }
+
         /// <inheritdoc />
         public bool TryDequeue(out T item)
         {
@@ -94,8 +106,8 @@ namespace Amazon.KinesisTap.Core
                     {
                         // Open the file using the "DeleteOnClose" flag so that it is deleted after being read.
                         // This eliminates the need to delete the file in a separate operation.
-                        using (var fs = new FileStream(filepath, FileMode.Open, FileAccess.Read, FileShare.None, 4096, FileOptions.DeleteOnClose))
-                            item = _serializer.Deserialize(fs);
+                        using var fs = _fileProvider.OpenFile(filepath, FileMode.Open, FileAccess.Read, FileShare.None, 4096, FileOptions.DeleteOnClose);
+                        item = _serializer.Deserialize(fs);
 
                         _logger?.LogTrace("[{0}] Successfully dequeued item from persistent queue. {1} items left in queue.", nameof(FilePersistentQueue<T>.TryDequeue), CountInternal);
                         return true;
@@ -134,13 +146,16 @@ namespace Amazon.KinesisTap.Core
                 var path = GetFilePath(Tail);
                 try
                 {
-                    using (var outstream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
-                        _serializer.Serialize(outstream, item);
+                    using var outstream = _fileProvider.OpenFile(path, FileMode.Create, FileAccess.Write, FileShare.None);
+                    _serializer.Serialize(outstream, item);
                 }
                 catch (Exception ex)
                 {
                     _logger?.LogError("Failed to add new item to FilePersistentQueue: {0}", ex.ToMinimized());
-                    if (File.Exists(path)) File.Delete(path);
+                    if (_fileProvider.FileExists(path))
+                    {
+                        _fileProvider.DeleteFile(path);
+                    }
                     return false;
                 }
 
@@ -157,8 +172,8 @@ namespace Amazon.KinesisTap.Core
             // Enumerate the directory for all files to get a list of file names.
             // The file names contain the incrementing index value, so we'll parse the
             // name portion into an int and sort the array based on that value.
-            var files = Directory.GetFiles(QueueDirectory)
-                .Select(i => new { Path = i, Index = int.TryParse(i.Split(Path.DirectorySeparatorChar).Last(), out int ind) ? ind : -2 })
+            var files = _fileProvider.GetFilesInDirectory(QueueDirectory)
+                .Select(f => new { Path = f, Index = int.TryParse(Path.GetFileName(f), out var ind) ? ind : -2 })
                 .Where(i => i.Index > -1) // This is faster than >= 0.
                 .OrderByDescending(i => i.Index)
                 .ToList();
@@ -198,13 +213,13 @@ namespace Amazon.KinesisTap.Core
         internal bool LoadIndex()
         {
             // If the index file doesn't exist, use default head/tail values of 0.
-            if (!File.Exists(_indexFilePath))
+            if (!_fileProvider.FileExists(_indexFilePath))
             {
                 _logger?.LogDebug("Index file '{0}' does not exist. Head and Tail positions will start at 0.", _indexFilePath);
                 return true;
             }
 
-            var line = File.ReadAllText(_indexFilePath);
+            var line = _fileProvider.ReadAllText(_indexFilePath);
 
             // If the index file is empty or just whitespace, use default head/tail values of 0.
             if (string.IsNullOrWhiteSpace(line))
@@ -249,11 +264,10 @@ namespace Amazon.KinesisTap.Core
             // Obtain a lock to ensure that only one process can write to the index file at a time.
             try
             {
-                using (var outstream = new FileStream(_indexFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
-                using (var sw = new StreamWriter(outstream))
-                {
-                    sw.Write(contents);
-                }
+                using var outstream = _fileProvider.OpenFile(_indexFilePath, FileMode.Create, FileAccess.Write, FileShare.None);
+                using var sw = new StreamWriter(outstream);
+
+                sw.Write(contents);
             }
             catch (Exception ex)
             {

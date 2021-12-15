@@ -37,11 +37,14 @@ namespace Amazon.KinesisTap.Windows.Test
     public class EventLogBookmarkBufferedSinkTest : IDisposable
     {
         private const string LogName = "Application";
-        private readonly string _bookmarkDir = Path.Combine(TestUtility.GetTestHome(), Guid.NewGuid().ToString());
+        private const string _bookmarkDir = "Bookmark";
+        private readonly string _testDir = Path.Combine(TestUtility.GetTestHome(), Guid.NewGuid().ToString());
+        private readonly IAppDataFileProvider _appDataFileProvider;
         private readonly string _logSource = $"{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}-{Guid.NewGuid()}";
 
         public EventLogBookmarkBufferedSinkTest()
         {
+            _appDataFileProvider = new ProtectedAppDataFileProvider(_testDir);
             if (!EventLog.SourceExists(_logSource))
             {
                 EventLog.CreateEventSource(_logSource, LogName);
@@ -54,9 +57,9 @@ namespace Amazon.KinesisTap.Windows.Test
             {
                 EventLog.DeleteEventSource(_logSource);
             }
-            if (Directory.Exists(_bookmarkDir))
+            if (Directory.Exists(_testDir))
             {
-                Directory.Delete(_bookmarkDir, true);
+                Directory.Delete(_testDir, true);
             }
         }
 
@@ -75,7 +78,7 @@ namespace Amazon.KinesisTap.Windows.Test
             }
 
             await Task.Delay(100);
-            var bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+            var bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance, _appDataFileProvider);
 
             var cts = new CancellationTokenSource();
             var source = CreateSource(polling, LogName, bm, InitialPositionEnum.BOS);
@@ -99,7 +102,7 @@ namespace Amazon.KinesisTap.Windows.Test
             }
 
             sink.Clear();
-            bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+            bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance, _appDataFileProvider);
             cts = new CancellationTokenSource();
             source = CreateSource(polling, LogName, bm, InitialPositionEnum.BOS);
             source.Subscribe(sink);
@@ -130,7 +133,7 @@ namespace Amazon.KinesisTap.Windows.Test
             }
             await Task.Delay(100);
 
-            var bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+            var bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance, _appDataFileProvider);
 
             var cts = new CancellationTokenSource();
             var source = CreateSource(polling, LogName, bm, InitialPositionEnum.Bookmark);
@@ -161,7 +164,7 @@ namespace Amazon.KinesisTap.Windows.Test
                 EventLog.WriteEntry(_logSource, msg, EventLogEntryType.Information);
             }
 
-            bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+            bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance, _appDataFileProvider);
             cts = new CancellationTokenSource();
             source = CreateSource(polling, LogName, bm, InitialPositionEnum.Bookmark);
 
@@ -186,7 +189,7 @@ namespace Amazon.KinesisTap.Windows.Test
         public async Task BookmarkOnBufferFlush(bool polling, InitialPositionEnum initialPosition)
         {
             const string msg = "BookmarkOnBufferFlush";
-            var bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+            var bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance, _appDataFileProvider);
             var sink = new ThrottledListEventSink(bm);
 
             // Write 3 events before the source is created
@@ -220,7 +223,7 @@ namespace Amazon.KinesisTap.Windows.Test
 
             // re-start the pipeline
             cts = new CancellationTokenSource();
-            bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+            bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance, _appDataFileProvider);
             sink = new ThrottledListEventSink(bm);
             source = CreateSource(polling, LogName, bm, initialPosition, true);
             subscription = source.Subscribe(sink);
@@ -240,7 +243,7 @@ namespace Amazon.KinesisTap.Windows.Test
 
             // re-start the pipeline one more time
             cts = new CancellationTokenSource();
-            bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance);
+            bm = new FileBookmarkManager(_bookmarkDir, NullLogger.Instance, _appDataFileProvider);
             sink = new ThrottledListEventSink(bm);
             source = CreateSource(polling, LogName, bm, initialPosition, true);
             subscription = source.Subscribe(sink);

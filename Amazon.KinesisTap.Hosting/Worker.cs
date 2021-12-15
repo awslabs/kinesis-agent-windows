@@ -66,7 +66,7 @@ namespace Amazon.KinesisTap.Hosting
         {
             HostApplicationLifeTime = lifetime;
 
-            _logger = loggerFactory.CreateLogger("KinesisTap");
+            _logger = loggerFactory.CreateLogger(Utility.ProductCodeName);
             _parameterStore = parameterStore;
             _sessionManager = sessionManager;
             _defaultNetworkStatusProvider = defaultNetworkStatusProvider;

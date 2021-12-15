@@ -81,7 +81,8 @@ namespace Amazon.KinesisTap.Hosting
             _logger = _loggerFactory.CreateLogger(DisplayName);
             _logger.LogDebug("Configuration is validated: {0}", IsValidated);
             _bookmarkManager = new FileBookmarkManager(Utility.GetBookmarkDirectory(name),
-                _loggerFactory.CreateLogger($"{DisplayName}:{nameof(IBookmarkManager)}"));
+                _loggerFactory.CreateLogger($"{DisplayName}:{nameof(IBookmarkManager)}"),
+                services.GetService<IAppDataFileProvider>());
 
             var factoryCatalogs = services.GetService<FactoryCatalogs>();
             _sourceFactoryCatalog = factoryCatalogs.SourceFactoryCatalog;

@@ -20,6 +20,8 @@ using System.Linq;
 using Microsoft.Extensions.Configuration;
 
 using Amazon.KinesisTap.Core.Metrics;
+using System.Diagnostics;
+using Xunit.Abstractions;
 
 namespace Amazon.KinesisTap.Core.Test
 {
@@ -80,6 +82,22 @@ namespace Amazon.KinesisTap.Core.Test
             }
 
             return thisDir.Parent == null ? null : FindSolutionDirRecursive(thisDir.Parent);
+        }
+
+        public static void RunWindowsCommand(string command, ITestOutputHelper output)
+        {
+            using var cmd = new Process();
+            cmd.StartInfo.FileName = "cmd.exe";
+            cmd.StartInfo.Arguments = $"/C {command}";
+            cmd.StartInfo.RedirectStandardInput = true;
+            cmd.StartInfo.RedirectStandardOutput = true;
+            cmd.StartInfo.CreateNoWindow = true;
+            cmd.StartInfo.UseShellExecute = false;
+            cmd.Start();
+
+            cmd.WaitForExit(5000);
+            output.WriteLine(cmd.StandardOutput.ReadToEnd());
+            output.WriteLine(cmd.StandardOutput.ReadToEnd());
         }
     }
 }

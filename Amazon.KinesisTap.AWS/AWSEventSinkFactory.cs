@@ -25,6 +25,7 @@ using Amazon.KinesisTap.Core;
 using Amazon.Runtime;
 using Amazon.S3;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Amazon.KinesisTap.AWS
@@ -102,16 +103,17 @@ namespace Amazon.KinesisTap.AWS
 
         public IEventSink CreateInstance(string sinkType, IPlugInContext context)
         {
+            var appDataFileProvider = context.Services.GetService<IAppDataFileProvider>();
             IConfiguration config = context.Configuration;
             ILogger logger = context.Logger;
-            var options = new AWSBufferedSinkOptions();
-            ParseBufferedSinkOptions(config, options);
             var failoverEnabled = false;
             switch (sinkType.ToLower())
             {
                 // Extending old sinks to support the functionality.
                 case CLOUD_WATCH_LOG:
                 case CLOUD_WATCH_LOG_EMF:
+                    var cwlOptions = new AWSBufferedSinkOptions();
+                    ParseBufferedSinkOptions(config, cwlOptions);
                     // Failover
                     if (bool.TryParse(config["FailoverEnabled"], out failoverEnabled) && failoverEnabled)
                     {
@@ -124,14 +126,15 @@ namespace Amazon.KinesisTap.AWS
                         };
                     }
                     //override some options based on CloudWatchLogs quota
-                    options.MaxBatchSize = 10000;
-                    options.MaxBatchBytes = 1024 * 1000;
-                    options.QueueSizeItems = 1000;
+                    cwlOptions.MaxBatchSize = 1000;
+                    cwlOptions.MaxBatchBytes = 1024 * 1000;
+                    cwlOptions.QueueSizeItems = 1000;
 
                     return new AsyncCloudWatchLogsSink(config[ConfigConstants.ID], context.SessionName,
                         config["LogGroup"], config["LogStream"],
                         AWSUtilities.CreateAWSClient<AmazonCloudWatchLogsClient>(context),
-                        context.Logger, context.Metrics, context.BookmarkManager, context.NetworkStatus, options);
+                        appDataFileProvider,
+                        context.Logger, context.Metrics, context.BookmarkManager, context.NetworkStatus, cwlOptions);
 
                 //return new CloudWatchLogsSink(context, AWSUtilities.CreateAWSClient<AmazonCloudWatchLogsClient>(context));
                 case CLOUD_WATCH:
@@ -401,6 +404,7 @@ namespace Amazon.KinesisTap.AWS
                 options.UploadNetworkPriority = uploadPriority;
             }
         }
+
 
         public void RegisterFactory(IFactoryCatalog<IEventSink> catalog)
         {

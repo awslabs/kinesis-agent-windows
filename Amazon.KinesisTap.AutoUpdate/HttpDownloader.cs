@@ -12,13 +12,9 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
-
 using Amazon.KinesisTap.Core;
 
 namespace Amazon.KinesisTap.AutoUpdate
@@ -26,24 +22,35 @@ namespace Amazon.KinesisTap.AutoUpdate
     //Download file using HTTP
     public class HttpDownloader : IFileDownloader
     {
-        public HttpDownloader()
+        private readonly IAppDataFileProvider _appDataFileProvider;
+
+        public HttpDownloader(IAppDataFileProvider appDataFileProvider)
         {
+            Guard.ArgumentNotNull(appDataFileProvider, nameof(appDataFileProvider));
+            _appDataFileProvider = appDataFileProvider;
         }
 
+        /// <inheritdoc/>
         public async Task DownloadFileAsync(string url, string toPath)
         {
-            using (var streamTo = File.Open(toPath, FileMode.Create))
+            if (!_appDataFileProvider.IsWriteEnabled)
+            {
+                return;
+            }
+
             using (HttpClient httpClient = new HttpClient())
             using (var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead))
             {
                 response.EnsureSuccessStatusCode();
                 using (var streamFrom = await response.Content.ReadAsStreamAsync())
+                using (var streamTo = _appDataFileProvider.OpenFile(toPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None))
                 {
                     await streamFrom.CopyToAsync(streamTo);
                 }
             }
         }
 
+        /// <inheritdoc/>
         public async Task<string> ReadFileAsStringAsync(string url)
         {
             using (HttpClient httpClient = new HttpClient())

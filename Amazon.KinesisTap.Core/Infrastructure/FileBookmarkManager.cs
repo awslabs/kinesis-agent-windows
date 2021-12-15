@@ -41,6 +41,7 @@ namespace Amazon.KinesisTap.Core
 
         private readonly string _directory;
         private readonly int _flushPeriodMs;
+        private readonly IAppDataFileProvider _appDataFileProvider;
         private readonly ILogger _logger;
         private readonly ConcurrentDictionary<string, SourceInfo> _sourceDataMap = new();
 
@@ -48,22 +49,41 @@ namespace Amazon.KinesisTap.Core
         /// Channel used to serialize bookmark event callbacks to avoid race conditions.
         /// </summary>
         private readonly Channel<(SourceInfo, IEnumerable<RecordBookmark>)> _callbackChannel
-            = Channel.CreateBounded<(SourceInfo, IEnumerable<RecordBookmark>)>(512);
+            = Channel.CreateBounded<(SourceInfo, IEnumerable<RecordBookmark>)>(new BoundedChannelOptions(512)
+            {
+                SingleReader = true
+            });
 
         private Task _bookmarkDataSyncTask;
         private Task _callbackTask;
 
-        public FileBookmarkManager(string directory, ILogger logger)
-            : this(directory, DefaultFlushPeriodMs, logger)
+        /// <summary>
+        /// Initialize instance of <see cref="FileBookmarkManager"/>.
+        /// </summary>
+        /// <param name="directory">Directory path. Must be RELATIVE to the AppData directory.</param>
+        /// <param name="logger">Logger.</param>
+        /// <param name="appDataFileProvider">AppData provider.</param>
+        public FileBookmarkManager(string directory, ILogger logger, IAppDataFileProvider appDataFileProvider)
+            : this(directory, DefaultFlushPeriodMs, logger, appDataFileProvider)
         {
         }
 
-        public FileBookmarkManager(string directory, int flushPeriodMs, ILogger logger)
+        /// <summary>
+        /// Initialize instance of <see cref="FileBookmarkManager"/>.
+        /// </summary>
+        /// <param name="directory">Directory path. Must be RELATIVE to the AppData directory.</param>
+        /// <param name="flushPeriodMs">Period between attempts to store data to disk.</param>
+        /// <param name="logger">Logger.</param>
+        /// <param name="appDataFileProvider">AppData provider.</param>
+        public FileBookmarkManager(string directory, int flushPeriodMs, ILogger logger, IAppDataFileProvider appDataFileProvider)
         {
             Guard.ArgumentNotNullOrEmpty(directory, nameof(directory));
+            Guard.ArgumentNotNull(appDataFileProvider, nameof(appDataFileProvider));
+
             _directory = directory;
             _flushPeriodMs = flushPeriodMs;
             _logger = logger;
+            _appDataFileProvider = appDataFileProvider;
         }
 
         public ValueTask BookmarkCallback(string sourceKey, IEnumerable<RecordBookmark> bookmarkData)
@@ -94,8 +114,8 @@ namespace Amazon.KinesisTap.Core
             try
             {
                 // load the source 
-                var data = File.Exists(bookmarkFile)
-                    ? await File.ReadAllBytesAsync(bookmarkFile, stopToken)
+                var data = _appDataFileProvider.FileExists(bookmarkFile)
+                    ? await _appDataFileProvider.ReadAllBytesAsync(bookmarkFile, stopToken)
                     : null;
                 source.OnBookmarkLoaded(data);
 
@@ -124,7 +144,7 @@ namespace Amazon.KinesisTap.Core
 
         public ValueTask StartAsync(CancellationToken stopToken)
         {
-            Directory.CreateDirectory(_directory);
+            _appDataFileProvider.CreateDirectory(_directory);
             _bookmarkDataSyncTask = BookmarkDataSyncTask(stopToken);
             _callbackTask = CallbackTask(stopToken);
             return ValueTask.CompletedTask;
@@ -225,11 +245,11 @@ namespace Amazon.KinesisTap.Core
                 var data = sourceInfo.Source.SerializeBookmarks();
                 if (data is not null)
                 {
-                    await File.WriteAllBytesAsync(sourceInfo.BookmarkFilePath, data);
+                    await _appDataFileProvider.WriteAllBytesAsync(sourceInfo.BookmarkFilePath, data, default);
                 }
-                else if (File.Exists(sourceInfo.BookmarkFilePath))
+                else if (_appDataFileProvider.FileExists(sourceInfo.BookmarkFilePath))
                 {
-                    File.Delete(sourceInfo.BookmarkFilePath);
+                    _appDataFileProvider.DeleteFile(sourceInfo.BookmarkFilePath);
                 }
                 return data;
             }
