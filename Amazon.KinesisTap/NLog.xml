@@ -17,14 +17,24 @@
     See https://github.com/nlog/NLog/wiki/Layout-Renderers for the possible layout renderers.
     -->
 
-    <target name="logfile"
-            xsi:type="File"
-            layout="${longdate} ${logger} ${uppercase:${level}} ${message} ${exception:format=tostring}"
-            fileName="${specialfolder:folder=CommonApplicationData}/Amazon/AWSKinesisTap/logs/${shortdate}.log"
-	          maxArchiveFiles="90"/>
+    <target xsi:type="LimitingWrapper"
+         name="throttledLogs"
+         messageLimit="1000"
+         interval="01:00">
+      <target
+        archiveEvery="Day"
+        archiveDateFormat="yyyy-MM-dd"
+        archiveNumbering="Date"
+        archiveFileName="${specialfolder:folder=CommonApplicationData}/Amazon/KinesisTap/logs/Archive-{################}.log"
+        maxArchiveFiles="90"
+        fileName="${specialfolder:folder=CommonApplicationData}/Amazon/AWSKinesisTap/logs/KinesisTap.log"
+        layout="${longdate} ${logger} ${uppercase:${level}} ${message} ${exception:format=tostring}"
+        xsi:type="File"
+        name="logfile"/>
+    </target>
   </targets>
 
   <rules>
-    <logger name="*" minlevel="Info" writeTo="logfile" />
+    <logger name="*" minlevel="Info" writeTo="throttledLogs" />
   </rules>
 </nlog>

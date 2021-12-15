@@ -70,7 +70,7 @@ namespace Amazon.KinesisTap.Hosting
         {
             _parameterStore = parameterStore;
             _factoryCatalogs = factoryCatalogs;
-            _logger = loggerFactory.CreateLogger("KinesisTap");
+            _logger = loggerFactory.CreateLogger(Utility.ProductCodeName);
             _appDataController = new AppDataController(Utility.GetKinesisTapProgramDataPath(), TimeSpan.FromHours(1), appDataFileProvider);
             _defaultConfigFilePath = _parameterStore.GetDefaultConfigFilePath();
             _extraConfigDirPath = _parameterStore.GetExtraConfigDirPath();
@@ -115,6 +115,10 @@ namespace Amazon.KinesisTap.Hosting
             if (_configChangePoller is not null)
             {
                 await _configChangePoller;
+            }
+            if (_appDataControllerTask is not null)
+            {
+                await _appDataControllerTask;
             }
 
             _logger.LogInformation("Stopped watching for config file changes.");
