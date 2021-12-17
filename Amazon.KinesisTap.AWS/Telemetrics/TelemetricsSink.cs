@@ -151,10 +151,11 @@ namespace Amazon.KinesisTap.AWS.Telemetrics
                 ["KinesisTapVersionNumber"] = ProgramInfo.GetVersionNumber()
             };
 
-            if (await AWSUtilities.GetIsEC2Instance(stopToken))
+            if (!string.IsNullOrWhiteSpace(EC2InstanceMetadata.InstanceId))
             {
                 data["InstanceId"] = EC2InstanceMetadata.InstanceId;
                 data["InstanctType"] = EC2InstanceMetadata.InstanceType;
+                data["IPAddress"] = EC2InstanceMetadata.PrivateIpAddress;
             }
 
             if (!string.IsNullOrEmpty(Utility.AgentId))
@@ -172,6 +173,10 @@ namespace Amazon.KinesisTap.AWS.Telemetrics
 
             // aggregate the current-value metrics using the average of the metrics with the same name
             AggregateMetrics(_currentMetrics.ToArray(), data, list => (long)list.Average(l => l.Value));
+
+            // clear the metrics storage to make sure only metric delta is reported
+            _currentMetrics.Clear();
+            _incrementalMetrics.Clear();
 
             _logger.LogDebug("Sending {0} metrics", data.Count);
             await _telemetricsClient.PutMetricsAsync(data, stopToken);

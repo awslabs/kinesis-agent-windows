@@ -16,11 +16,8 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
 using Amazon.CloudWatchLogs.Model;
 using Amazon.KinesisTap.Core;
 using Amazon.Runtime;
@@ -35,53 +32,6 @@ namespace Amazon.KinesisTap.AWS
     {
         private static readonly ConcurrentDictionary<Type, Type> _awsClientConfigTypeCache = new ConcurrentDictionary<Type, Type>();
         private static string _userAgent;
-
-        /// <summary>
-        /// Cache the result of <see cref="GetIsEC2Instance"/>. Possible values: 1: is EC2; 0: is not EC2; -1: unknown.
-        /// </summary>
-        private static int _isEC2 = -1;
-
-        /// <summary>
-        /// Determines if this system is an EC2 instance with an option to cancel.
-        /// </summary>
-        /// <param name="cancellationToken">Cancel the request.</param>
-        /// <returns>True iff this system is an EC2 instance.</returns>
-        /// <remarks>
-        /// The Telemetric sinks post the EC2 instance metadata. Problem is if the machine is not EC2, the EC2InstanceMetadata.InstanceId
-        /// method takes very long to complete, which blocks one of the threads and can lead to delayed shutdown.
-        /// This method can determine if the machine is EC2 with a "cancel" option so we can cancel the request quickly.
-        /// </remarks>
-        public static async ValueTask<bool> GetIsEC2Instance(CancellationToken cancellationToken)
-        {
-            // return the cache value if possible
-            if (_isEC2 >= 0)
-            {
-                return _isEC2 > 0;
-            }
-
-            // try to fetch the EC2 identity document
-            // see https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-identity-documents.html
-
-            const string documentEndpoint = "http://169.254.169.254/latest/dynamic/instance-identity";
-            using var client = new HttpClient();
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-            // allow 2 seconds for the request to complete, if this is EC2 instance that should be way more than enough
-            cts.CancelAfter(2000);
-
-            try
-            {
-                _ = await client.GetStringAsync(documentEndpoint, cts.Token);
-                Interlocked.Exchange(ref _isEC2, 1);
-                return true;
-            }
-            catch (Exception)
-            {
-                Interlocked.Exchange(ref _isEC2, 0);
-            }
-
-            return false;
-        }
 
         public static string EvaluateAWSVariable(string variable)
         {
