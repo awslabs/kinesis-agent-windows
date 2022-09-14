@@ -75,6 +75,7 @@ if (!$packageOnly)
     try
     {
         Write-Verbose 'Building agent'
+        dotnet publish .\Amazon.KinesisTap.DiagnosticTool\Amazon.KinesisTap.DiagnosticTool.csproj -c Release -p:Version="$productVersion" --self-contained true -r win10-x64
         dotnet publish .\Amazon.KinesisTap\Amazon.KinesisTap.csproj -c Release -p:Version="$productVersion" --self-contained true -r win10-x64
 	    & "$msbuild" "$msiBuildSln" /p:Configuration=Release /p:Platform="x64"
     }
