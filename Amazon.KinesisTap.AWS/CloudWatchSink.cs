@@ -444,7 +444,7 @@ namespace Amazon.KinesisTap.AWS
         {
             _logger?.LogDebug($"CloudWatchSink {Id} sending a total of {datums.Count} datums.");
             //cloudwatch can only handle 20 datums at a time
-            foreach (var subDatums in datums.Chunk(20))
+            foreach (var subDatums in LinqExtensions.Chunk(datums, 20))
             {
                 var metricsToSend = subDatums as List<MetricDatum>;
                 if (metricsToSend == null)

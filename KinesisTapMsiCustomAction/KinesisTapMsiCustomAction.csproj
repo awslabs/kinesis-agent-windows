@@ -68,12 +68,13 @@
   <Target Name="BeforeBuild">
     <RemoveDir Directories="$(SolutionDir)msibuild" />
     <ItemGroup>
-	<MainArtifacts Include="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\win10-x64\publish\*.dll;
-                            $(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\win10-x64\publish\*.pdb;
-                            $(SolutionDir)Amazon.KinesisTap\appsettingsTemplate.json;
-                            $(SolutionDir)Amazon.KinesisTap\appsettingsSchema.json;"/>
+	    <MainArtifacts Include="$(SolutionDir)Amazon.KinesisTap\bin\$(Configuration)\win10-x64\publish\*;
+                              $(SolutionDir)Amazon.KinesisTap\appsettingsTemplate.json;
+                              $(SolutionDir)Amazon.KinesisTap\appsettingsSchema.json;"/>
+      <KTDiag Include="$(SolutionDir)Amazon.KinesisTap.DiagnosticTool\bin\$(Configuration)\win10-x64\publish\*" />
       <AutorunsX64 Include="$(SolutionDir)Library\autoruns*64.*" />
     </ItemGroup>
+    <Copy SourceFiles="@(KTDiag)" DestinationFolder="$(SolutionDir)msibuild" />
     <Copy SourceFiles="@(MainArtifacts)" DestinationFolder="$(SolutionDir)msibuild" />
     <Delete Files="$(SolutionDir)msibuild\AWSKinesisTap.exe" />
     <Copy SourceFiles="$(SolutionDir)Amazon.KinesisTap\NLog.xml" DestinationFiles="$(SolutionDir)msibuild\NLogTemplate.xml" />
