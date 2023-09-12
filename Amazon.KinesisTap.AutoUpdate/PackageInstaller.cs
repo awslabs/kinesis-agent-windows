@@ -91,27 +91,32 @@ namespace Amazon.KinesisTap.AutoUpdate
 
             IFileDownloader downloader = CreateDownloaderFromUrl(packageUrl, _context);
 
-            string updateDirectory = "update";
-            if (!Directory.Exists(updateDirectory))
+            string relativeUpdateDirectory = "update";
+            _appDataFileProvider.CreateDirectory(relativeUpdateDirectory);
+
+            string relativeDownloadPath = Path.Combine(relativeUpdateDirectory, Path.GetFileName(packageUrl));
+            
+            // make sure existing update directory is clean before we download the package.
+            if (_appDataFileProvider.FileExists(relativeDownloadPath))
             {
-                Directory.CreateDirectory(updateDirectory);
+                _appDataFileProvider.DeleteFile(relativeDownloadPath);
             }
-            string downloadPath = Path.Combine(updateDirectory, Path.GetFileName(packageUrl));
-            if (File.Exists(downloadPath))
-            {
-                File.Delete(downloadPath);
-            }
-            await downloader.DownloadFileAsync(packageUrl, downloadPath);
-            _logger?.LogInformation($"Package downloaded to {downloadPath}. Expanding package...");
+            
+            await downloader.DownloadFileAsync(packageUrl, relativeDownloadPath);
+            
+            PublishCounter(UpdateMetricsConstants.PackagesDownloaded, CounterTypeEnum.Increment, 1);
+
+            var absoluteDownloadPath = _appDataFileProvider.GetFullPath(relativeDownloadPath);
+            _logger?.LogInformation($"Package downloaded to {absoluteDownloadPath}. Expanding package...");
 
             if (!_skipSignatureVerification)
             {
                 if (EXT_MSI.Equals(extension, StringComparison.Ordinal))
                 {
-                    if (!await VerifyAuthenticodeSignatureAsync(_appDataFileProvider.GetFullPath(downloadPath)))
+                    if (!await VerifyAuthenticodeSignatureAsync(absoluteDownloadPath))
                     {
                         PublishCounter(UpdateMetricsConstants.PackageSignaturesInvalid, CounterTypeEnum.Increment, 1);
-                        _logger.LogWarning("Cannot verify digital signature for package {0}", downloadPath);
+                        _logger.LogWarning("Cannot verify digital signature for package {0}", absoluteDownloadPath);
                         return;
                     }
 
@@ -125,11 +130,11 @@ namespace Amazon.KinesisTap.AutoUpdate
 
             if (EXT_NUPKG.Equals(extension))
             {
-                await InstallNugetPackageAsync(downloadPath);
+                await InstallNugetPackageAsync(absoluteDownloadPath);
             }
             else
             {
-                await InstallPackageAsync(downloadPath);
+                await InstallPackageAsync(absoluteDownloadPath);
             }
         }
 

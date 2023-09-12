@@ -13,4 +13,9 @@
     <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.2.6" />
   </ItemGroup>
 
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Amazon.KinesisTap.AutoUpdate.Test</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>
