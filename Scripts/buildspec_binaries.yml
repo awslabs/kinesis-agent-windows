@@ -7,7 +7,7 @@ phases:
       - DISM /Online /Enable-Feature:NetFx3 /All /Quiet
       - choco install -y wixtoolset --version 3.11.0.20170506 --no-progress
       # install .NET SDK and runtimes
-      - choco install dotnet-sdk --version 6.0.415 -y --no-progress
+      - choco install dotnet-6.0-sdk -y --no-progress
       - dotnet --list-sdks
       - dotnet --list-runtimes
   pre_build:
