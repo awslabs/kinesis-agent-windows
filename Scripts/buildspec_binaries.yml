@@ -3,23 +3,25 @@ version: 0.2
 phases:
   install:
     commands:
-      - dotnet --list-sdks
-      - dotnet --list-runtimes
       - Set-Service -Name wuauserv -StartupType Manual
       - DISM /Online /Enable-Feature:NetFx3 /All /Quiet
       - choco install -y wixtoolset --version 3.11.0.20170506 --no-progress
+      # install .NET SDK and runtimes
+      - choco install dotnet-6.0-sdk -y --no-progress
+      - dotnet --list-sdks
+      - dotnet --list-runtimes
   pre_build:
     commands:
       - mkdir c:\temp
       - mkdir c:\temp\bookmark
   build:
     commands:
-      - nuget restore AWSKinesisTap.sln
-      - nuget restore .\KinesisTapMsiBuild.sln
+      - dotnet restore AWSKinesisTap.sln
       - dotnet build AWSKinesisTap.sln -c Release
       - dotnet test .\AWSKinesisTap.sln -c Release --filter Category!=Integration
   post_build:
     commands:
+      - nuget restore .\KinesisTapMsiBuild.sln
       - .\build.ps1
 artifacts:
   files:
