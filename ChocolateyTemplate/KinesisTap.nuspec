@@ -5,8 +5,7 @@
     <version>1.0.0</version>
     <title>KinesisTap (Install)</title>
     <authors>Amazon.com</authors>
-    <!-- projectUrl is required for the community feed -->
-    <!--<projectUrl>https://_Software_Location_REMOVE_OR_FILL_OUT_</projectUrl>-->
+    <projectUrl>https://github.com/awslabs/kinesis-agent-windows</projectUrl>
     <!--<iconUrl>http://cdn.rawgit.com/__REPLACE_YOUR_REPO__/master/icons/ds2agent.png</iconUrl>-->
     <licenseUrl>https://aws.amazon.com/apache-2-0/</licenseUrl>
     <copyright>2017-2018 Amazon.com</copyright>
